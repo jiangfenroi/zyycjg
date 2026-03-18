@@ -24,7 +24,6 @@ import { AbnormalResult } from '@/lib/types'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
-  // 使用状态管理结果列表，确保新增后 UI 同步
   const [results, setResults] = React.useState<AbnormalResult[]>(MOCK_RESULTS)
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -41,14 +40,12 @@ export default function AbnormalResultsPage() {
     ZYYCJGBTZR: '',
   })
 
-  // 本地模拟生成的处置建议逻辑
   const handleGenerateAdvice = async () => {
     if (!formData.ZYYCJGXQ) {
       toast({ title: "提示", description: "请先输入异常结果详情" })
       return
     }
     setIsProcessing(true)
-    // 模拟处理时间
     await new Promise(resolve => setTimeout(resolve, 600))
     
     try {
@@ -76,7 +73,6 @@ export default function AbnormalResultsPage() {
     }
   }
 
-  // 提交登记并更新列表
   const handleSubmit = () => {
     if (!formData.PERSONID || !formData.TJBHID) {
       toast({ variant: "destructive", title: "提交失败", description: "档案编号和体检编号为必填项" })
@@ -90,7 +86,6 @@ export default function AbnormalResultsPage() {
       IS_HEALTH_EDU: true,
     } as AbnormalResult
 
-    // 更新本地状态，新登记的排在最前面
     setResults([newResult, ...results])
     setIsDialogOpen(false)
     
@@ -99,7 +94,6 @@ export default function AbnormalResultsPage() {
       description: `体检编号 ${formData.TJBHID} 已成功登记` 
     })
 
-    // 重置表单
     setFormData({
       PERSONID: '',
       TJBHID: '',
@@ -140,7 +134,7 @@ export default function AbnormalResultsPage() {
                 <Plus className="mr-2 h-4 w-4" /> 新增登记
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>登记重要异常结果</DialogTitle>
               </DialogHeader>
@@ -150,7 +144,7 @@ export default function AbnormalResultsPage() {
                     <Label htmlFor="personid">档案编号</Label>
                     <Input 
                       id="personid" 
-                      className="col-span-3" 
+                      className="col-span-3 font-mono" 
                       placeholder="PERSONID" 
                       value={formData.PERSONID}
                       onChange={e => setFormData({...formData, PERSONID: e.target.value})}
@@ -160,7 +154,7 @@ export default function AbnormalResultsPage() {
                     <Label htmlFor="tjbhid">体检编号</Label>
                     <Input 
                       id="tjbhid" 
-                      className="col-span-3" 
+                      className="col-span-3 font-mono" 
                       placeholder="TJBHID" 
                       value={formData.TJBHID}
                       onChange={e => setFormData({...formData, TJBHID: e.target.value})}
@@ -178,8 +172,14 @@ export default function AbnormalResultsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A">A类 (高度疑似重大疾病)</SelectItem>
-                      <SelectItem value="B">B类 (需要临床进一步明确)</SelectItem>
+                      <SelectItem value="A">
+                        <span className="font-semibold text-destructive">A类：</span>
+                        需要立即进行临床干预，否则将危机生命或导致严重不良反应后果的异常结果
+                      </SelectItem>
+                      <SelectItem value="B">
+                        <span className="font-semibold text-primary">B类：</span>
+                        需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -206,7 +206,7 @@ export default function AbnormalResultsPage() {
                       disabled={isProcessing}
                     >
                       <ClipboardList className="mr-1 h-3 w-3 text-secondary" />
-                      快速生成建议
+                      辅助生成建议
                     </Button>
                   </div>
                   <Textarea 
@@ -241,11 +241,11 @@ export default function AbnormalResultsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label>通知人</Label>
-                    <Input className="col-span-3" placeholder="WORKER" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
+                    <Input className="col-span-3" placeholder="通知医生姓名" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label>被通知人</Label>
-                    <Input className="col-span-3" placeholder="ZYYCJGBTZR" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
+                    <Input className="col-span-3" placeholder="家属或本人姓名" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
                   </div>
                 </div>
               </div>
@@ -289,16 +289,16 @@ export default function AbnormalResultsPage() {
                   <TableRow key={res.ID}>
                     <TableCell className="font-mono text-xs">{res.PERSONID}</TableCell>
                     <TableCell className="font-mono text-xs">{res.TJBHID}</TableCell>
-                    <TableCell>{person?.PERSONNAME || '未知'}</TableCell>
+                    <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
                     <TableCell>
                       <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
                         {res.ZYYCJGFL}类
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>
+                    <TableCell className="max-w-[200px] truncate text-xs" title={res.ZYYCJGXQ}>
                       {res.ZYYCJGXQ}
                     </TableCell>
-                    <TableCell className="text-xs">{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
                     <TableCell className="text-xs">{res.WORKER} / {res.ZYYCJGBTZR}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
