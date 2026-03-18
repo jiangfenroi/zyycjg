@@ -11,7 +11,7 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// Windows 7/8 适配：必须在 app.whenReady 之前注册协议特权
+// Windows 7/8 适配：注册协议特权
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
@@ -84,57 +84,18 @@ async function initDB(config) {
       `CREATE TABLE IF NOT EXISTS SP_PERSON (
         PERSONID VARCHAR(50) PRIMARY KEY,
         PERSONNAME VARCHAR(50) NOT NULL,
-        SPELLNO VARCHAR(50),
         SEX ENUM('男', '女') NOT NULL,
         AGE INT,
-        BIRTHDAY DATE,
-        MARRYNAME VARCHAR(20),
-        NATIONNAME VARCHAR(20),
+        PHONE VARCHAR(20),
         IDNO VARCHAR(18),
-        PHONE VARCHAR(11),
-        MOBILE VARCHAR(20),
-        EMAIL VARCHAR(100),
-        ADDRESS TEXT,
-        POSTCODE VARCHAR(10),
-        QQ VARCHAR(20),
-        DEPARTMENT VARCHAR(100),
-        POSITION VARCHAR(50),
-        VIPNO VARCHAR(50),
-        UNITCODE VARCHAR(50),
         UNITNAME VARCHAR(200),
-        WORKERNO VARCHAR(50),
-        WEBPASSWORD VARCHAR(50),
-        ISWEBBOOKING BOOLEAN,
-        INNERCODE VARCHAR(50),
-        ISVALID BOOLEAN DEFAULT TRUE,
-        ISIMPORTANT BOOLEAN DEFAULT FALSE,
-        OCCURDATE DATETIME,
-        OPTCODE VARCHAR(50),
-        OPTNAME VARCHAR(50),
-        MEMO TEXT,
-        ISTELSAY BOOLEAN,
-        GR_NUMBER VARCHAR(50),
-        GR_GONGCH VARCHAR(50),
-        GR_KE VARCHAR(50),
-        GR_ZU VARCHAR(50),
-        GR_BANC VARCHAR(50),
-        GR_RUSHRIQI DATE,
-        GR_SHELING INT,
-        GR_QUFEN VARCHAR(50),
-        GR_WEIHAIYINS TEXT,
-        INDUSTRY VARCHAR(100),
-        VIPSERIALNO VARCHAR(50),
-        SELFUPLOAD BOOLEAN,
-        SELFSERIALNO VARCHAR(50),
-        SELFUPDATE DATETIME,
-        RYZT VARCHAR(20),
-        EMPI VARCHAR(50),
-        AGEMOUTH INT,
-        ROWID VARCHAR(50)
+        OCCURDATE DATE,
+        OPTNAME VARCHAR(50)
       )`,
       `CREATE TABLE IF NOT EXISTS SP_ZYJG (
         ID VARCHAR(50) PRIMARY KEY,
         PERSONID VARCHAR(50),
+        TJBHID VARCHAR(50),
         ZYYCJGXQ TEXT,
         ZYYCJGFL ENUM('A', 'B'),
         ZYYCJGCZYJ TEXT,
@@ -142,7 +103,9 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ TIME,
         WORKER VARCHAR(50),
-        ZYYCJGBTZR VARCHAR(50)
+        ZYYCJGBTZR VARCHAR(50),
+        IS_NOTIFIED TINYINT(1) DEFAULT 1,
+        IS_HEALTH_EDU TINYINT(1) DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS SP_SF (
         ID VARCHAR(50) PRIMARY KEY,
@@ -151,7 +114,7 @@ async function initDB(config) {
         HFresult TEXT,
         SFTIME DATE,
         SFGZRY VARCHAR(50),
-        jcsf BOOLEAN DEFAULT FALSE
+        jcsf TINYINT(1) DEFAULT 0
       )`,
       `CREATE TABLE IF NOT EXISTS SP_SFRW (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -331,17 +294,26 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('app-file', (request, callback) => {
-    const urlStr = request.url;
-    let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
-    
-    if (process.platform === 'win32') {
-      if (filePath.startsWith('/') && filePath[2] === ':') {
-        filePath = filePath.slice(1);
+    let url = request.url.replace('app-file://', '');
+    try {
+      url = decodeURIComponent(url);
+      if (process.platform === 'win32') {
+        // 处理磁盘路径 D:\...
+        if (url.startsWith('/') && url[2] === ':') {
+          url = url.slice(1);
+        }
+        // 处理 UNC 路径 \\Server\...
+        // registerFileProtocol 接收的 URL 有时会将 \\ 变为 /
+        if (!url.includes(':') && !url.startsWith('\\\\')) {
+           url = '\\\\' + url.replace(/\//g, '\\');
+        }
+        url = path.normalize(url);
       }
-      filePath = path.normalize(filePath);
+      callback({ path: url });
+    } catch (e) {
+      console.error(e);
+      callback({ error: -6 });
     }
-    
-    callback({ path: filePath });
   });
 
   const result = await initDB();

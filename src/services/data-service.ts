@@ -100,19 +100,25 @@ export const DataService = {
         LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
         ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
       const result = await window.electronAPI.query(sql);
-      if (result.success) return result.data;
+      if (result.success) {
+        return result.data.map((r: any) => ({
+          ...r,
+          IS_NOTIFIED: !!r.IS_NOTIFIED,
+          IS_HEALTH_EDU: !!r.IS_HEALTH_EDU
+        }));
+      }
     }
     return [];
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        res.ID, res.PERSONID, res.ZYYCJGXQ, res.ZYYCJGFL, 
+        res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || ''
+        res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
@@ -128,7 +134,12 @@ export const DataService = {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
-      if (result.success) return result.data;
+      if (result.success) {
+        return result.data.map((f: any) => ({
+          ...f,
+          jcsf: !!f.jcsf
+        }));
+      }
     }
     return [];
   },

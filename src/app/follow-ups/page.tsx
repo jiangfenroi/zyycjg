@@ -34,6 +34,7 @@ export default function FollowUpsPage() {
   const [selectedResult, setSelectedResult] = React.useState<AbnormalResult | null>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
+  const [isMounted, setIsMounted] = React.useState(false)
 
   const [followUpForm, setFollowUpForm] = React.useState({
     HFresult: '',
@@ -60,6 +61,7 @@ export default function FollowUpsPage() {
   }, [])
 
   React.useEffect(() => {
+    setIsMounted(true)
     loadData()
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('currentUser');
@@ -87,7 +89,6 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
-      // 1. 保存随访信息 (SP_SF)
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -98,7 +99,6 @@ export default function FollowUpsPage() {
         jcsf: followUpForm.jcsf
       })
 
-      // 2. 如果填写了下次随访日期，保存任务 (SP_SFRW)
       if (success && followUpForm.XCSFTIME) {
         await DataService.addFollowUpTask({
           PERSONID: selectedResult.PERSONID,
@@ -119,12 +119,14 @@ export default function FollowUpsPage() {
     }
   }
 
+  if (!isMounted) return null
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
-          <p className="text-muted-foreground mt-1">闭环管理 A/B 类待随访任务及回访记录。</p>
+          <p className="text-muted-foreground mt-1">闭环管理 A/B 类待随访任务 (10 维精简展示)。</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -151,27 +153,25 @@ export default function FollowUpsPage() {
                       <TableHead className="text-xs">性别</TableHead>
                       <TableHead className="text-xs">年龄</TableHead>
                       <TableHead className="text-xs">电话</TableHead>
-                      <TableHead className="min-w-[300px] text-xs">重要异常结果详情</TableHead>
+                      <TableHead className="min-w-[300px] text-xs">异常详情</TableHead>
                       <TableHead className="text-right text-xs">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
                       <TableRow><TableCell colSpan={8} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredPending.length > 0 ? filteredPending.map((res) => {
-                      return (
-                        <TableRow key={res.ID} className="text-xs">
-                          <TableCell className="font-mono">{res.PERSONID}</TableCell>
-                          <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
-                          <TableCell className="font-bold text-primary">{res.PERSONNAME || '未知'}</TableCell>
-                          <TableCell>{res.SEX || '-'}</TableCell>
-                          <TableCell>{res.AGE || '-'}</TableCell>
-                          <TableCell>{res.PHONE || '-'}</TableCell>
-                          <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                          <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}>登记随访</Button></TableCell>
-                        </TableRow>
-                      )
-                    }) : (
+                    ) : filteredPending.length > 0 ? filteredPending.map((res) => (
+                      <TableRow key={res.ID} className="text-xs">
+                        <TableCell className="font-mono">{res.PERSONID}</TableCell>
+                        <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
+                        <TableCell className="font-bold text-primary">{res.PERSONNAME || '未知'}</TableCell>
+                        <TableCell>{res.SEX || '-'}</TableCell>
+                        <TableCell>{res.AGE || '-'}</TableCell>
+                        <TableCell>{res.PHONE || '-'}</TableCell>
+                        <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}>登记随访</Button></TableCell>
+                      </TableRow>
+                    )) : (
                       <TableRow><TableCell colSpan={8} className="text-center py-24 text-muted-foreground italic">无待处理任务</TableCell></TableRow>
                     )}
                   </TableBody>
@@ -190,14 +190,13 @@ export default function FollowUpsPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="text-xs">档案编号</TableHead>
-                        <TableHead className="text-xs">体检编号</TableHead>
                         <TableHead className="text-xs">姓名</TableHead>
                         <TableHead className="text-xs">性别</TableHead>
                         <TableHead className="text-xs">年龄</TableHead>
                         <TableHead className="text-xs">电话</TableHead>
-                        <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
+                        <TableHead className="min-w-[200px] text-xs">异常详情</TableHead>
                         <TableHead className="min-w-[250px] text-xs">回访结果</TableHead>
-                        <TableHead className="text-xs">是否进一步检查</TableHead>
+                        <TableHead className="text-xs">是否复查</TableHead>
                         <TableHead className="text-xs">回访日期</TableHead>
                         <TableHead className="text-xs">回访人</TableHead>
                       </TableRow>
@@ -209,7 +208,6 @@ export default function FollowUpsPage() {
                         return (
                           <TableRow key={f.ID} className="text-xs">
                             <TableCell className="font-mono">{f.PERSONID}</TableCell>
-                            <TableCell className="font-mono">{f.ZYYCJGTJBH || '-'}</TableCell>
                             <TableCell className="font-semibold">{person?.PERSONNAME || '未知'}</TableCell>
                             <TableCell>{person?.SEX || '-'}</TableCell>
                             <TableCell>{person?.AGE || '-'}</TableCell>
