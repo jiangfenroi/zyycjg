@@ -23,10 +23,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { MOCK_PERSONS, MOCK_RESULTS, MOCK_FOLLOW_UPS } from '@/lib/mock-store'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DataService } from '@/services/data-service'
-import { PatientDocument } from '@/lib/types'
+import { PatientDocument, AbnormalResult, FollowUp, Person } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 
 interface PatientDetailClientProps {
@@ -36,11 +35,13 @@ interface PatientDetailClientProps {
 export function PatientDetailClient({ id }: PatientDetailClientProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const person = MOCK_PERSONS.find(p => p.PERSONID === id)
-  const results = MOCK_RESULTS.filter(r => r.PERSONID === id)
   
+  const [person, setPerson] = React.useState<Person | null>(null)
+  const [results, setResults] = React.useState<AbnormalResult[]>([])
+  const [followUps, setFollowUps] = React.useState<FollowUp[]>([])
   const [docs, setDocs] = React.useState<PatientDocument[]>([])
-  const [loadingDocs, setLoadingDocs] = React.useState(true)
+  const [loading, setLoading] = React.useState(true)
+  
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
   const [uploadType, setUploadType] = React.useState<'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'>('PE_REPORT')
   const [uploading, setUploading] = React.useState(false)
@@ -48,20 +49,33 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
   // PDF 预览状态
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
 
-  // 加载文档
-  const loadDocs = React.useCallback(async () => {
-    setLoadingDocs(true)
-    const allDocs = await DataService.getDocuments()
-    const patientDocs = allDocs.filter(d => d.PERSONID === id)
-    setDocs(patientDocs)
-    setLoadingDocs(false)
+  const loadAllData = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const [allPersons, allResults, allFollowUps, allDocs] = await Promise.all([
+        DataService.getPatients(),
+        DataService.getAbnormalResults(),
+        DataService.getFollowUps(id),
+        DataService.getDocuments(id)
+      ])
+      
+      const p = allPersons.find(p => p.PERSONID === id)
+      if (p) setPerson(p)
+      
+      setResults(allResults.filter(r => r.PERSONID === id))
+      setFollowUps(allFollowUps)
+      setDocs(allDocs)
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   React.useEffect(() => {
-    loadDocs()
-  }, [loadDocs])
+    loadAllData()
+  }, [loadAllData])
 
-  if (!person) return <div className="p-8 text-center text-muted-foreground">患者档案正在加载或不存在...</div>
+  if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+  if (!person) return <div className="p-8 text-center text-muted-foreground">患者档案不存在</div>
 
   const openPACS = () => {
     if (typeof window !== 'undefined') {
@@ -74,9 +88,9 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
     try {
       const success = await DataService.uploadDocument(id, uploadType)
       if (success) {
-        toast({ title: "上传成功", description: "报告附件已保存至服务器并关联至病历。" })
+        toast({ title: "上传成功", description: "报告附件已保存至中心存储并关联至病历。" })
         setIsUploadOpen(false)
-        loadDocs()
+        loadAllData()
       } else {
         toast({ variant: "destructive", title: "上传取消", description: "未选择文件或数据库写入失败。" })
       }
@@ -98,9 +112,9 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-1 h-fit">
+        <Card className="md:col-span-1 h-fit shadow-md">
           <CardHeader className="text-center pb-2">
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-primary/20">
               <User className="h-10 w-10 text-primary" />
             </div>
             <CardTitle>{person.PERSONNAME}</CardTitle>
@@ -118,15 +132,15 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>内网同步地址</span>
+                <span className="text-muted-foreground italic">网络版中心地址同步</span>
               </div>
             </div>
             <div className="pt-4 border-t flex flex-col gap-2">
               <Button variant="outline" className="w-full justify-start" onClick={openPACS}>
-                <ExternalLink className="mr-2 h-4 w-4" /> 查看PACS影像
+                <ExternalLink className="mr-2 h-4 w-4" /> 查看中心PACS影像
               </Button>
-              <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive">
-                <Activity className="mr-2 h-4 w-4" /> 查看预警历史
+              <Button variant="outline" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/5">
+                <Activity className="mr-2 h-4 w-4" /> 查看临床预警历史
               </Button>
             </div>
           </CardContent>
@@ -143,7 +157,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
             <TabsContent value="abnormal" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">登记的异常结果</CardTitle>
+                  <CardTitle className="text-base">登记结果历史</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
@@ -188,19 +202,19 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                         <TableHead>日期</TableHead>
                         <TableHead>结果摘要</TableHead>
                         <TableHead>随访人员</TableHead>
-                        <TableHead>病理检查</TableHead>
+                        <TableHead>复查情况</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {MOCK_FOLLOW_UPS.filter(f => f.PERSONID === id).length > 0 ? MOCK_FOLLOW_UPS.filter(f => f.PERSONID === id).map(f => (
+                      {followUps.length > 0 ? followUps.map(f => (
                         <TableRow key={f.ID}>
-                          <TableCell>{f.SFTIME}</TableCell>
-                          <TableCell>{f.HFresult}</TableCell>
-                          <TableCell>{f.SFGZRY}</TableCell>
-                          <TableCell>{f.jcsf ? '是' : '否'}</TableCell>
+                          <TableCell className="text-xs">{f.SFTIME}</TableCell>
+                          <TableCell className="text-xs max-w-[200px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
+                          <TableCell className="text-xs">{f.SFGZRY}</TableCell>
+                          <TableCell className="text-xs">{f.jcsf ? '已复查' : '未复查'}</TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={4} className="text-center py-8 opacity-50">暂无历史随访</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-8 opacity-50">暂无历史随访记录</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -213,7 +227,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                 <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm">
-                      <Upload className="mr-2 h-4 w-4" /> 上传新文件
+                      <Upload className="mr-2 h-4 w-4" /> 上传新报告
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -234,7 +248,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                           </SelectContent>
                         </Select>
                       </div>
-                      <p className="text-xs text-muted-foreground">支持 PDF 格式。文件将自动同步至内网存储路径并在数据库中登记。</p>
+                      <p className="text-xs text-muted-foreground">支持 PDF 格式。文件将自动同步至中心网络路径并在数据库中登记。</p>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
@@ -247,12 +261,8 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
               </div>
               
               <div className="grid gap-4 sm:grid-cols-2">
-                {loadingDocs ? (
-                  <div className="col-span-2 text-center py-10 text-muted-foreground flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> 正在加载附件列表...
-                  </div>
-                ) : docs.length > 0 ? docs.map(doc => (
-                  <Card key={doc.ID} className="flex items-center p-4 gap-4">
+                {docs.length > 0 ? docs.map(doc => (
+                  <Card key={doc.ID} className="flex items-center p-4 gap-4 hover:shadow-md transition-shadow">
                     <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
                       <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
@@ -263,17 +273,17 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setPreviewUrl(doc.FILE_URL)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(doc.FILE_URL)}>
                         <Eye className="h-4 w-4 text-primary" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>
                   </Card>
                 )) : (
-                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">
-                    暂无关联的报告附件。
+                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground bg-muted/20">
+                    暂无关联的 PDF 报告。
                   </div>
                 )}
               </div>
@@ -286,7 +296,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
           <div className="p-4 border-b flex justify-between items-center bg-muted/20">
-            <h3 className="font-semibold text-primary">PDF 报告在线预览</h3>
+            <h3 className="font-semibold text-primary">中心库 PDF 在线预览</h3>
             <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>关闭预览</Button>
           </div>
           <div className="flex-1 w-full h-full bg-slate-100 overflow-hidden">

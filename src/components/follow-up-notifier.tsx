@@ -25,7 +25,7 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // 逻辑：所有 A 类（危急值）且尚未进行过随访登记的
+      // 逻辑：所有 A 类且尚未进行过随访登记的
       const pending = results.filter(r => 
         r.ZYYCJGFL === 'A' && !followUps.some(f => f.PERSONID === r.PERSONID)
       )
@@ -60,7 +60,7 @@ export function FollowUpNotifier() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              危急值随访提醒
+              A类结果随访提醒
             </h3>
             <TooltipProvider>
               <Tooltip>
@@ -68,13 +68,13 @@ export function FollowUpNotifier() {
                   <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  A类危急值定义：需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。
+                  A类定义：需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {loading ? "正在同步数据库..." : `当前有 ${count} 例 A 类危急值尚未完成随访结案。`}
+            {loading ? "正在同步数据库..." : `当前有 ${count} 例 A 类结果尚未完成随访结案。`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -89,13 +89,13 @@ export function FollowUpNotifier() {
               >
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="destructive" className="text-[10px]">危急值</Badge>
+                  <Badge variant="destructive" className="text-[10px]">A类</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground mt-1 line-clamp-1">{task.ZYYCJGXQ}</span>
                 <span className="text-[10px] text-muted-foreground mt-1">登记日期: {task.ZYYCJGTZRQ}</span>
               </Link>
             )) : (
-              <div className="py-8 text-center text-xs text-muted-foreground">暂无未处理的危急值任务</div>
+              <div className="py-8 text-center text-xs text-muted-foreground">暂无未处理的 A 类任务</div>
             )}
           </div>
         </ScrollArea>

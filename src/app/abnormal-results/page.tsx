@@ -159,7 +159,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">闭环管理危急值与重要异常结果，数据全网同步。</p>
+          <p className="text-muted-foreground mt-1">闭环管理业务异常结果，数据中心同步。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "该功能目前由管理员在服务器端执行。" })}>
@@ -207,14 +207,14 @@ export default function AbnormalResultsPage() {
                     <SelectContent>
                       <SelectItem value="A">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-destructive">A类：危急值</span>
-                          <span className="text-[10px] text-muted-foreground">需立即临床干预，危及生命风险</span>
+                          <span className="font-semibold text-destructive">A类</span>
+                          <span className="text-[10px] text-muted-foreground">需立即临床干预</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="B">
                         <div className="flex flex-col">
-                          <span className="font-semibold text-primary">B类：重要异常</span>
-                          <span className="text-[10px] text-muted-foreground">需进一步检查确认诊断或医学治疗</span>
+                          <span className="font-semibold text-primary">B类</span>
+                          <span className="text-[10px] text-muted-foreground">需进一步检查或治疗</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -311,7 +311,7 @@ export default function AbnormalResultsPage() {
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {res.ZYYCJGFL === 'A' ? '危急值：需立即进行临床干预' : '重要异常：需要临床进一步检查或治疗'}
+                            {res.ZYYCJGFL === 'A' ? 'A类：需立即进行临床干预' : 'B类：需要临床进一步检查或治疗'}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

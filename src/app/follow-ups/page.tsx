@@ -36,7 +36,7 @@ export default function FollowUpsPage() {
 
   const [followUpForm, setFollowUpForm] = React.useState({
     HFresult: '',
-    SFTIME: new Date().toISOString().split('T')[0],
+    SFTIME: '',
     SFGZRY: '',
     jcsf: false
   })
@@ -59,6 +59,10 @@ export default function FollowUpsPage() {
 
   React.useEffect(() => {
     loadData()
+    setFollowUpForm(prev => ({
+      ...prev,
+      SFTIME: new Date().toISOString().split('T')[0]
+    }))
   }, [])
 
   // 待随访 = 有异常结果但没有随访记录的患者
@@ -98,7 +102,7 @@ export default function FollowUpsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">异常结果随访</h1>
-        <p className="text-muted-foreground mt-1">闭环管理危急值随访任务，确保医疗质量安全。</p>
+        <p className="text-muted-foreground mt-1">闭环管理异常随访任务，确保医疗质量安全。</p>
       </div>
 
       <Tabs defaultValue="pending" className="space-y-4">
@@ -150,7 +154,7 @@ export default function FollowUpsPage() {
                               <Phone className="h-3 w-3" /> {person?.PHONE}
                             </div>
                             <Badge variant={task.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">
-                              {task.ZYYCJGFL}类异常
+                              {task.ZYYCJGFL}类
                             </Badge>
                           </div>
                         </TableCell>

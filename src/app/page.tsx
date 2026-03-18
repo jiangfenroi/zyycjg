@@ -76,8 +76,8 @@ export default function Dashboard() {
   ]
 
   const categoryData = [
-    { name: "A类危急值", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果。" },
-    { name: "B类重要异常", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗。" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果。" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗。" },
   ]
 
   if (loading) {
@@ -123,7 +123,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A 类危急预警</p>
+            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A 类预警</p>
           </CardContent>
         </Card>
 
@@ -197,9 +197,9 @@ export default function Dashboard() {
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p className="font-bold text-destructive">A类：危急值</p>
+                    <p className="font-bold text-destructive">A类</p>
                     <p className="text-xs mb-2">需要立即进行临床干预，否则将危及生命或导致严重不良后果。</p>
-                    <p className="font-bold text-primary">B类：重要异常</p>
+                    <p className="font-bold text-primary">B类</p>
                     <p className="text-xs">需要临床进一步检查以确认诊断或医学治疗。</p>
                   </TooltipContent>
                 </UITooltip>
@@ -260,7 +260,7 @@ export default function Dashboard() {
             <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
               <Link href="/abnormal-results">
                 <AlertCircle className="h-6 w-6 text-primary" />
-                <span>登记新异常结果</span>
+                <span>登记 A/B 类结果</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-secondary/40 hover:bg-secondary/5 hover:border-secondary" asChild>
@@ -291,7 +291,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-6">
               {[
-                { name: '管理员', action: '新增了 1 条 A 类危急值登记', time: '2分钟前', type: 'alert' },
+                { name: '管理员', action: '新增了 1 条 A 类结果登记', time: '2分钟前', type: 'alert' },
                 { name: '系统', action: '自动生成了 3 条随访任务', time: '12分钟前', type: 'update' },
                 { name: '王医生', action: '完成了张伟的电话随访', time: '45分钟前', type: 'completed' },
                 { name: '李护士', action: '上传了 2 份 PDF 检查报告', time: '1小时前', type: 'update' },
