@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -65,9 +66,6 @@ export default function SystemSettingsPage() {
 
   if (loading) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
 
-  /**
-   * 转换本地路径为 app-file 协议以预览 Logo
-   */
   const getPreviewLogoUrl = () => {
     if (!settings.SYSTEM_LOGO_URL) return null;
     return `app-file://${settings.SYSTEM_LOGO_URL}`;
@@ -125,7 +123,7 @@ export default function SystemSettingsPage() {
               </div>
               <div className="flex-1 space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  建议上传 128x128 像素的透明背景图片 (PNG/JPG)。设置后将替换侧边栏上方的文字 Logo。
+                  建议上传 128x128 像素的透明背景图片。设置后将替换侧边栏上方的文字 Logo。
                 </p>
                 <Button variant="outline" size="sm" onClick={handleLogoUpload} disabled={uploading}>
                   {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
@@ -136,7 +134,7 @@ export default function SystemSettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>文字 Logo 备用 (1-2个字符)</Label>
+            <Label>文字 Logo 备用</Label>
             <div className="flex items-center gap-4">
               <Input 
                 className="w-24 text-center font-bold text-lg"

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,10 +10,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
-/**
- * 网络版初始化配置页面
- * 引导客户端连接至中心 MySQL 服务器
- */
 export default function SetupPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -35,11 +32,9 @@ export default function SetupPage() {
     setLoading(true)
     try {
       if (typeof window !== 'undefined' && window.electronAPI) {
-        // 调用 Electron 主进程测试并保存中心数据库连接
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
           toast({ title: "服务器连接成功", description: "客户端已成功接入 MediTrack 中心网络。" })
-          // 延迟跳转至登录页
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
@@ -85,7 +80,7 @@ export default function SetupPage() {
             <CardContent className="space-y-6 pt-6">
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-3 space-y-2">
-                  <Label>服务器主机 (Remote IP/Host)</Label>
+                  <Label>服务器主机</Label>
                   <Input 
                     placeholder="例如: 192.168.1.100" 
                     value={config.host}

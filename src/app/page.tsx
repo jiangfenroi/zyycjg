@@ -60,7 +60,6 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
-        // 趋势统计逻辑：按月份分布
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         
@@ -100,7 +99,6 @@ export default function Dashboard() {
     { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需进一步检查确认或医学治疗的重要异常结果。" },
   ]
 
-  // 防止水合错误
   if (!isClient || loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
@@ -177,7 +175,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
                 <BarChart3 className="h-4 w-4" />
-                业务随访趋势 (近6个月)
+                业务随访趋势
               </CardTitle>
             </div>
           </CardHeader>
@@ -216,7 +214,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
                 <PieChart className="h-4 w-4" />
-                异常分类占比 (A/B)
+                异常分类占比
               </CardTitle>
               <TooltipProvider>
                 <UITooltip>

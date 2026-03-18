@@ -101,7 +101,7 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
-      // 1. 保存随访记录 (SP_SF) - 包含 XCSFTIME 用于展示
+      // 1. 保存随访记录
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -113,7 +113,7 @@ export default function FollowUpsPage() {
         XCSFTIME: followUpForm.XCSFTIME
       })
 
-      // 2. 如果设置了下次日期，生成任务 (SP_SFRW)
+      // 2. 如果设置了下次日期，生成任务
       if (success && followUpForm.XCSFTIME) {
         await DataService.addFollowUpTask({
           PERSONID: selectedResult.PERSONID,
@@ -141,7 +141,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访管理</h1>
-          <p className="text-muted-foreground mt-1">闭环 A/B 类随访业务流程 (已按照最新要求优化列展示)。</p>
+          <p className="text-muted-foreground mt-1">闭环业务流程优化展示。</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -151,8 +151,8 @@ export default function FollowUpsPage() {
 
       <Tabs defaultValue="pending">
         <TabsList className="grid w-[400px] grid-cols-2 p-1 bg-muted/50 rounded-lg">
-          <TabsTrigger value="pending" className="rounded-md">待随访任务 ({filteredPending.length})</TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-md">已回访记录 ({filteredCompleted.length})</TabsTrigger>
+          <TabsTrigger value="pending" className="rounded-md">待随访任务 {filteredPending.length}</TabsTrigger>
+          <TabsTrigger value="completed" className="rounded-md">已回访记录 {filteredCompleted.length}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-6">
@@ -255,7 +255,7 @@ export default function FollowUpsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5 text-primary" />
-              随访结果登记 (SP_SF)
+              随访结果登记
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -270,12 +270,12 @@ export default function FollowUpsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-bold">回访结果详情 (HFresult)</Label>
+              <Label className="text-sm font-bold">回访结果详情</Label>
               <Textarea placeholder="请详细记录回访沟通结论、患者反馈及后续处理方案..." className="min-h-[120px] shadow-sm" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2"><Label>回访日期 (SFTIME)</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
-               <div className="space-y-2"><Label>回访人 (SFGZRY)</Label><Input value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} /></div>
+               <div className="space-y-2"><Label>回访日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+               <div className="space-y-2"><Label>回访人</Label><Input value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
                <div className="flex items-center space-x-2 p-3 bg-green-50/50 rounded-md border border-green-100">
@@ -283,7 +283,7 @@ export default function FollowUpsPage() {
                 <Label htmlFor="jcsf" className="cursor-pointer font-bold text-green-800 text-xs">是否复查及进一步病理检查</Label>
               </div>
               <div className="space-y-2">
-                <Label className="text-blue-700 font-bold">下次回访时间 (XCSFTIME)</Label>
+                <Label className="text-blue-700 font-bold">下次回访时间</Label>
                 <Input type="date" className="border-blue-200 bg-blue-50/20" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
               </div>
             </div>

@@ -115,7 +115,7 @@ export function PatientDetailClient({ id }: { id: string }) {
               <User className="h-10 w-10 text-primary" />
             </div>
             <CardTitle className="text-xl">{person.PERSONNAME}</CardTitle>
-            <CardDescription>{person.SEX} · {person.AGE}岁 · {id.slice(-6)}</CardDescription>
+            <CardDescription>{person.SEX} · {person.AGE}岁</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 pt-4">
             <div className="space-y-3">
@@ -146,9 +146,9 @@ export function PatientDetailClient({ id }: { id: string }) {
         <div className="md:col-span-2 space-y-6">
           <Tabs defaultValue="abnormal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="abnormal">异常结果 ({results.length})</TabsTrigger>
-              <TabsTrigger value="followup">随访记录 ({followUps.length})</TabsTrigger>
-              <TabsTrigger value="files">报告附件 ({docs.length})</TabsTrigger>
+              <TabsTrigger value="abnormal">异常结果 {results.length}</TabsTrigger>
+              <TabsTrigger value="followup">随访记录 {followUps.length}</TabsTrigger>
+              <TabsTrigger value="files">报告附件 {docs.length}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="abnormal" className="mt-4">
@@ -235,7 +235,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                     </div>
                   </Card>
                 )) : (
-                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">暂无关联的 PDF 附件。</div>
+                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">暂无关联附件。</div>
                 )}
               </div>
             </TabsContent>
@@ -248,7 +248,7 @@ export function PatientDetailClient({ id }: { id: string }) {
           <DialogHeader><DialogTitle>上传病历报告 - {person.PERSONNAME}</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label>检查/报告产生日期</Label>
+              <Label>检查产生日期</Label>
               <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
             </div>
             <div className="space-y-2">
@@ -257,7 +257,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PE_REPORT">年度体检报告汇总</SelectItem>
-                  <SelectItem value="IMAGING">医学影像(CT/MRI)报告</SelectItem>
+                  <SelectItem value="IMAGING">医学影像报告</SelectItem>
                   <SelectItem value="PATHOLOGY">病理组织学报告</SelectItem>
                 </SelectContent>
               </Select>

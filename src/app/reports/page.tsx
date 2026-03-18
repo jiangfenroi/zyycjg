@@ -1,3 +1,5 @@
+
+
 "use client"
 
 import * as React from 'react'
@@ -121,7 +123,7 @@ export default function ReportsPage() {
                   <SelectContent>
                     {persons.map(p => (
                       <SelectItem key={p.PERSONID} value={p.PERSONID}>
-                        {p.PERSONNAME} ({p.PERSONID})
+                        {p.PERSONNAME} {p.PERSONID}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -190,7 +192,7 @@ export default function ReportsPage() {
                     <TableHead>文件名称</TableHead>
                     <TableHead>关联患者</TableHead>
                     <TableHead>文档分类</TableHead>
-                    <TableHead>检查/上传日期</TableHead>
+                    <TableHead>检查上传日期</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -243,3 +245,5 @@ export default function ReportsPage() {
     </div>
   )
 }
+
+    
