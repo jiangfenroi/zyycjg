@@ -67,28 +67,24 @@
   "build": {
     "appId": "com.meditrack.connect",
     "productName": "MediTrack Connect",
-    "copyright": "Copyright © 2024",
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": [
-        "nsis"
-      ],
+      "target": "nsis",
       "icon": "public/favicon.ico"
     },
-    "files": [
-      "out/**/*",
-      "electron/**/*",
-      "package.json"
-    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MediTrack Connect",
-      "include": "electron/installer.nsh"
-    }
+      "shortcutName": "MediTrack Connect"
+    },
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "package.json"
+    ]
   }
 }

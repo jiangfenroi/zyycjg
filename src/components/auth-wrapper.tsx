@@ -14,8 +14,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [timeoutReached, setTimeoutReached] = React.useState(false)
 
   React.useEffect(() => {
+    // 客户端挂载标记
     setMounted(true)
     
+    // 安全超时保护
     const safetyTimer = setTimeout(() => {
       setTimeoutReached(true);
       setChecking(false);
@@ -49,7 +51,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router])
 
-  // 严谨修复 Hydration 错误：SSR 阶段只渲染一个空的 Shell
+  // SSR 及初次渲染阶段：只渲染一个没有任何文本的背景占位符，彻底解决 Hydration 冲突
   if (!mounted) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
@@ -58,7 +60,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // 挂载后显示带文字的加载界面
+  // 挂载后的加载状态（仅客户端可见）
   if (checking && !timeoutReached) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
