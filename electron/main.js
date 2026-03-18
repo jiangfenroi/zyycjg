@@ -69,7 +69,7 @@ async function initDB(config) {
     const connection = await dbPool.getConnection();
     connection.release();
 
-    // 自动建表逻辑 (全院数据库同步)
+    // 核心业务表初始化 (适配 Windows 环境)
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -144,26 +144,13 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认管理员
+    // 初始化默认管理员 (如果不存在)
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
         'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)',
         ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]
       );
-    }
-
-    // 初始化系统设置
-    const defaultConfig = [
-      ['SYSTEM_NAME', 'MediTrack Connect'],
-      ['SYSTEM_LOGO_TEXT', 'M'],
-      ['SYSTEM_LOGO_URL', '']
-    ];
-    for (const [key, val] of defaultConfig) {
-      const [rows] = await dbPool.execute('SELECT * FROM SP_SETTINGS WHERE CONF_KEY = ?', [key]);
-      if (rows.length === 0) {
-        await dbPool.execute('INSERT INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
-      }
     }
 
     return { success: true };
@@ -181,7 +168,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许跨域加载局域网资源
+      webSecurity: false, // 允许加载局域网/本地资源
     },
     title: "MediTrack Connect"
   });
@@ -197,7 +184,7 @@ function createWindow(startPath = '/') {
   }
 }
 
-// IPC 处理器
+// IPC 消息处理器
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -218,7 +205,7 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbPool.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    console.error("SQL Error:", sql, params, err.message);
+    console.error("SQL Error:", sql, err.message);
     return { success: false, error: err.message };
   }
 });
@@ -252,7 +239,7 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
     
-    // Windows 环境下优先读取环境变量配置的 UPLOAD_PATH (应设置为局域网共享文件夹)
+    // 优先读取环境变量 UPLOAD_PATH (建议配置为 Windows 共享文件夹)
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
@@ -264,7 +251,7 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
     }
 
     const targetFileName = personId === 'SYSTEM' 
-      ? `system_logo_${Date.now()}${path.extname(fileName)}`
+      ? `logo_${Date.now()}${path.extname(fileName)}`
       : `${personId}_${Date.now()}_${fileName}`;
     
     const targetPath = path.join(uploadBaseDir, targetFileName);
@@ -300,13 +287,13 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // Windows 7 适配：使用 Electron 22 兼容的 registerFileProtocol
+  // Windows 7/8.1 适配：使用 Electron 22 规范的协议注册
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     
     if (process.platform === 'win32') {
-      // 处理 Windows UNC 路径 (\\Server\Share) 和 盘符路径
+      // 处理 Windows UNC 路径和盘符
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }

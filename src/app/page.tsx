@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, HelpCircle } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, HelpCircle, Activity } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -105,22 +105,22 @@ export default function Dashboard() {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">中心数据库同步中...</span>
+        <span className="ml-2 font-medium">同步中心数据库...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">MediTrack Connect 网络版中心服务器数据概览。</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台仪表盘</h1>
+          <p className="text-muted-foreground mt-1">MediTrack Connect 网络版中心服务器数据实时概览。</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <FollowUpNotifier />
-          <Button variant="outline" size="sm" className="hidden sm:flex" asChild>
-            <Link href="/patients">快速档案搜索</Link>
+          <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 快速档案搜索</Link>
           </Button>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">全院中心数据库所有记录</p>
+            <p className="text-xs text-muted-foreground mt-1">全院数据中心同步记录</p>
           </CardContent>
         </Card>
         
@@ -144,7 +144,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 紧急案例</p>
+            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 预警</p>
           </CardContent>
         </Card>
 
@@ -155,7 +155,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">已结案随访 {stats.completedFollowUps} 例</p>
+            <p className="text-xs text-muted-foreground mt-1">累计完成随访 {stats.completedFollowUps} 例</p>
           </CardContent>
         </Card>
 
@@ -175,13 +175,13 @@ export default function Dashboard() {
         <Card className="md:col-span-4">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
-                随访趋势统计 (最近6个月)
+              <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
+                <BarChart3 className="h-4 w-4" />
+                业务随访趋势 (近6个月)
               </CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="h-[300px] mt-4">
+          <CardContent className="h-[320px] pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
@@ -214,8 +214,8 @@ export default function Dashboard() {
         <Card className="md:col-span-3">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <PieChart className="h-4 w-4 text-primary" />
+              <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
+                <PieChart className="h-4 w-4" />
                 异常分类占比 (A/B)
               </CardTitle>
               <TooltipProvider>
@@ -225,23 +225,23 @@ export default function Dashboard() {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="font-bold text-destructive">A类</p>
-                    <p className="text-xs mb-2">需立即干预，否则危及生命。</p>
+                    <p className="text-xs mb-2">危及生命，需立即临床干预。</p>
                     <p className="font-bold text-primary">B类</p>
-                    <p className="text-xs">需进一步检查确认或门诊治疗。</p>
+                    <p className="text-xs">重要异常，需定期复查或治疗。</p>
                   </TooltipContent>
                 </UITooltip>
               </TooltipProvider>
             </div>
           </CardHeader>
-          <CardContent className="h-[300px] flex flex-col items-center justify-center">
+          <CardContent className="h-[320px] flex flex-col items-center justify-center pt-4">
             <ResponsiveContainer width="100%" height="80%">
               <RePieChart>
                 <Pie
                   data={categoryData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
+                  innerRadius={65}
+                  outerRadius={85}
                   paddingAngle={5}
                   dataKey="value"
                 >
@@ -265,11 +265,11 @@ export default function Dashboard() {
                 />
               </RePieChart>
             </ResponsiveContainer>
-            <div className="flex gap-4 text-xs mt-2">
+            <div className="flex gap-6 text-xs mt-4">
               {categoryData.map((item) => (
-                <div key={item.name} className="flex items-center gap-1">
+                <div key={item.name} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span>{item.name}: {item.value}</span>
+                  <span className="font-medium">{item.name}: {item.value}</span>
                 </div>
               ))}
             </div>
@@ -277,34 +277,34 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border-dashed border-2">
         <CardHeader>
-          <CardTitle>核心业务操作</CardTitle>
-          <CardDescription>快捷访问中心服务器常用业务模块</CardDescription>
+          <CardTitle className="text-lg">快捷业务通道</CardTitle>
+          <CardDescription>直接访问中心服务器常用的业务操作模块</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-primary/5 hover:border-primary transition-all group" asChild>
             <Link href="/abnormal-results">
-              <AlertCircle className="h-6 w-6 text-primary" />
-              <span>登记 A/B 类结果</span>
+              <AlertCircle className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-bold">登记 A/B 类结果</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-secondary/40 hover:bg-secondary/5 hover:border-secondary" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-secondary/5 hover:border-secondary transition-all group" asChild>
             <Link href="/follow-ups">
-              <History className="h-6 w-6 text-secondary" />
-              <span>重要异常随访</span>
+              <History className="h-6 w-6 text-secondary group-hover:scale-110 transition-transform" />
+              <span className="font-bold">重要异常随访</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
             <Link href="/reports">
-              <FileText className="h-6 w-6" />
-              <span>报告附件管理</span>
+              <FileText className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-bold">报告附件管理</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
             <Link href="/patients">
-              <Users className="h-6 w-6" />
-              <span>管理患者档案</span>
+              <Users className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-bold">管理患者档案</span>
             </Link>
           </Button>
         </CardContent>
