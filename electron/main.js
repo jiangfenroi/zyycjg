@@ -125,7 +125,8 @@ async function initDB(config) {
     // 初始化系统配置
     const defaultConfig = [
       ['SYSTEM_NAME', 'MediTrack Connect'],
-      ['SYSTEM_LOGO_TEXT', 'M']
+      ['SYSTEM_LOGO_TEXT', 'M'],
+      ['SYSTEM_LOGO_URL', '']
     ];
     for (const [key, val] of defaultConfig) {
       const [rows] = await dbPool.execute('SELECT * FROM SP_SETTINGS WHERE CONF_KEY = ?', [key]);
@@ -210,7 +211,7 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: '选择病历附件',
       properties: ['openFile'],
-      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+      filters: [{ name: 'PDF/Image', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
     });
 
     if (canceled || filePaths.length === 0) return { success: false };
@@ -223,10 +224,15 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
       fs.mkdirSync(uploadBaseDir, { recursive: true });
     }
 
-    const targetFileName = `${personId}_${Date.now()}_${fileName}`;
+    const targetFileName = personId === 'SYSTEM' 
+      ? `system_logo_${Date.now()}${path.extname(fileName)}`
+      : `${personId}_${Date.now()}_${fileName}`;
+    
     const targetPath = path.join(uploadBaseDir, targetFileName);
     fs.copyFileSync(sourcePath, targetPath);
 
+    // 对于文件系统，返回转换后的本地文件协议路径，方便前端显示
+    // 在 Electron 中展示本地文件通常需要设置 webSecurity 或使用自定义协议，这里返回原始路径
     return { 
       success: true, 
       data: {

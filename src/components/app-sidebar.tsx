@@ -44,7 +44,16 @@ export function AppSidebar() {
   const router = useRouter()
   const { toast } = useToast()
   const [user, setUser] = React.useState<any>(null)
-  const [settings, setSettings] = React.useState({ SYSTEM_NAME: 'MediTrack', SYSTEM_LOGO_TEXT: 'M' })
+  const [settings, setSettings] = React.useState({ 
+    SYSTEM_NAME: 'MediTrack', 
+    SYSTEM_LOGO_TEXT: 'M',
+    SYSTEM_LOGO_URL: ''
+  })
+
+  const loadSettings = React.useCallback(async () => {
+    const data = await DataService.getSystemSettings()
+    setSettings(data)
+  }, [])
 
   React.useEffect(() => {
     const storedUser = localStorage.getItem('currentUser')
@@ -52,9 +61,12 @@ export function AppSidebar() {
       setUser(JSON.parse(storedUser))
     }
     
-    // 加载系统配置
-    DataService.getSystemSettings().then(setSettings)
-  }, [pathname])
+    loadSettings()
+    
+    // 设置定时刷新配置，实现品牌实时同步
+    const timer = setInterval(loadSettings, 30000)
+    return () => clearInterval(timer)
+  }, [loadSettings, pathname])
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
@@ -65,11 +77,25 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner">
-            {settings.SYSTEM_LOGO_TEXT}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner overflow-hidden">
+            {settings.SYSTEM_LOGO_URL ? (
+              <img 
+                src={`file://${settings.SYSTEM_LOGO_URL}`} 
+                alt="Logo" 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  setSettings(prev => ({ ...prev, SYSTEM_LOGO_URL: '' }));
+                }}
+              />
+            ) : (
+              settings.SYSTEM_LOGO_TEXT
+            )}
           </div>
-          <span className="font-bold text-lg tracking-tight group-data-[collapsible=icon]:hidden">{settings.SYSTEM_NAME}</span>
+          <span className="font-bold text-lg tracking-tight group-data-[collapsible=icon]:hidden truncate max-w-[150px]">
+            {settings.SYSTEM_NAME}
+          </span>
         </div>
       </SidebarHeader>
       <SidebarContent className="pt-4">
@@ -119,7 +145,7 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === '/settings/system'}
                     tooltip="系统身份设置"
-                    className="h-11 px-4 text-blue-400 hover:text-blue-300"
+                    className="h-11 px-4 text-secondary hover:text-secondary/80"
                   >
                     <Link href="/settings/system">
                       <Palette className="size-5" />

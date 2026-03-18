@@ -27,13 +27,13 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M' };
+    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '' };
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
     if (isElectron) {
       const promises = Object.entries(settings).map(([key, val]) => 
-        window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val, key])
+        window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
       const results = await Promise.all(promises);
       return results.every(r => r.success);
@@ -130,6 +130,12 @@ export const DataService = {
       const uploadResult = await window.electronAPI.uploadFile(personId, type);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
+        
+        // 如果是系统 Logo 上传，不需要记录到文档表，直接返回 URL
+        if (personId === 'SYSTEM') {
+           return uploadResult.data.fileUrl;
+        }
+
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) 
                      VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
