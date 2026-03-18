@@ -4,51 +4,39 @@ const fs = require('fs');
 const mysql = require('mysql2/promise');
 const isDev = process.env.NODE_ENV === 'development';
 
-// 启用 dotenv
 require('dotenv').config();
 
 let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-/**
- * 从本地读取中心数据库配置
- */
 function loadLocalConfig() {
   if (fs.existsSync(configPath)) {
     try {
       const content = fs.readFileSync(configPath, 'utf8');
       return JSON.parse(content);
     } catch (e) {
-      console.error('Read config error:', e);
+      console.error(e);
     }
   }
   return null;
 }
 
-/**
- * 保存数据库配置到客户端本地
- */
 function saveLocalConfig(config) {
   try {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
     return true;
   } catch (e) {
-    console.error('Save config error:', e);
+    console.error(e);
     return false;
   }
 }
 
-/**
- * 初始化网络数据库连接池
- * 针对网络版优化了心跳检测和重试机制
- */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
-    // 创建面向远程服务器的连接池
     dbPool = mysql.createPool({
       host: dbConfig.host,
       port: parseInt(dbConfig.port),
@@ -56,17 +44,15 @@ async function initDB(config) {
       password: dbConfig.password,
       database: dbConfig.database,
       waitForConnections: true,
-      connectionLimit: 15, // 网络版增加连接上限
+      connectionLimit: 30,
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000
     });
     
-    // 测试中心服务器可连接性
     const connection = await dbPool.getConnection();
     connection.release();
 
-    // 初始化中心服务器业务表 (仅在表不存在时)
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -123,7 +109,6 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 检查并创建初始管理员
     const [rows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (rows.length === 0) {
       await dbPool.execute(
@@ -132,24 +117,23 @@ async function initDB(config) {
       );
     }
 
-    console.log('MediTrack Centralized Service Connected');
     return { success: true };
   } catch (err) {
-    console.error('Remote DB Connection Error:', err);
+    console.error(err);
     return { success: false, error: err.message };
   }
 }
 
 function createWindow(startPath = '/') {
   mainWindow = new BrowserWindow({
-    width: 1280,
+    width: 1440,
     height: 900,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
     },
-    title: "MediTrack Connect 网络版客户端"
+    title: "MediTrack Connect"
   });
 
   const url = isDev 
@@ -163,7 +147,6 @@ function createWindow(startPath = '/') {
   }
 }
 
-// IPC: 初始化配置
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -173,26 +156,24 @@ ipcMain.handle('setup-db', async (event, config) => {
   return { success: false, error: result.error };
 });
 
-// IPC: 执行远程查询
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) {
     const config = loadLocalConfig();
     if (config) await initDB(config);
   }
-  if (!dbPool) return { success: false, error: '尚未连接至中心服务器' };
+  if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
   
   try {
     const [rows] = await dbPool.execute(sql, params);
     return { success: true, data: rows };
   } catch (err) {
-    console.error('SQL Error:', err.message);
+    console.error(err);
     return { success: false, error: err.message };
   }
 });
 
-// IPC: 远程登录
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbPool) return { success: false, error: '服务器连接断开' };
+  if (!dbPool) return { success: false, error: 'OFFLINE' };
   try {
     const [rows] = await dbPool.execute(
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
@@ -201,13 +182,12 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
     if (rows.length > 0) {
       return { success: true, user: rows[0] };
     }
-    return { success: false, error: '中心数据库认证失败' };
+    return { success: false, error: 'INVALID_CREDENTIALS' };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// IPC: 文件上传 (支持网络路径)
 ipcMain.handle('file-upload', async (event, { personId, type }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -216,13 +196,11 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
     });
 
-    if (canceled || filePaths.length === 0) return { success: false, error: 'User canceled' };
+    if (canceled || filePaths.length === 0) return { success: false };
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
-    
-    // 默认使用用户文档目录，实际生产环境建议配置为网络共享路径 (UNC)
-    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_central_storage');
+    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
       fs.mkdirSync(uploadBaseDir, { recursive: true });
@@ -236,7 +214,7 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
       success: true, 
       data: {
         fileName: fileName,
-        fileUrl: targetPath, // 数据库中记录中心化存储路径
+        fileUrl: targetPath,
         uploadDate: new Date().toISOString().split('T')[0]
       }
     };
@@ -250,7 +228,6 @@ app.whenReady().then(async () => {
   if (result.success) {
     createWindow('/login');
   } else {
-    // 首次运行或服务器变更，进入配置向导
     createWindow('/setup');
   }
 });

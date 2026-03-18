@@ -26,7 +26,6 @@ import { DataService } from '@/services/data-service'
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
   const [results, setResults] = React.useState<AbnormalResult[]>([])
-  const [persons, setPersons] = React.useState<Person[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -48,14 +47,10 @@ export default function AbnormalResultsPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const [r, p] = await Promise.all([
-        DataService.getAbnormalResults(),
-        DataService.getPatients()
-      ])
-      setResults(r)
-      setPersons(p)
+      const data = await DataService.getAbnormalResults()
+      setResults(data)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据加载失败", description: "无法连接到 MySQL 数据库。" })
+      toast({ variant: "destructive", title: "数据加载失败", description: "无法从中心数据库获取记录。" })
     } finally {
       setLoading(false)
     }
@@ -63,7 +58,6 @@ export default function AbnormalResultsPage() {
 
   React.useEffect(() => {
     loadData()
-    // 初始化日期时间以避免水合错误
     setFormData(prev => ({
       ...prev,
       ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
@@ -72,12 +66,11 @@ export default function AbnormalResultsPage() {
   }, [loadData])
 
   const filteredResults = results.filter(res => {
-    const person = persons.find(p => p.PERSONID === res.PERSONID);
     const searchLower = searchTerm.toLowerCase();
     return (
       res.PERSONID.toLowerCase().includes(searchLower) || 
       res.TJBHID.toLowerCase().includes(searchLower) ||
-      (person?.PERSONNAME || '').includes(searchTerm)
+      (res.PERSONNAME || '').includes(searchTerm)
     );
   })
 
@@ -89,25 +82,22 @@ export default function AbnormalResultsPage() {
 
     const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "异常详情", "是否通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     
-    const rows = results.map(res => {
-      const person = persons.find(p => p.PERSONID === res.PERSONID);
-      return [
-        person?.PERSONNAME || '未知',
-        person?.SEX || '-',
-        person?.AGE || '-',
-        person?.PHONE || '-',
-        person?.OCCURDATE || '-',
-        `${res.ZYYCJGFL}类`,
-        `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`,
-        res.IS_NOTIFIED ? '是' : '否',
-        res.IS_HEALTH_EDU ? '是' : '否',
-        res.ZYYCJGTZRQ,
-        res.ZYYCJGTZSJ,
-        res.WORKER,
-        res.ZYYCJGBTZR,
-        `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
-      ];
-    });
+    const rows = results.map(res => [
+      res.PERSONNAME || '未知',
+      res.SEX || '-',
+      res.AGE || '-',
+      res.PHONE || '-',
+      res.OCCURDATE || '-',
+      `${res.ZYYCJGFL}类`,
+      `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`,
+      res.IS_NOTIFIED ? '是' : '否',
+      res.IS_HEALTH_EDU ? '是' : '否',
+      res.ZYYCJGTZRQ,
+      res.ZYYCJGTZSJ,
+      res.WORKER,
+      res.ZYYCJGBTZR,
+      `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
+    ]);
     
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -115,17 +105,17 @@ export default function AbnormalResultsPage() {
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `重要异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `MediTrack_异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    toast({ title: "导出成功", description: "Excel 报表已生成并开始下载。" })
+    toast({ title: "导出成功", description: "报表已开始下载。" })
   }
 
   const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.TJBHID) {
-      toast({ variant: "destructive", title: "登记失败", description: "档案编号和体检编号为必填项。" })
+      toast({ variant: "destructive", title: "校验失败", description: "档案编号和体检编号为必填。" })
       return
     }
 
@@ -140,7 +130,7 @@ export default function AbnormalResultsPage() {
     const success = await DataService.addAbnormalResult(newResult)
     
     if (success) {
-      toast({ title: "登记成功", description: `体检编号 ${formData.TJBHID} 的结果已同步至数据库。` })
+      toast({ title: "登记成功", description: `体检编号 ${formData.TJBHID} 已录入数据库。` })
       setIsDialogOpen(false)
       loadData()
       setFormData({
@@ -166,10 +156,10 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">确保危急值与重要异常结果的闭环管理与数据库同步。</p>
+          <p className="text-muted-foreground mt-1">闭环管理危急值与重要异常结果，数据全网同步。</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "请将 Excel 文件放置于系统指定共享目录。" })}>
+          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "该功能目前由管理员在服务器端执行。" })}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -182,73 +172,36 @@ export default function AbnormalResultsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>重要异常结果入库登记</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>异常结果入库登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>档案编号</Label>
-                    <Input 
-                      className="font-mono" 
-                      placeholder="请输入档案编号..." 
-                      value={formData.PERSONID}
-                      onChange={e => setFormData({...formData, PERSONID: e.target.value})}
-                    />
+                    <Input className="font-mono" value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <Label>体检编号</Label>
-                    <Input 
-                      className="font-mono" 
-                      placeholder="请输入体检编号..." 
-                      value={formData.TJBHID}
-                      onChange={e => setFormData({...formData, TJBHID: e.target.value})}
-                    />
+                    <Input className="font-mono" value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label>异常分类</Label>
-                  <Select 
-                    value={formData.ZYYCJGFL}
-                    onValueChange={v => setFormData({...formData, ZYYCJGFL: v as 'A' | 'B'})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A">
-                        <span className="font-semibold text-destructive">A类：</span>
-                        需要立即进行临床干预的危急值
-                      </SelectItem>
-                      <SelectItem value="B">
-                        <span className="font-semibold text-primary">B类：</span>
-                        需要进一步检查的重要异常
-                      </SelectItem>
+                      <SelectItem value="A"><span className="font-semibold text-destructive">A类：</span>危急值</SelectItem>
+                      <SelectItem value="B"><span className="font-semibold text-primary">B类：</span>重要异常</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-2">
                   <Label>异常详情</Label>
-                  <Textarea 
-                    className="min-h-[80px]" 
-                    placeholder="请输入具体的异常结果描述..."
-                    value={formData.ZYYCJGXQ}
-                    onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})}
-                  />
+                  <Textarea className="min-h-[80px]" value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
                 </div>
-
                 <div className="space-y-2">
                   <Label>处置意见</Label>
-                  <Textarea 
-                    className="min-h-[80px]" 
-                    placeholder="请输入医学处置或随访建议..."
-                    value={formData.ZYYCJGCZYJ}
-                    onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})}
-                  />
+                  <Textarea className="min-h-[80px]" value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>通知日期</Label>
@@ -259,15 +212,14 @@ export default function AbnormalResultsPage() {
                     <Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>通知医生</Label>
-                    <Input placeholder="医生姓名" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
+                    <Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <Label>被通知人</Label>
-                    <Input placeholder="本人或家属" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
+                    <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
                   </div>
                 </div>
               </div>
@@ -283,22 +235,17 @@ export default function AbnormalResultsPage() {
       </div>
 
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="搜索姓名、体检号..." 
-                className="pl-8 h-9" 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
+              <Input placeholder="搜索姓名、档案号、体检号..." className="pl-8 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+          <ScrollArea className="w-full whitespace-nowrap">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -310,7 +257,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[80px]">分类</TableHead>
                   <TableHead className="min-w-[200px]">结果</TableHead>
                   <TableHead className="w-[80px]">通知</TableHead>
-                  <TableHead className="w-[100px]">宣教</TableHead>
+                  <TableHead className="w-[80px]">宣教</TableHead>
                   <TableHead className="w-[120px]">通知日期</TableHead>
                   <TableHead className="w-[100px]">通知时间</TableHead>
                   <TableHead className="w-[100px]">通知医生</TableHead>
@@ -321,51 +268,31 @@ export default function AbnormalResultsPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={15} className="text-center py-12">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span>同步 MySQL 记录中...</span>
-                      </div>
+                  <TableRow><TableCell colSpan={15} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                ) : filteredResults.length > 0 ? filteredResults.map((res) => (
+                  <TableRow key={res.ID} className="text-xs">
+                    <TableCell className="font-medium">{res.PERSONNAME || '未知'}</TableCell>
+                    <TableCell>{res.SEX || '-'}</TableCell>
+                    <TableCell>{res.AGE || '-'}</TableCell>
+                    <TableCell>{res.PHONE || '-'}</TableCell>
+                    <TableCell>{res.OCCURDATE || '-'}</TableCell>
+                    <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{res.ZYYCJGFL}类</Badge></TableCell>
+                    <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                    <TableCell>{res.IS_NOTIFIED ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                    <TableCell>{res.IS_HEALTH_EDU ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
+                    <TableCell>{res.ZYYCJGTZRQ}</TableCell>
+                    <TableCell>{res.ZYYCJGTZSJ}</TableCell>
+                    <TableCell>{res.WORKER}</TableCell>
+                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
+                    <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
+                    <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : filteredResults.length > 0 ? filteredResults.map((res) => {
-                  const person = persons.find(p => p.PERSONID === res.PERSONID)
-                  return (
-                    <TableRow key={res.ID} className="text-xs">
-                      <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
-                      <TableCell>{person?.SEX || '-'}</TableCell>
-                      <TableCell>{person?.AGE || '-'}</TableCell>
-                      <TableCell>{person?.PHONE || '-'}</TableCell>
-                      <TableCell>{person?.OCCURDATE || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
-                          {res.ZYYCJGFL}类
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                      <TableCell>
-                        {res.IS_NOTIFIED ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      </TableCell>
-                      <TableCell>
-                        {res.IS_HEALTH_EDU ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}
-                      </TableCell>
-                      <TableCell>{res.ZYYCJGTZRQ}</TableCell>
-                      <TableCell>{res.ZYYCJGTZSJ}</TableCell>
-                      <TableCell>{res.WORKER}</TableCell>
-                      <TableCell>{res.ZYYCJGBTZR}</TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
-                      <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                }) : (
-                  <TableRow>
-                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">未检索到任何登记结果。</TableCell>
-                  </TableRow>
+                )) : (
+                  <TableRow><TableCell colSpan={15} className="text-center py-20 text-muted-foreground">暂无符合条件的登记结果。</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

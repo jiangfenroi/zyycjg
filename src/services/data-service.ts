@@ -1,7 +1,3 @@
-/**
- * 网络版数据服务层
- * 封装客户端与中心 MySQL 服务器的全部数据交互
- */
 import { Person, AbnormalResult, FollowUp, PatientDocument } from '@/lib/types';
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
 
@@ -19,9 +15,6 @@ declare global {
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export const DataService = {
-  /**
-   * 获取远程患者档案
-   */
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
@@ -31,9 +24,6 @@ export const DataService = {
     return MOCK_PERSONS;
   },
 
-  /**
-   * 同步新档案至中心库
-   */
   async addPatient(person: Person): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME) 
@@ -47,21 +37,20 @@ export const DataService = {
     return true;
   },
 
-  /**
-   * 获取中心化异常结果记录
-   */
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
-      const result = await window.electronAPI.query('SELECT * FROM SP_ZYJG ORDER BY ZYYCJGTZRQ DESC, ZYYCJGTZSJ DESC');
+      const sql = `
+        SELECT r.*, p.PERSONNAME, p.SEX, p.AGE, p.PHONE, p.OCCURDATE 
+        FROM SP_ZYJG r 
+        LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
+        ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
+      const result = await window.electronAPI.query(sql);
       if (result.success) return result.data;
       throw new Error(result.error);
     }
     return MOCK_RESULTS;
   },
 
-  /**
-   * 登记并同步异常结果
-   */
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
@@ -76,21 +65,15 @@ export const DataService = {
     return true;
   },
 
-  /**
-   * 获取全网随访记录
-   */
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
-      const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ?' : 'SELECT * FROM SP_FOLLOWUPS';
+      const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ?' : 'SELECT * FROM SP_FOLLOWUPS ORDER BY SFTIME DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
     return MOCK_FOLLOW_UPS;
   },
 
-  /**
-   * 提交随访结案并存档
-   */
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_FOLLOWUPS (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
@@ -103,21 +86,15 @@ export const DataService = {
     return true;
   },
 
-  /**
-   * 获取远程附件列表
-   */
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
-      const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ?' : 'SELECT * FROM SP_DOCUMENTS';
+      const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ?' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
     return MOCK_DOCS;
   },
 
-  /**
-   * 上传文件并同步至中心存储库
-   */
   async uploadDocument(personId: string, type: string): Promise<boolean> {
     if (isElectron) {
       const uploadResult = await window.electronAPI.uploadFile(personId, type);
