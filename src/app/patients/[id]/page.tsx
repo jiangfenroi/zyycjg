@@ -6,7 +6,6 @@ import {
   ArrowLeft, 
   ExternalLink, 
   FileText, 
-  Calendar, 
   User, 
   MapPin, 
   Briefcase, 
@@ -22,6 +21,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
+/**
+ * 在静态导出模式下，动态路由必须预先生成路径。
+ * 虽然在客户端组件中使用 generateStaticParams 是受限的，
+ * 但在 Next.js 15 导出模式下，这有助于编译器处理 Mock 数据。
+ */
+export async function generateStaticParams() {
+  return MOCK_PERSONS.map((person) => ({
+    id: person.PERSONID,
+  }))
+}
+
 export default function PatientDetailPage() {
   const { id } = useParams()
   const router = useRouter()
@@ -29,7 +39,7 @@ export default function PatientDetailPage() {
   const results = MOCK_RESULTS.filter(r => r.PERSONID === id)
   const docs = MOCK_DOCS.filter(d => d.PERSONID === id)
 
-  if (!person) return <div className="p-8 text-center">患者不存在</div>
+  if (!person) return <div className="p-8 text-center text-muted-foreground">患者档案正在加载或不存在...</div>
 
   const openPACS = () => {
     window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
@@ -46,7 +56,6 @@ export default function PatientDetailPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Patient Profile Card */}
         <Card className="md:col-span-1 h-fit">
           <CardHeader className="text-center pb-2">
             <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -81,7 +90,6 @@ export default function PatientDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Clinical History & Tasks */}
         <div className="md:col-span-2 space-y-6">
           <Tabs defaultValue="abnormal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
@@ -170,7 +178,7 @@ export default function PatientDetailPage() {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="text-sm font-medium truncate">{doc.FILENAME}</p>
-                      <p className="text-xs text-muted-foreground">{doc.TYPE === 'IMAGING' ? '检查结果 (CT/MRI)' : '体检报告'} · {doc.UPLOAD_DATE}</p>
+                      <p className="text-xs text-muted-foreground">{doc.TYPE === 'IMAGING' ? '检查结果' : '体检报告'} · {doc.UPLOAD_DATE}</p>
                     </div>
                     <Button variant="ghost" size="icon">
                       <Download className="h-4 w-4" />

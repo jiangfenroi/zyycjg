@@ -34,7 +34,7 @@ export default function AbnormalResultsPage() {
     ZYYCJGTZSJ: '',
   })
 
-  // 本地模拟摘要功能，不再调用远程 AI 服务，以支持静态打包
+  // 客户端模拟 AI 摘要功能（为了支持静态导出，不使用服务器端流程）
   const handleAISummarize = async () => {
     if (!formData.ZYYCJGXQ) {
       toast({ title: "提示", description: "请先输入异常结果详情" })
@@ -42,22 +42,26 @@ export default function AbnormalResultsPage() {
     }
     setIsSummarizing(true)
     
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // 模拟网络处理延迟
+    await new Promise(resolve => setTimeout(resolve, 1200))
     
     try {
       const text = formData.ZYYCJGXQ;
-      // 简单的本地文本处理逻辑作为“摘要”替代方案
-      const summary = text.length > 30 ? text.substring(0, 30) + "..." : text;
-      
+      // 模拟简单的 AI 提取逻辑
+      const keywords = ["建议", "复查", "结节", "钙化", "进一步", "检查"].filter(k => text.includes(k));
+      const summary = text.length > 40 ? text.substring(0, 40) + "..." : text;
+      const advice = keywords.length > 0 
+        ? `针对"${keywords.join('、')}"等关键词，建议遵医嘱进行专项复查。`
+        : "建议结合临床表现，由专业医师进行综合研判。";
+
       setFormData(prev => ({ 
         ...prev, 
-        ZYYCJGCZYJ: `[摘要] ${summary}\n\n[建议] 请结合临床表现，安排进一步检查（如强化CT或活检）。` 
+        ZYYCJGCZYJ: `【AI 摘要】${summary}\n\n【辅助建议】${advice}\n\n[注意：此摘要由本地辅助算法生成]` 
       }))
       
-      toast({ title: "处理完成", description: "已生成建议摘要" })
+      toast({ title: "处理完成", description: "已通过辅助算法生成摘要建议" })
     } catch (e) {
-      toast({ variant: "destructive", title: "摘要失败" })
+      toast({ variant: "destructive", title: "摘要处理失败" })
     } finally {
       setIsSummarizing(false)
     }
@@ -128,7 +132,7 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <div className="space-y-2">
-                    <Label>智能建议</Label>
+                    <Label>智能辅助</Label>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -138,12 +142,12 @@ export default function AbnormalResultsPage() {
                       disabled={isSummarizing}
                     >
                       <Sparkles className="mr-1 h-3 w-3 text-secondary" />
-                      {isSummarizing ? '分析中...' : '快速辅助'}
+                      {isSummarizing ? '分析中...' : '快速建议'}
                     </Button>
                   </div>
                   <Textarea 
                     className="col-span-3 min-h-[100px]" 
-                    placeholder="系统将根据详情自动生成建议..."
+                    placeholder="辅助摘要将在此生成..."
                     value={formData.ZYYCJGCZYJ}
                     onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})}
                   />
