@@ -17,6 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MOCK_DOCS, MOCK_PERSONS } from '@/lib/mock-store'
 import { useToast } from '@/hooks/use-toast'
+import Link from 'next/link'
 
 export default function ReportsPage() {
   const { toast } = useToast()
