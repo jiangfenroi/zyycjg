@@ -11,7 +11,9 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
+// 注册特权协议，确保 app-file 和 app 协议被视为安全且支持 Fetch
 protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
 
@@ -177,19 +179,16 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false,
+      webSecurity: false, // 允许加载跨域资源
     },
     title: "MediTrack Connect"
   });
 
-  const url = isDev 
-    ? `http://localhost:9002${startPath}` 
-    : `file://${path.join(__dirname, '../out/index.html')}#${startPath}`;
-
   if (isDev) {
-    mainWindow.loadURL(url);
+    mainWindow.loadURL(`http://localhost:9002${startPath}`);
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../out/index.html'), { hash: startPath });
+    // 静态打包后使用 Hash 路由定位
+    mainWindow.loadURL(`app://./index.html#${startPath}`);
   }
 }
 
@@ -293,6 +292,16 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
+  // 核心：注册 app 协议以支持 Next.js 静态资源的相对路径加载
+  protocol.registerFileProtocol('app', (request, callback) => {
+    let url = request.url.replace('app://', '');
+    if (url.startsWith('./')) url = url.slice(2);
+    
+    const filePath = path.join(app.getAppPath(), 'out', url);
+    callback({ path: path.normalize(filePath) });
+  });
+
+  // 注册 app-file 协议以加载本地磁盘文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     let url = request.url.replace('app-file://', '');
     try {
