@@ -55,7 +55,7 @@ export default function AbnormalResultsPage() {
       const data = await DataService.getAbnormalResults()
       setResults(data)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据加载失败", description: "无法从中心数据库拉取记录。" })
+      toast({ variant: "destructive", title: "数据同步失败", description: "无法从中心数据库拉取记录。" })
     } finally {
       setLoading(false)
     }
@@ -86,11 +86,8 @@ export default function AbnormalResultsPage() {
   })
 
   const handleExport = () => {
-    if (results.length === 0) {
-      toast({ title: "导出提示", description: "当前没有记录可供导出。" })
-      return
-    }
-    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "重要异常结果详情", "是否通知", "是否健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    if (results.length === 0) return
+    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "异常结果详情", "是否通知", "宣教状态", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     const rows = results.map(res => [
       res.PERSONID, res.TJBHID, res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
@@ -100,26 +97,24 @@ export default function AbnormalResultsPage() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `重要异常结果登记表_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `重要异常结果登记表_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    document.body.removeChild(link);
-    toast({ title: "导出成功" })
+    toast({ title: "报表导出成功" })
   }
 
   const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.TJBHID) {
-      toast({ variant: "destructive", title: "校验失败", description: "档案编号和体检编号为必填字段。" })
+      toast({ variant: "destructive", title: "校验失败", description: "关键字段不可为空。" })
       return
     }
     setSubmitting(true)
     const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
     if (success) {
-      toast({ title: "录入成功" })
+      toast({ title: "登记成功" })
       setIsDialogOpen(false)
       loadData()
-      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+      const storedUser = localStorage.getItem('currentUser');
       const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
       setFormData({
         PERSONID: '', TJBHID: '', ZYYCJGXQ: '', ZYYCJGFL: 'A', ZYYCJGCZYJ: '', ZYYCJGFKJG: '',
@@ -141,40 +136,34 @@ export default function AbnormalResultsPage() {
           <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-2 h-4 w-4" /> 导出报表</Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl">
               <DialogHeader><DialogTitle>重要异常结果入库登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号 (PERSONID)</Label><Input className="font-mono" value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>体检编号 (TJBHID)</Label><Input className="font-mono" value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
-                <div className="space-y-2">
-                  <Label>重要异常结果详情</Label>
-                  <Textarea className="min-h-[80px]" placeholder="详细记录检查发现的异常指标..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <Label>处置建议</Label>
-                  <Textarea className="min-h-[60px]" placeholder="临床医生的处置建议与医学指导..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
-                </div>
+                <div className="space-y-2"><Label>异常结果详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
+                <div className="space-y-2"><Label>处置建议</Label><Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>异常分类</Label>
                     <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="A"><span className="font-semibold text-destructive">A类 (紧急干预)</span></SelectItem>
-                        <SelectItem value="B"><span className="font-semibold text-primary">B类 (复查随访)</span></SelectItem>
+                        <SelectItem value="A">A类 (紧急)</SelectItem>
+                        <SelectItem value="B">B类 (常规)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex items-center gap-6 pt-8">
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(checked) => setFormData({...formData, IS_NOTIFIED: !!checked})} />
-                      <Label htmlFor="notified" className="cursor-pointer font-bold">已通知</Label>
+                      <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(v) => setFormData({...formData, IS_NOTIFIED: !!v})} />
+                      <Label htmlFor="notified">已通知</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox id="health_edu" checked={formData.IS_HEALTH_EDU} onCheckedChange={(checked) => setFormData({...formData, IS_HEALTH_EDU: !!checked})} />
-                      <Label htmlFor="health_edu" className="cursor-pointer font-bold">已进行健康宣教</Label>
+                      <Checkbox id="health" checked={formData.IS_HEALTH_EDU} onCheckedChange={(v) => setFormData({...formData, IS_HEALTH_EDU: !!v})} />
+                      <Label htmlFor="health">已健康宣教</Label>
                     </div>
                   </div>
                 </div>
@@ -184,12 +173,11 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>通知医生</Label><Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>被通知人</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="本人 / 家属" /></div>
+                  <div className="space-y-2"><Label>被通知人</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} /></div>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-                <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步写入数据库"}</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <Loader2 className="animate-spin" /> : "同步写入中心库"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -202,7 +190,7 @@ export default function AbnormalResultsPage() {
             <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="检索姓名、档案号、体检号..." className="pl-8 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <Input placeholder="检索姓名、档案号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -219,7 +207,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[120px]">联系电话</TableHead>
                   <TableHead className="w-[110px]">体检日期</TableHead>
                   <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[200px]">重要异常结果详情</TableHead>
+                  <TableHead className="min-w-[200px]">异常详情</TableHead>
                   <TableHead className="w-[80px]">是否通知</TableHead>
                   <TableHead className="w-[80px]">健康宣教</TableHead>
                   <TableHead className="w-[110px]">通知日期</TableHead>
@@ -237,31 +225,26 @@ export default function AbnormalResultsPage() {
                   <TableRow key={res.ID} className="text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
                     <TableCell className="font-mono">{res.TJBHID}</TableCell>
-                    <TableCell className="font-medium">
-                      <Link href={`/patients/${res.PERSONID}`} className="text-primary hover:underline">{res.PERSONNAME || '未知'}</Link>
-                    </TableCell>
+                    <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
                     <TableCell>{res.SEX || '-'}</TableCell>
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
                     <TableCell className="font-mono">{res.OCCURDATE || '-'}</TableCell>
                     <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">已通知</Badge> : <Badge variant="outline">未通知</Badge>}</TableCell>
-                    <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">已宣教</Badge> : <Badge variant="outline">未宣教</Badge>}</TableCell>
+                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600">已通知</Badge> : <Badge variant="outline">未通知</Badge>}</TableCell>
+                    <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600">已宣教</Badge> : <Badge variant="outline">未宣教</Badge>}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
                     <TableCell>{res.ZYYCJGBTZR}</TableCell>
                     <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}><ExternalLink className="h-3.5 w-3.5" /></Button>
-                      </div>
+                      <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未检索到记录。</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

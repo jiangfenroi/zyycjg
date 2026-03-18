@@ -40,13 +40,13 @@ export const DataService = {
       );
       const results = await Promise.all(promises);
       const success = results.every(r => r.success);
-      if (success) await this.addLog('系统管理员', '更新了系统品牌标识与Logo设置', 'system');
+      if (success) await this.addLog('管理员', '更新了系统品牌配置', 'system');
       return success;
     }
     return true;
   },
 
-  // 核心审计日志
+  // 审计日志
   async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
@@ -64,12 +64,12 @@ export const DataService = {
     return [];
   },
 
-  // 患者档案管理
+  // 患者档案
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (result.success) return result.data;
-      throw new Error(result.error || '无法从中心服务器拉取患者列表');
+      throw new Error(result.error || '数据库连接异常');
     }
     return [];
   },
@@ -83,15 +83,15 @@ export const DataService = {
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员'
       ]);
       if (result.success) {
-        await this.addLog(person.OPTNAME || '管理员', `为患者 ${person.PERSONNAME} (ID: ${person.PERSONID}) 创建了档案`, 'update');
+        await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
         return true;
       }
-      throw new Error(result.error || '中心数据库写入档案失败');
+      throw new Error(result.error);
     }
     return true;
   },
 
-  // 重要异常结果业务
+  // 重要异常结果 (核心 16 维数据处理)
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const sql = `
@@ -107,23 +107,23 @@ export const DataService = {
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         res.ID, res.PERSONID, res.TJBHID, res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || ''
+        res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
       if (result.success) {
-        await this.addLog(res.WORKER, `登记了患者 ID ${res.PERSONID} 的 ${res.ZYYCJGFL}类 重要异常结果`, 'alert');
+        await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
         return true;
       }
-      throw new Error(result.error || '数据库异常写入失败');
+      throw new Error(result.error);
     }
     return true;
   },
 
-  // 随访结案与计划任务
+  // 随访结案 (核心 10 维数据处理)
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_FOLLOWUPS ORDER BY SFTIME DESC';
@@ -141,10 +141,10 @@ export const DataService = {
         followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
       ]);
       if (result.success) {
-        await this.addLog(followUp.SFGZRY, `完成了患者 ID ${followUp.PERSONID} 的随访结案登记`, 'completed');
+        await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
         return true;
       }
-      throw new Error(result.error || '随访记录同步服务器失败');
+      throw new Error(result.error);
     }
     return true;
   },
@@ -174,7 +174,7 @@ export const DataService = {
     return true;
   },
 
-  // 报告附件存取 (Windows UNC 穿透)
+  // 附件管理
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ? ORDER BY UPLOAD_DATE DESC' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
@@ -189,14 +189,9 @@ export const DataService = {
       const uploadResult = await window.electronAPI.uploadFile(personId, type, customDate);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
-        
         if (personId === 'SYSTEM') return fileUrl;
-
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
-        if (dbResult.success) {
-          await this.addLog('系统', `为患者 ID ${personId} 上传了报告附件: ${fileName}`, 'update');
-        }
         return dbResult.success;
       }
     }
@@ -211,7 +206,7 @@ export const DataService = {
     return false;
   },
 
-  // 账户权限管理
+  // 账户管理
   async getUsers(): Promise<User[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
@@ -226,9 +221,8 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]
       ]);
-      if (result.success) await this.addLog('系统管理员', `创建了新账户: ${user.USERNAME}`, 'system');
       return result;
     }
-    return { success: false, error: '非桌面环境' };
+    return { success: false, error: 'OFFLINE' };
   }
 };

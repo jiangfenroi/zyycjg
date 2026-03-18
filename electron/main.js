@@ -11,7 +11,7 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// Windows 7/8 适配：必须在 app.whenReady 之前注册自定义协议的特权
+// Windows 7/8 适配：必须在 app.whenReady 之前注册协议特权
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
@@ -65,11 +65,9 @@ async function initDB(config) {
       connectTimeout: 15000
     });
     
-    // 测试连接
     const connection = await dbPool.getConnection();
     connection.release();
 
-    // 核心业务表初始化 (适配 Windows 环境)
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -144,13 +142,22 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认管理员 (如果不存在)
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
         'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)',
         ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]
       );
+    }
+
+    // 初始化基础设置
+    const defaultSettings = [
+      ['SYSTEM_NAME', 'MediTrack Connect'],
+      ['SYSTEM_LOGO_TEXT', 'M'],
+      ['SYSTEM_LOGO_URL', '']
+    ];
+    for (const [key, val] of defaultSettings) {
+      await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
     }
 
     return { success: true };
@@ -168,7 +175,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许加载局域网/本地资源
+      webSecurity: false,
     },
     title: "MediTrack Connect"
   });
@@ -184,7 +191,6 @@ function createWindow(startPath = '/') {
   }
 }
 
-// IPC 消息处理器
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -238,8 +244,6 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
-    
-    // 优先读取环境变量 UPLOAD_PATH (建议配置为 Windows 共享文件夹)
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
@@ -287,13 +291,11 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // Windows 7/8.1 适配：使用 Electron 22 规范的协议注册
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     
     if (process.platform === 'win32') {
-      // 处理 Windows UNC 路径和盘符
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }
