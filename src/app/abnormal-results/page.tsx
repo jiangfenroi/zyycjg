@@ -40,7 +40,7 @@ export default function AbnormalResultsPage() {
     TJBHID: '',
     ZYYCJGXQ: '',
     ZYYCJGFL: 'A' as 'A' | 'B',
-    ZYYCJGCZYJ: '',
+    ZYYCJGCZYJ: '', // 处理意见
     ZYYCJGFKJG: '',
     ZYYCJGTZRQ: '',
     ZYYCJGTZSJ: '',
@@ -94,7 +94,7 @@ export default function AbnormalResultsPage() {
       return
     }
 
-    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "电话号码", "分类", "结果详情", "健康宣教", "通知日期", "通知时间", "被通知人", "通知人"];
+    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "电话号码", "分类", "异常结果详情", "健康宣教", "处理意见", "通知日期", "通知时间", "被通知人", "通知人"];
     
     const rows = results.map(res => [
       res.PERSONID,
@@ -106,6 +106,7 @@ export default function AbnormalResultsPage() {
       `${res.ZYYCJGFL}类`,
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`,
       res.IS_HEALTH_EDU ? '是' : '否',
+      `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`,
       res.ZYYCJGTZRQ,
       res.ZYYCJGTZSJ,
       res.ZYYCJGBTZR,
@@ -185,7 +186,7 @@ export default function AbnormalResultsPage() {
                 <Plus className="mr-2 h-4 w-4" /> 新增登记
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>重要异常结果入库登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -226,8 +227,12 @@ export default function AbnormalResultsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>异常详情描述</Label>
+                  <Label>重要异常结果详情</Label>
                   <Textarea className="min-h-[80px]" placeholder="详细记录检查发现的异常指标..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>处理意见</Label>
+                  <Textarea className="min-h-[60px]" placeholder="临床医生的初步处置建议或复查要求..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
                 </div>
                 <div className="flex items-center space-x-2 py-2">
                   <Checkbox 
@@ -291,10 +296,11 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[60px]">年龄</TableHead>
                   <TableHead className="w-[120px]">电话号码</TableHead>
                   <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[250px]">异常结果详情</TableHead>
+                  <TableHead className="min-w-[200px]">异常详情</TableHead>
                   <TableHead className="w-[100px]">健康宣教</TableHead>
-                  <TableHead className="w-[120px]">通知日期</TableHead>
-                  <TableHead className="w-[100px]">通知时间</TableHead>
+                  <TableHead className="min-w-[150px]">处理意见</TableHead>
+                  <TableHead className="w-[110px]">通知日期</TableHead>
+                  <TableHead className="w-[90px]">通知时间</TableHead>
                   <TableHead className="w-[100px]">被通知人</TableHead>
                   <TableHead className="w-[100px]">通知人</TableHead>
                   <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
@@ -302,7 +308,7 @@ export default function AbnormalResultsPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={14} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={15} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
@@ -320,7 +326,7 @@ export default function AbnormalResultsPage() {
                         {res.ZYYCJGFL}类
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell>
                       {res.IS_HEALTH_EDU ? (
                         <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">已宣教</Badge>
@@ -328,6 +334,7 @@ export default function AbnormalResultsPage() {
                         <Badge variant="outline" className="text-muted-foreground">未宣教</Badge>
                       )}
                     </TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell>{res.ZYYCJGBTZR}</TableCell>
@@ -346,7 +353,7 @@ export default function AbnormalResultsPage() {
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={14} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={15} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
