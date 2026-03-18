@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -52,7 +53,7 @@ export default function AbnormalResultsPage() {
       const data = await DataService.getAbnormalResults()
       setResults(data)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据加载失败", description: "无法从中心数据库获取记录。" })
+      toast({ variant: "destructive", title: "数据加载失败", description: "无法从中心数据库拉取记录。" })
     } finally {
       setLoading(false)
     }
@@ -62,15 +63,17 @@ export default function AbnormalResultsPage() {
     loadData()
     
     // 初始化默认值，避免水合错误
-    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
-    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
-    
-    setFormData(prev => ({
-      ...prev,
-      ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
-      ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-      WORKER: realName // 默认为当前登录用户姓名
-    }))
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('currentUser');
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
+      
+      setFormData(prev => ({
+        ...prev,
+        ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
+        ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+        WORKER: realName
+      }))
+    }
   }, [loadData])
 
   const filteredResults = results.filter(res => {
@@ -89,7 +92,7 @@ export default function AbnormalResultsPage() {
       return
     }
 
-    const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "结果", "是否通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    const headers = ["姓名", "性别", "年龄", "电话", "体检日期", "分类", "结果", "已通知", "已宣教", "通知日期", "通知时间", "经办医生", "被通知人", "处置建议"];
     
     const rows = results.map(res => [
       res.PERSONNAME || '未知',
@@ -114,17 +117,17 @@ export default function AbnormalResultsPage() {
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `MediTrack_重要异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `重要异常结果登记表_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    toast({ title: "导出成功", description: "报表已开始下载。" })
+    toast({ title: "导出成功", description: "CSV 报表已生成并下载。" })
   }
 
   const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.TJBHID) {
-      toast({ variant: "destructive", title: "校验失败", description: "档案编号和体检编号为必填。" })
+      toast({ variant: "destructive", title: "校验失败", description: "档案编号和体检编号为必填字段。" })
       return
     }
 
@@ -139,7 +142,7 @@ export default function AbnormalResultsPage() {
     const success = await DataService.addAbnormalResult(newResult)
     
     if (success) {
-      toast({ title: "登记成功", description: `体检编号 ${formData.TJBHID} 已录入数据库。` })
+      toast({ title: "录入成功", description: `体检号 ${formData.TJBHID} 已同步至服务器。` })
       setIsDialogOpen(false)
       loadData()
       
@@ -159,7 +162,7 @@ export default function AbnormalResultsPage() {
         ZYYCJGBTZR: '',
       })
     } else {
-      toast({ variant: "destructive", title: "数据库写入失败" })
+      toast({ variant: "destructive", title: "数据库同步失败", description: "请检查网络连接或服务器状态。" })
     }
     setSubmitting(false)
   }
@@ -169,10 +172,10 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">闭环管理业务异常结果，数据中心同步。</p>
+          <p className="text-muted-foreground mt-1">闭环管理业务异常结果，全院数据中心同步。</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "该功能目前由管理员在服务器端执行。" })}>
+          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "该功能需管理员在服务器端执行 SQL 导入。" })}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -184,30 +187,30 @@ export default function AbnormalResultsPage() {
                 <Plus className="mr-2 h-4 w-4" /> 新增登记
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>异常结果入库登记</DialogTitle></DialogHeader>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader><DialogTitle>重要异常结果入库登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>档案编号</Label>
+                    <Label>档案编号 (PERSONID)</Label>
                     <Input className="font-mono" value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>体检编号</Label>
+                    <Label>体检编号 (TJBHID)</Label>
                     <Input className="font-mono" value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label>分类</Label>
+                    <Label>异常分类</Label>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p><b>A类：</b>需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。</p>
-                          <p className="mt-2"><b>B类：</b>需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。</p>
+                          <p><b>A类：</b>需立即临床干预，否则危及生命。</p>
+                          <p className="mt-2"><b>B类：</b>需进一步检查确认或门诊治疗。</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -216,25 +219,21 @@ export default function AbnormalResultsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A">
-                        <div className="flex flex-col text-left">
-                          <span className="font-semibold text-destructive">A类</span>
-                        </div>
+                        <span className="font-semibold text-destructive">A类 (紧急干预)</span>
                       </SelectItem>
                       <SelectItem value="B">
-                        <div className="flex flex-col text-left">
-                          <span className="font-semibold text-primary">B类</span>
-                        </div>
+                        <span className="font-semibold text-primary">B类 (复查随访)</span>
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>异常详情</Label>
-                  <Textarea className="min-h-[80px]" placeholder="请详细描述临床发现的异常体征或实验室指标..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
+                  <Label>异常详情描述</Label>
+                  <Textarea className="min-h-[80px]" placeholder="详细记录检查发现的异常指标、病灶大小等..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <Label>处置意见</Label>
-                  <Textarea className="min-h-[80px]" placeholder="记录医生的建议，如：立即住院、门诊复查、急诊干预等..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
+                  <Label>处置及医学建议</Label>
+                  <Textarea className="min-h-[80px]" placeholder="记录医生的专业建议：如立即住院、急诊观察、专科复查等..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -248,19 +247,19 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>通知医生</Label>
+                    <Label>登记/经办医生</Label>
                     <Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>被通知人</Label>
-                    <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
+                    <Label>被通知人 (关系)</Label>
+                    <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="本人 / 家属姓名" />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
                 <Button onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "确认提交"}
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步写入中心数据库"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -271,10 +270,10 @@ export default function AbnormalResultsPage() {
       <Card>
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">已登记重要异常结果数据库</CardTitle>
+            <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="搜索姓名、档案号、体检号..." className="pl-8 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <Input placeholder="检索姓名、档案号、体检号..." className="pl-8 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -287,26 +286,22 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[60px]">性别</TableHead>
                   <TableHead className="w-[60px]">年龄</TableHead>
                   <TableHead className="w-[120px]">联系电话</TableHead>
-                  <TableHead className="w-[120px]">体检时间</TableHead>
+                  <TableHead className="w-[120px]">体检日期</TableHead>
                   <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[200px]">结果</TableHead>
+                  <TableHead className="min-w-[200px]">异常结果</TableHead>
                   <TableHead className="w-[80px]">通知</TableHead>
-                  <TableHead className="w-[80px]">宣教</TableHead>
                   <TableHead className="w-[120px]">通知日期</TableHead>
-                  <TableHead className="w-[100px]">通知时间</TableHead>
-                  <TableHead className="w-[100px]">通知医生</TableHead>
-                  <TableHead className="w-[100px]">被通知人</TableHead>
-                  <TableHead className="min-w-[200px]">处置建议</TableHead>
+                  <TableHead className="w-[100px]">操作医生</TableHead>
                   <TableHead className="w-[100px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={15} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-xs">
                     <TableCell className="font-medium">
-                      <Link href={`/patients/${res.PERSONID}`} className="text-primary hover:underline flex items-center gap-1">
+                      <Link href={`/patients/${res.PERSONID}`} className="text-primary hover:underline">
                         {res.PERSONNAME || '未知'}
                       </Link>
                     </TableCell>
@@ -315,42 +310,29 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.PHONE || '-'}</TableCell>
                     <TableCell>{res.OCCURDATE || '-'}</TableCell>
                     <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="cursor-help">
-                              {res.ZYYCJGFL}类
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {res.ZYYCJGFL === 'A' ? 'A类：需立即进行临床干预' : 'B类：需要临床进一步检查或治疗'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
+                        {res.ZYYCJGFL}类
+                      </Badge>
                     </TableCell>
                     <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell>{res.IS_NOTIFIED ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
-                    <TableCell>{res.IS_HEALTH_EDU ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
                     <TableCell>{res.ZYYCJGTZRQ}</TableCell>
-                    <TableCell>{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
-                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
-                    <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="查看患者档案" asChild>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="查看档案" asChild>
                           <Link href={`/patients/${res.PERSONID}`}>
-                            <Eye className="h-3.5 w-3.5 text-primary" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="查看PACS影像" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="PACS影像" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={15} className="text-center py-20 text-muted-foreground">暂无符合条件的登记结果。</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

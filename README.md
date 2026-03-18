@@ -7,8 +7,8 @@
 
 ### 1. 核心兼容性 (Legacy Windows Support)
 - **客户端支持**: Windows 7 (SP1+), Windows 8.1, Windows 10/11 (x64)
-  - *注：为了适配 Windows 7，系统内核已锁定至 Electron 22.x 系列。*
-- **服务器端**: Windows Server 2012+ 或 Windows 10+
+  - *注：为了适配 Windows 7/8.1，系统内核已锁定至 Electron 22.x 系列。*
+- **服务器端**: Windows Server 2012+ 或 Windows 10/11
 - **数据库**: MySQL 8.0+
 
 ### 2. 网络存储配置 (关键)
@@ -34,15 +34,15 @@ FLUSH PRIVILEGES;
 ```
 
 ### 2. 核心业务表结构
-系统在客户端配置成功后会自动检测并创建以下表：
+系统在客户端配置成功后会自动创建以下 8 张表：
 - `SP_USERS`: 账户权限与工号管理。
 - `SP_PERSON`: 全院患者基础档案库。
 - `SP_ZYJG`: A/B 类重要异常结果登记表。
 - `SP_FOLLOWUPS`: 随访结案记录流水。
-- `SP_FOLLOWUP_TASKS`: 自动化随访计划引擎。
-- `SP_DOCUMENTS`: PDF 报告与影像附件索引。
-- `SP_SETTINGS`: 全局品牌标识与 Logo 配置。
-- `SP_LOGS`: 全量操作审计日志。
+- `SP_FOLLOWUP_TASKS`: 自动化计划复查任务。
+- `SP_DOCUMENTS`: PDF 报告与影像扫描件索引。
+- `SP_SETTINGS`: 全局品牌标识与 Logo。
+- `SP_LOGS`: 系统操作审计日志。
 
 ---
 
@@ -52,23 +52,19 @@ FLUSH PRIVILEGES;
    ```bash
    npm install
    ```
-2. 编译生产环境静态文件并生成适配 Win7/10 的 EXE 安装包：
+2. 编译并生成适配 Win7/10 的 EXE 安装包：
    ```bash
    npm run dist
    ```
-3. 将 `dist/` 目录下的安装包分发至各科室终端。
+3. 将 `dist/` 目录下的安装包分发至科室终端。
 
 ---
 
-## 四、 常见适配问题解决
+## 四、 常见问题解决
 
-- **Windows 7 提示“无法定位程序输入点”**: 请确保系统已升级至 Service Pack 1 并安装 KB2533623 补丁。
-- **PDF 预览空白或提示网络错误**: 
-  - 检查客户端是否具备对服务器共享文件夹的读权限。
-  - 检查 `.env` 中的 `UPLOAD_PATH` 是否使用了正确的 UNC 路径格式。
-- **数据无法保存**: 
-  - 检查 MySQL 服务器是否允许远程连接。
-  - 检查客户端“网络版接入向导”填写的配置是否准确。
+- **Windows 7 提示“无法定位程序输入点”**: 确保安装了 KB2533623 补丁。
+- **PDF 预览空白**: 检查客户端是否具备对服务器共享文件夹的读权限，路径是否使用了 UNC 格式。
+- **数据同步失败**: 检查 MySQL 是否允许远程连接，防火墙是否拦截 3306 端口。
 
 ---
 &copy; 2024 MediTrack Connect. 医疗数据安全保护系统.

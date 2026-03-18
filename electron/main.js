@@ -69,7 +69,7 @@ async function initDB(config) {
     const connection = await dbPool.getConnection();
     connection.release();
 
-    // 自动建表逻辑
+    // 自动建表逻辑 (全院数据库同步)
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -242,7 +242,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
 ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择文件',
+      title: '选择报告文件',
       properties: ['openFile'],
       filters: [{ name: 'PDF/Image', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
     });
@@ -252,11 +252,15 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
     
-    // Windows 环境下优先读取环境变量配置的 UPLOAD_PATH
+    // Windows 环境下优先读取环境变量配置的 UPLOAD_PATH (应设置为局域网共享文件夹)
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
-      fs.mkdirSync(uploadBaseDir, { recursive: true });
+      try {
+        fs.mkdirSync(uploadBaseDir, { recursive: true });
+      } catch (e) {
+        console.error("Failed to create upload dir:", e);
+      }
     }
 
     const targetFileName = personId === 'SYSTEM' 
@@ -302,6 +306,7 @@ app.whenReady().then(async () => {
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     
     if (process.platform === 'win32') {
+      // 处理 Windows UNC 路径 (\\Server\Share) 和 盘符路径
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }

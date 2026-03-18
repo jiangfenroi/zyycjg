@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -22,6 +23,7 @@ import { DataService } from "@/services/data-service"
 import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export default function Dashboard() {
+  const [isClient, setIsClient] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [stats, setStats] = React.useState({
     totalPatients: 0,
@@ -34,6 +36,7 @@ export default function Dashboard() {
   const [trendData, setTrendData] = React.useState<any[]>([])
 
   React.useEffect(() => {
+    setIsClient(true)
     async function loadDashboardData() {
       setLoading(true)
       try {
@@ -57,7 +60,7 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
-        // 趋势统计逻辑：以通知日期为准
+        // 趋势统计逻辑：按月份分布
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         
@@ -93,15 +96,16 @@ export default function Dashboard() {
     : 0
 
   const categoryData = [
-    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。" },
-    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需立即临床干预，否则危及生命的异常结果。" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需进一步检查确认或医学治疗的重要异常结果。" },
   ]
 
-  if (loading) {
+  // 防止水合错误
+  if (!isClient || loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">中心数据同步中...</span>
+        <span className="ml-2">中心数据库同步中...</span>
       </div>
     )
   }
@@ -111,7 +115,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">网络版中心服务器数据实时概览。</p>
+          <p className="text-muted-foreground mt-1">MediTrack Connect 网络版中心服务器数据概览。</p>
         </div>
         <div className="flex items-center gap-4">
           <FollowUpNotifier />
@@ -129,7 +133,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">中心数据库所有患者记录</p>
+            <p className="text-xs text-muted-foreground mt-1">全院中心数据库所有记录</p>
           </CardContent>
         </Card>
         
@@ -140,24 +144,24 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 案例</p>
+            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 紧急案例</p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-secondary shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">业务闭环完成率</CardTitle>
+            <CardTitle className="text-sm font-medium">闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">已结案 {stats.completedFollowUps} 例</p>
+            <p className="text-xs text-muted-foreground mt-1">已结案随访 {stats.completedFollowUps} 例</p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">累计异常登记</CardTitle>
+            <CardTitle className="text-sm font-medium">重要异常登记</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
@@ -173,9 +177,8 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
-                重要异常结果随访趋势 (按通知日期)
+                随访趋势统计 (最近6个月)
               </CardTitle>
-              <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">统计标准：以通知日期为准</span>
             </div>
           </CardHeader>
           <CardContent className="h-[300px] mt-4">
@@ -195,7 +198,7 @@ export default function Dashboard() {
                           <p className="font-bold border-b pb-1 mb-1">{data.month}</p>
                           <p className="text-primary flex justify-between gap-4"><span>已随访:</span> <span>{data.count} 例</span></p>
                           <p className="text-muted-foreground flex justify-between gap-4"><span>异常总数:</span> <span>{data.total} 例</span></p>
-                          <p className="font-bold text-secondary flex justify-between gap-4 pt-1 border-t"><span>当月随访率:</span> <span>{rate}%</span></p>
+                          <p className="font-bold text-secondary flex justify-between gap-4 pt-1 border-t"><span>随访率:</span> <span>{rate}%</span></p>
                         </div>
                       );
                     }
@@ -213,7 +216,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-primary" />
-                异常分类占比
+                异常分类占比 (A/B)
               </CardTitle>
               <TooltipProvider>
                 <UITooltip>
@@ -222,9 +225,9 @@ export default function Dashboard() {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="font-bold text-destructive">A类</p>
-                    <p className="text-xs mb-2">需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。</p>
+                    <p className="text-xs mb-2">需立即干预，否则危及生命。</p>
                     <p className="font-bold text-primary">B类</p>
-                    <p className="text-xs">需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。</p>
+                    <p className="text-xs">需进一步检查确认或门诊治疗。</p>
                   </TooltipContent>
                 </UITooltip>
               </TooltipProvider>
@@ -253,7 +256,7 @@ export default function Dashboard() {
                         <div className="bg-background border p-2 rounded-lg shadow-xl text-xs max-w-[200px]">
                           <p className="font-bold" style={{ color: payload[0].payload.color }}>{payload[0].name}</p>
                           <p className="text-foreground mt-1">{payload[0].payload.description}</p>
-                          <p className="font-bold mt-2">数量: {payload[0].value}</p>
+                          <p className="font-bold mt-2">数量: {payload[0].value} 例</p>
                         </div>
                       );
                     }
@@ -277,7 +280,7 @@ export default function Dashboard() {
       <Card>
         <CardHeader>
           <CardTitle>核心业务操作</CardTitle>
-          <CardDescription>快捷访问中心数据库常用功能</CardDescription>
+          <CardDescription>快捷访问中心服务器常用业务模块</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
@@ -295,7 +298,7 @@ export default function Dashboard() {
           <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
             <Link href="/reports">
               <FileText className="h-6 w-6" />
-              <span>上传检查报告</span>
+              <span>报告附件管理</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
