@@ -1,3 +1,4 @@
+
 const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -9,6 +10,11 @@ require('dotenv').config();
 let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
+
+// 在应用启动前注册自定义协议以支持 Windows 8.1 环境下的 Electron 22
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+]);
 
 function loadLocalConfig() {
   if (fs.existsSync(configPath)) {
@@ -37,7 +43,6 @@ async function initDB(config) {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
-    // 如果已存在连接池，先关闭旧的
     if (dbPool) {
       try {
         await dbPool.end();
@@ -57,10 +62,9 @@ async function initDB(config) {
       queueLimit: 0,
       enableKeepAlive: true,
       keepAliveInitialDelay: 10000,
-      connectTimeout: 15000 // 增加连接超时限制
+      connectTimeout: 15000
     });
     
-    // 测试连接
     const connection = await dbPool.getConnection();
     connection.release();
 
@@ -138,7 +142,6 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认数据
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
@@ -286,7 +289,8 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  protocol.handle('app-file', (request) => {
+  // Electron 22 环境下需要使用 registerFileProtocol 而非 protocol.handle
+  protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     if (process.platform === 'win32') {
@@ -294,7 +298,7 @@ app.whenReady().then(async () => {
         filePath = filePath.slice(1);
       }
     }
-    return net.fetch('file://' + filePath);
+    callback({ path: path.normalize(filePath) });
   });
 
   const result = await initDB();

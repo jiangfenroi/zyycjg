@@ -1,3 +1,4 @@
+
 # MediTrack Connect - 网络版部署手册
 
 本项目是一个采用 **Client-Server (C/S)** 架构的医疗闭环管理系统。客户端基于 Electron + Next.js，服务器端依赖 MySQL 数据库。
@@ -12,7 +13,8 @@
 - **网络**: 确保服务器防火墙已开放 3306 端口。
 
 ### 2. 客户端 (Client PC)
-- **操作系统**: Windows 10/11 (x64)
+- **操作系统**: Windows 8.1, Windows 10/11 (x64)
+  - *注：为了支持 Windows 8.1，系统已将 Electron 降级至 22.x 版本，这是最后一个官方支持旧版 Windows 的 Chromium 核心版本。*
 - **运行环境**: 无需额外环境（安装包已内置运行时）。
 
 ---
