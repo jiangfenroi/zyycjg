@@ -2,13 +2,9 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  output: 'export', // 启用静态导出，这是打包桌面应用的前提
   images: {
+    unoptimized: true, // 静态导出模式下必须禁用图片优化
     remotePatterns: [
       {
         protocol: 'https',
@@ -29,6 +25,12 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
   },
 };
 
