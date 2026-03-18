@@ -41,6 +41,10 @@ function saveLocalConfig(config) {
   }
 }
 
+/**
+ * 初始化数据库连接与业务表
+ * 实现了服务器端首次运行的自动初始化逻辑
+ */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
@@ -48,6 +52,7 @@ async function initDB(config) {
 
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
+    // 1. 先尝试连接服务器本身，不指定数据库
     const connection = await mysql.createConnection({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '3306'),
@@ -55,6 +60,7 @@ async function initDB(config) {
       password: dbConfig.password,
     });
 
+    // 2. 自动创建 Schema (服务器端首次运行逻辑)
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await connection.end();
 
@@ -62,6 +68,7 @@ async function initDB(config) {
       try { await dbPool.end(); } catch (e) {}
     }
 
+    // 3. 建立连接池并初始化业务表
     dbPool = mysql.createPool({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '3306'),
@@ -71,7 +78,7 @@ async function initDB(config) {
       waitForConnections: true,
       connectionLimit: 50,
       queueLimit: 0,
-      connectTimeout: 10000
+      connectTimeout: 15000
     });
 
     const tables = [
@@ -152,11 +159,13 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
+    // 初始化系统参数
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
+    // 初始化默认管理员 (仅首次运行)
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
@@ -242,8 +251,8 @@ async function checkPendingTasksInBackground() {
         if (mainWindow) mainWindow.flashFrame(true);
         if (Notification.isSupported()) {
           new Notification({
-            title: '随访工作提醒',
-            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访结案，请及时处理。`,
+            title: '待随访工作提醒',
+            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访，请及时处理。`,
             silent: false
           }).show();
         }
@@ -303,7 +312,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       [username, password]
     );
     if (rows.length > 0) return { success: true, user: rows[0] };
-    return { success: false, error: 'INVALID_CREDENTIALS' };
+    return { success: false, error: '密码错误或账号不存在' };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -318,9 +327,9 @@ ipcMain.handle('set-flash', (event, flag) => {
 ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择报告文件',
+      title: '选择病历附件',
       properties: ['openFile'],
-      filters: [{ name: 'PDF/Image', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
+      filters: [{ name: '病历文件', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
     });
 
     if (canceled || filePaths.length === 0) return { success: false };
@@ -390,9 +399,8 @@ app.whenReady().then(async () => {
     createWindow('/setup');
   }
 
-  // 启动后台定时任务，每5分钟检查一次
   setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
-  setTimeout(checkPendingTasksInBackground, 10000); // 启动10秒后先检查一次
+  setTimeout(checkPendingTasksInBackground, 10000);
 });
 
 app.on('activate', () => {

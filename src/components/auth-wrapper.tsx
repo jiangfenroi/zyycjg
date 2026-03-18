@@ -7,8 +7,8 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 /**
- * 鉴权包装组件
- * 处理静态导出模式下的路由保护与中心数据库同步状态
+ * 核心鉴权与启动拦截组件
+ * 修复了 Next.js 在文件协议下的水合错误与路由卡死问题
  */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -20,7 +20,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setMounted(true)
     
-    // 设置 3 秒超时保护，防止在 Electron 环境下由于资源解析缓慢导致的无限加载
+    // 3秒安全超时保护
     const safetyTimer = setTimeout(() => {
       setTimeoutReached(true);
       setChecking(false);
@@ -30,7 +30,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       if (typeof window === 'undefined') return;
 
       const currentHash = window.location.hash || '';
-      // 兼容静态导出下的 Hash 路由匹配，确保能正确识别配置与登录页面
       const currentPath = currentHash.replace('#', '') || pathname;
       
       const isAuthPage = currentPath.includes('/login') || currentPath.includes('/setup');
@@ -40,7 +39,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 检查本地存储的登录凭据
       const user = localStorage.getItem('currentUser');
       if (!user) {
         router.push('/login');
@@ -48,7 +46,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       setChecking(false);
     }
 
-    // 给 Next.js 路由解析留出微小缓冲时间
     const timer = setTimeout(checkAuth, 300);
     
     return () => {
@@ -57,7 +54,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router])
 
-  // 在组件挂载前（SSR阶段），返回空或者一个绝对静态的占位符以避免水合错误
+  // SSR 阶段输出空内容，防止 Hydration 报错
   if (!mounted) {
     return null;
   }
