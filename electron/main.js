@@ -1,5 +1,5 @@
 
-const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -11,8 +11,7 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// 注册自定义协议以支持 Windows 8.1 
-// 注意：Electron 22 必须在 app.whenReady 前调用 registerSchemesAsPrivileged
+// Windows 7/8 适配：必须在 app.whenReady 之前注册自定义协议的特权
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
@@ -178,7 +177,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false,
+      webSecurity: false, // 允许跨域加载局域网 PDF
     },
     title: "MediTrack Connect"
   });
@@ -194,6 +193,7 @@ function createWindow(startPath = '/') {
   }
 }
 
+// IPC 处理器
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -290,17 +290,21 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // Win 8.1 兼容的协议注册
+  // Windows 7 适配：使用 Electron 22 兼容的 registerFileProtocol
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
+    // 解码协议路径，处理空格和中文字符
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
+    
     if (process.platform === 'win32') {
-      // 处理 UNC 共享路径与普通绝对路径
+      // 规范化路径，处理 UNC 路径
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }
+      filePath = path.normalize(filePath);
     }
-    callback({ path: path.normalize(filePath) });
+    
+    callback({ path: filePath });
   });
 
   const result = await initDB();

@@ -57,7 +57,7 @@
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
     "concurrently": "^8.2.2",
-    "electron": "^22.3.27",
+    "electron": "22.3.27",
     "electron-builder": "^24.13.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
@@ -87,7 +87,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MediTrack Connect"
+      "shortcutName": "MediTrack Connect",
+      "include": "electron/installer.nsh"
     }
   }
 }

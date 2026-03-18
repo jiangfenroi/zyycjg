@@ -1,83 +1,70 @@
 
-# MediTrack Connect - 网络版部署手册
+# MediTrack Connect - 医疗闭环管理系统部署手册
 
-本项目是一个采用 **Client-Server (C/S)** 架构的医疗闭环管理系统。客户端基于 Electron + Next.js，服务器端依赖 MySQL 数据库。
+本项目是一个采用 **Client-Server (C/S)** 架构的专业医疗业务管理系统，支持多终端同步。
 
-## 一、 环境要求
+## 一、 系统环境要求
 
-### 1. 服务器端 (Windows Server)
-- **数据库**: MySQL 8.0+ (建议安装在高性能磁盘分区)
-- **文件存储**: 需要一个用于存放 PDF 附件的目录。
-  - **关键步骤**: 在 Windows 中将该目录设置为“共享”，并确保所有客户端计算机均有读写权限（SMB 共享）。
-  - **示例路径**: `\\192.168.1.100\meditrack_storage`。
-- **网络**: 确保服务器防火墙已开放 3306 端口。
+### 1. 核心兼容性 (Legacy Windows Support)
+- **客户端支持**: Windows 7 (SP1+), Windows 8.1, Windows 10/11 (x64)
+  - *注：为了适配 Windows 7，系统内核已降级至 Electron 22.x，这是支持旧版 Windows 的最后一个长期维护内核。*
+- **服务器端**: Windows Server 2012+ 或 Windows 10+
+- **数据库**: MySQL 8.0+
 
-### 2. 客户端 (Client PC)
-- **操作系统**: Windows 8.1, Windows 10/11 (x64)
-  - *注：为了支持 Windows 8.1，系统已将 Electron 降级至 22.x 版本，这是最后一个官方支持旧版 Windows 的 Chromium 核心版本。*
-- **运行环境**: 无需额外环境（安装包已内置运行时）。
+### 2. 网络存储配置 (关键)
+为了实现“一处上传，全院查看”：
+1. 在服务器上创建一个用于存放 PDF 的目录（如 `D:\meditrack_storage`）。
+2. 将该目录设置为 **Windows 共享文件夹**。
+3. 确保所有客户端电脑能通过 `\\服务器IP\共享名` 路径直接读写该目录。
 
 ---
 
 ## 二、 数据库部署 (MySQL)
 
-### 第一步：创建数据库与权限
-执行以下 SQL 创建数据库与远程接入账号：
+### 1. 初始化脚本
+连接至 MySQL 服务器并执行：
 ```sql
 CREATE DATABASE meditrack_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 创建远程访问账号 (请替换 YourStrongPassword)
-CREATE USER 'medi_admin'@'%' IDENTIFIED BY 'YourStrongPassword';
+-- 创建远程访问账号 (请替换为您的强密码)
+CREATE USER 'medi_admin'@'%' IDENTIFIED BY 'AdminPassword123';
 GRANT ALL PRIVILEGES ON meditrack_db.* TO 'medi_admin'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### 第二步：表结构参考 (系统首次运行时会自动创建)
-系统主要包含以下 8 张核心业务表：
-
-1.  **SP_USERS**: 用户权限表 (存储工号、密码、角色)。
-2.  **SP_SETTINGS**: 系统配置表 (存储程序名称、Logo URL、Logo 文字等)。
-3.  **SP_PERSON**: 患者档案表 (存储患者基本信息、单位、建档日期)。
-4.  **SP_ZYJG**: 重要异常结果表 (存储 A/B 类结果详情、通知记录、关联患者信息)。
-5.  **SP_FOLLOWUPS**: 随访记录表 (存储已完成的随访内容、复查状态)。
-6.  **SP_FOLLOWUP_TASKS**: 随访计划表 (存储待执行的下次随访任务)。
-7.  **SP_DOCUMENTS**: 报告附件表 (存储 PDF 文件的物理路径索引)。
-8.  **SP_LOGS**: 系统操作日志表 (全量审计业务操作)。
+### 2. 业务表结构 (系统首次启动会自动创建)
+1. `SP_USERS`: 账户权限与工号管理。
+2. `SP_PERSON`: 全院患者基础档案库。
+3. `SP_ZYJG`: A/B 类重要异常结果登记表。
+4. `SP_FOLLOWUPS`: 随访结案记录流水。
+5. `SP_FOLLOWUP_TASKS`: 自动化随访计划引擎。
+6. `SP_DOCUMENTS`: PDF 报告与影像附件索引。
+7. `SP_SETTINGS`: 全局品牌标识与 Logo 配置。
+8. `SP_LOGS`: 全量操作审计日志。
 
 ---
 
-## 三、 客户端编译与分发
+## 三、 客户端打包与分发
 
-1.  下载源码并在根目录创建 `.env` 文件（或通过客户端初始化向导配置）：
-    ```env
-    # 中心服务器文件存储路径 (必须使用局域网共享路径)
-    UPLOAD_PATH=\\192.168.1.100\meditrack_storage
-    ```
-2.  安装依赖并编译打包：
-    ```bash
-    npm install
-    npm run dist
-    ```
-3.  将 `dist/` 目录下的安装包分发至各科室安装。
+1. 安装依赖（确保 Node.js 环境已就绪）：
+   ```bash
+   npm install
+   ```
+2. 编译生产环境静态文件并生成 EXE 安装包：
+   ```bash
+   npm run dist
+   ```
+3. 将 `dist/` 目录下的安装包分发至科室终端。
 
 ---
 
-## 四、 核心业务逻辑说明
+## 四、 常见适配问题解决
 
-### 1. 计划随访闭环
-- **任务触发**: 登记随访时可预设“下次随访日期”。
-- **自动提醒**: 系统会自动合并“未随访的新 A 类结果”和“已到达日期的计划任务”至待办列表。
-
-### 2. PDF 附件预览
-- **安全协议**: 通过 `app-file://` 实现局域网 PDF 在线查阅，无需手动通过资源管理器寻找。
-- **自定义日期**: 支持在上传时指定“检查日期”，非简单的“上传日期”。
-
-### 3. 系统品牌自定义
-- 管理员修改 Logo 图片或系统名称后，所有联网客户端在下次启动或刷新时将自动同步。
+- **Windows 7 提示“无法定位程序输入点”**: 请确保已安装 Windows 7 Service Pack 1 及相关安全更新（KB2533623）。
+- **PDF 预览空白**: 请检查客户端是否具备对服务器共享文件夹的读权限。
+- **数据库连接失败**: 
+  - 检查服务器 3306 端口是否在防火墙中开放。
+  - 检查 MySQL 账户是否配置了 `%` (任何主机) 的连接权限。
 
 ---
-
-## 五、 常见问题 (FAQ)
-- **连接超时**: 请检查服务器 3306 端口是否被防火墙拦截。
-- **PDF 无法加载**: 确保客户端电脑能通过资源管理器直接访问 `UPLOAD_PATH` 共享路径。
-- **权限不足**: 建议使用共享文件夹的“所有人(Everyone)”读写权限进行测试。
+&copy; 2024 MediTrack Connect. 医疗数据安全保护系统.
