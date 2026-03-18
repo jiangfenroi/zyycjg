@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Phone, History, MoreHorizontal, ExternalLink, CheckCircle2 } from 'lucide-react'
+import { Search, Phone, History, MoreHorizontal, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -94,10 +94,9 @@ export default function FollowUpsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>应随访日期</TableHead>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>联系电话</TableHead>
-                    <TableHead>体检日期</TableHead>
-                    <TableHead>异常分类</TableHead>
+                    <TableHead>患者信息</TableHead>
+                    <TableHead className="w-[300px]">重要异常结果详情</TableHead>
+                    <TableHead className="w-[200px]">处置建议</TableHead>
                     <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -113,30 +112,46 @@ export default function FollowUpsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Link 
-                            href={`/patients/${task.PERSONID}`}
-                            className="font-medium text-primary hover:underline flex items-center gap-1"
-                          >
-                            {person?.PERSONNAME}
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
-                            {person?.PHONE}
+                          <div className="space-y-1">
+                            <Link 
+                              href={`/patients/${task.PERSONID}`}
+                              className="font-bold text-primary hover:underline flex items-center gap-1"
+                            >
+                              {person?.PERSONNAME}
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" />
+                              {person?.PHONE}
+                            </div>
+                            <Badge variant={result?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">
+                              {result?.ZYYCJGFL}类异常
+                            </Badge>
                           </div>
                         </TableCell>
-                        <TableCell>{person?.OCCURDATE}</TableCell>
                         <TableCell>
-                           <Badge variant={result?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
-                            {result?.ZYYCJGFL}类
-                          </Badge>
+                           <div className="text-xs bg-muted/30 p-2 rounded border border-dashed">
+                             <div className="flex items-start gap-1 mb-1">
+                               <AlertCircle className="h-3 w-3 mt-0.5 text-destructive shrink-0" />
+                               <span className="font-semibold">详情：</span>
+                             </div>
+                             <p className="line-clamp-3 text-muted-foreground" title={result?.ZYYCJGXQ}>
+                               {result?.ZYYCJGXQ || '暂无详细描述'}
+                             </p>
+                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                           <p className="text-xs text-primary italic">
+                             {result?.ZYYCJGCZYJ || '待定'}
+                           </p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
                             <Button size="sm" onClick={() => handleLogFollowUp(task.PERSONID)}>
                               登记随访
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild className="h-7 text-[10px]">
+                               <Link href={`/patients/${task.PERSONID}`}>查看档案</Link>
                             </Button>
                           </div>
                         </TableCell>
@@ -145,7 +160,7 @@ export default function FollowUpsPage() {
                   })}
                   {filteredTasks.filter(t => t.STATUS === 'pending').length === 0 && (
                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12 opacity-50">所有随访任务已清零。</TableCell>
+                        <TableCell colSpan={5} className="text-center py-12 opacity-50">所有随访任务已清零。</TableCell>
                      </TableRow>
                   )}
                 </TableBody>

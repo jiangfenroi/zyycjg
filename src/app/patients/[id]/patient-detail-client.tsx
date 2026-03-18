@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -14,7 +13,8 @@ import {
   Download,
   Upload,
   Activity,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,9 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
   const [uploadType, setUploadType] = React.useState<'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'>('PE_REPORT')
   const [uploading, setUploading] = React.useState(false)
+  
+  // PDF 预览状态
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
 
   // 加载文档
   const loadDocs = React.useCallback(async () => {
@@ -73,7 +76,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
       if (success) {
         toast({ title: "上传成功", description: "报告附件已保存至服务器并关联至病历。" })
         setIsUploadOpen(false)
-        loadDocs() // 刷新列表
+        loadDocs()
       } else {
         toast({ variant: "destructive", title: "上传取消", description: "未选择文件或数据库写入失败。" })
       }
@@ -259,9 +262,14 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                         {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检汇总' : '病理报告'} · {doc.UPLOAD_DATE}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>
-                      <Download className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setPreviewUrl(doc.FILE_URL)}>
+                        <Eye className="h-4 w-4 text-primary" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </Card>
                 )) : (
                   <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">
@@ -273,6 +281,25 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
           </Tabs>
         </div>
       </div>
+
+      {/* PDF 预览弹窗 */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+          <div className="p-4 border-b flex justify-between items-center bg-muted/20">
+            <h3 className="font-semibold text-primary">PDF 报告在线预览</h3>
+            <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>关闭预览</Button>
+          </div>
+          <div className="flex-1 w-full h-full bg-slate-100 overflow-hidden">
+             {previewUrl && (
+               <iframe 
+                src={`${previewUrl}#toolbar=0`} 
+                className="w-full h-full border-none"
+                title="PDF Preview"
+               />
+             )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
