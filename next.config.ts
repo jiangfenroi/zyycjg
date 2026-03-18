@@ -32,13 +32,6 @@ const nextConfig: NextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
-  },
-  experimental: {
-    // 允许来自 Firebase Studio 云端工作站域名的请求
-    allowedDevOrigins: [
-      '*.cloudworkstations.dev',
-      'localhost:9002'
-    ]
   }
 };
 

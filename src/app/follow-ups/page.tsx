@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
-import { Person, AbnormalResult, FollowUp, FollowUpTask } from '@/lib/types'
+import { Person, AbnormalResult, FollowUp } from '@/lib/types'
 
 export default function FollowUpsPage() {
   const { toast } = useToast()

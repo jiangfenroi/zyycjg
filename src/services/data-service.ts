@@ -149,31 +149,6 @@ export const DataService = {
     return true;
   },
 
-  async getFollowUpTasks(status = 'pending'): Promise<FollowUpTask[]> {
-    if (isElectron) {
-      const result = await window.electronAPI.query('SELECT * FROM SP_FOLLOWUP_TASKS WHERE STATUS = ? ORDER BY XCSFTIME ASC', [status]);
-      if (result.success) return result.data;
-    }
-    return [];
-  },
-
-  async addFollowUpTask(task: FollowUpTask): Promise<boolean> {
-    if (isElectron) {
-      const sql = 'INSERT INTO SP_FOLLOWUP_TASKS (PERSONID, XCSFTIME, STATUS) VALUES (?, ?, ?)';
-      const result = await window.electronAPI.query(sql, [task.PERSONID, task.XCSFTIME, task.STATUS]);
-      return result.success;
-    }
-    return true;
-  },
-
-  async updateFollowUpTaskStatus(personId: string, status: string): Promise<boolean> {
-    if (isElectron) {
-      const result = await window.electronAPI.query('UPDATE SP_FOLLOWUP_TASKS SET STATUS = ? WHERE PERSONID = ? AND STATUS = "pending"', [status, personId]);
-      return result.success;
-    }
-    return true;
-  },
-
   // 附件管理
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
@@ -224,5 +199,23 @@ export const DataService = {
       return result;
     }
     return { success: false, error: 'OFFLINE' };
+  },
+
+  async deleteUser(id: number, username: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
+      if (result.success) await this.addLog('管理员', `注销用户: ${username}`, 'system');
+      return result.success;
+    }
+    return false;
+  },
+
+  async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
+      if (result.success) await this.addLog('管理员', `重置用户密码: ${username}`, 'system');
+      return result.success;
+    }
+    return false;
   }
 };
