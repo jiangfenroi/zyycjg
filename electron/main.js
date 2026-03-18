@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -127,6 +127,7 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
+    // 初始化默认设置
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
@@ -162,7 +163,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false,
+      webSecurity: false, // 允许加载局域网/共享路径资源
     },
     title: "MediTrack Connect"
   });
@@ -274,6 +275,7 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
+  // 注册安全协议加载局域网/中心库资源
   protocol.handle('app-file', (request) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
