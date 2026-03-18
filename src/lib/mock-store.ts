@@ -1,5 +1,6 @@
 import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument } from './types';
 
+// 初始模拟数据
 export const MOCK_PERSONS: Person[] = [
   {
     PERSONID: 'D00000119554',
@@ -23,6 +24,17 @@ export const MOCK_PERSONS: Person[] = [
     OCCURDATE: '2023-11-15',
     OPTNAME: '管理员',
   },
+  {
+    PERSONID: 'D00000119556',
+    PERSONNAME: '王强',
+    SEX: '男',
+    AGE: 58,
+    IDNO: '110101196608082345',
+    PHONE: '13566667777',
+    UNITNAME: '建设银行',
+    OCCURDATE: '2024-01-20',
+    OPTNAME: '管理员',
+  }
 ];
 
 export const MOCK_RESULTS: AbnormalResult[] = [
@@ -41,16 +53,45 @@ export const MOCK_RESULTS: AbnormalResult[] = [
     IS_NOTIFIED: true,
     IS_HEALTH_EDU: true,
   },
+  {
+    ID: 'R002',
+    PERSONID: 'D00000119556',
+    TJBHID: 'TJ20240615002',
+    ZYYCJGXQ: '空腹血糖 12.5mmol/L，尿糖(+++)。',
+    ZYYCJGFL: 'B',
+    ZYYCJGCZYJ: '建议内科门诊进一步诊治',
+    ZYYCJGFKJG: '已通知，建议即刻挂号',
+    ZYYCJGTZRQ: '2024-06-16',
+    ZYYCJGTZSJ: '09:15',
+    WORKER: '李护士',
+    ZYYCJGBTZR: '家属',
+    IS_NOTIFIED: true,
+    IS_HEALTH_EDU: true,
+  }
 ];
 
-export const MOCK_FOLLOW_UPS: FollowUp[] = [];
+export const MOCK_FOLLOW_UPS: FollowUp[] = [
+  {
+    ID: 'F001',
+    PERSONID: 'D00000119554',
+    HFresult: '患者自述已于外院复查CT，结节无明显变化。',
+    SFTIME: '2024-05-20',
+    SFGZRY: '管理员',
+    jcsf: false,
+  }
+];
 
 export const MOCK_TASKS: FollowUpTask[] = [
   {
     PERSONID: 'D00000119554',
     XCSFTIME: '2024-05-17',
-    STATUS: 'pending',
+    STATUS: 'completed',
   },
+  {
+    PERSONID: 'D00000119556',
+    XCSFTIME: '2024-06-23',
+    STATUS: 'pending',
+  }
 ];
 
 export const MOCK_DOCS: PatientDocument[] = [
@@ -60,6 +101,14 @@ export const MOCK_DOCS: PatientDocument[] = [
     TYPE: 'IMAGING',
     FILENAME: '胸部CT报告.pdf',
     UPLOAD_DATE: '2024-05-10',
+    FILE_URL: '#',
+  },
+  {
+    ID: 'DOC002',
+    PERSONID: 'D00000119556',
+    TYPE: 'PE_REPORT',
+    FILENAME: '年度体检汇总报告.pdf',
+    UPLOAD_DATE: '2024-06-15',
     FILE_URL: '#',
   }
 ];

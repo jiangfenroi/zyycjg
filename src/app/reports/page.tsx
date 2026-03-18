@@ -20,11 +20,29 @@ import { useToast } from '@/hooks/use-toast'
 
 export default function ReportsPage() {
   const { toast } = useToast()
+  const [filterType, setFilterType] = React.useState('all')
+  const [searchTerm, setSearchTerm] = React.useState('')
+
+  const filteredDocs = MOCK_DOCS.filter(doc => {
+    const matchesType = filterType === 'all' || doc.TYPE === filterType;
+    const person = MOCK_PERSONS.find(p => p.PERSONID === doc.PERSONID);
+    const matchesSearch = doc.FILENAME.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          person?.PERSONNAME.includes(searchTerm) ||
+                          doc.PERSONID.includes(searchTerm);
+    return matchesType && matchesSearch;
+  });
 
   const handleUpload = () => {
     toast({
-      title: "上传提示",
-      description: "请选择要上传的报告文件（支持 PDF, JPG, PNG）。",
+      title: "开始上传",
+      description: "请选择体检报告或影像附件进行入库。",
+    })
+  }
+
+  const handleDownload = (filename: string) => {
+    toast({
+      title: "下载准备中",
+      description: `正在从服务器提取 ${filename}...`,
     })
   }
 
@@ -32,90 +50,108 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">报告文件管理</h1>
-          <p className="text-muted-foreground mt-1">上传及查看体检报告、检查结果及病理文件。</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">报告附件管理</h1>
+          <p className="text-muted-foreground mt-1">管理 SP_DOCUMENTS 中的关联电子文档与影像扫描件。</p>
         </div>
         <Button onClick={handleUpload}>
-          <Upload className="mr-2 h-4 w-4" /> 上传文件
+          <Upload className="mr-2 h-4 w-4" /> 上传报告
         </Button>
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="md:col-span-1">
           <CardHeader>
-            <CardTitle className="text-base">文件筛选</CardTitle>
+            <CardTitle className="text-base">文件检索与筛选</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">文件类型</label>
-              <Select defaultValue="all">
+              <label className="text-xs font-semibold uppercase text-muted-foreground">文件类型</label>
+              <Select defaultValue="all" onValueChange={setFilterType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="全部类型" />
+                  <SelectValue placeholder="全部" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">全部类型</SelectItem>
-                  <SelectItem value="PE_REPORT">体检报告文件</SelectItem>
-                  <SelectItem value="IMAGING">检查结果 (CT/MRI等)</SelectItem>
-                  <SelectItem value="PATHOLOGY">病理结果文件</SelectItem>
+                  <SelectItem value="PE_REPORT">体检报告汇总 (PDF)</SelectItem>
+                  <SelectItem value="IMAGING">影像检查结果 (DICOM)</SelectItem>
+                  <SelectItem value="PATHOLOGY">病理组织报告</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">搜索患者</label>
+              <label className="text-xs font-semibold uppercase text-muted-foreground">关键字搜索</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="姓名或ID..." className="pl-8" />
+                <Input 
+                  placeholder="文件名、患者名..." 
+                  className="pl-8" 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
-            <Button className="w-full">
-              <Filter className="mr-2 h-4 w-4" /> 应用筛选
-            </Button>
+            <div className="pt-2">
+              <Button className="w-full" variant="secondary" onClick={() => { setSearchTerm(''); setFilterType('all'); }}>
+                清除筛选条件
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-base">文件列表</CardTitle>
+          <CardHeader className="pb-3 border-b">
+            <CardTitle className="text-base">文档库列表</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
              <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>文件名</TableHead>
-                    <TableHead>所属患者</TableHead>
-                    <TableHead>类型</TableHead>
-                    <TableHead>上传时间</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead>文件名称</TableHead>
+                    <TableHead>关联患者</TableHead>
+                    <TableHead>文档分类</TableHead>
+                    <TableHead>上传日期</TableHead>
+                    <TableHead className="text-right">交互操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {MOCK_DOCS.map((doc) => {
+                  {filteredDocs.length > 0 ? filteredDocs.map((doc) => {
                     const person = MOCK_PERSONS.find(p => p.PERSONID === doc.PERSONID)
                     return (
                       <TableRow key={doc.ID}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <FileText className="h-4 w-4 text-blue-500" />
                             {doc.FILENAME}
                           </div>
                         </TableCell>
-                        <TableCell>{person?.PERSONNAME} ({doc.PERSONID})</TableCell>
+                        <TableCell>
+                          <Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary">
+                            {person?.PERSONNAME}
+                          </Link>
+                          <span className="text-xs text-muted-foreground ml-2">({doc.PERSONID})</span>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {doc.TYPE === 'IMAGING' ? '检查结果' : '体检报告'}
+                            {doc.TYPE === 'IMAGING' ? '影像报告' : '体检汇总'}
                           </Badge>
                         </TableCell>
-                        <TableCell>{doc.UPLOAD_DATE}</TableCell>
+                        <TableCell className="text-xs">{doc.UPLOAD_DATE}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" title="查看"><Eye className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" title="下载"><Download className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" title="预览" onClick={() => toast({ title: "正在打开预览器..." })}><Eye className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" title="下载" onClick={() => handleDownload(doc.FILENAME)}><Download className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => toast({ title: "文件已标记删除", variant: "destructive" })}><Trash2 className="h-4 w-4" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     )
-                  })}
+                  }) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-muted-foreground opacity-50">
+                        未搜索到相关附件。
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
           </CardContent>
