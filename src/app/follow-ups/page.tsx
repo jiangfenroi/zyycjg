@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Phone, History, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, FileText } from 'lucide-react'
+import { Search, Phone, History, ExternalLink, Loader2, Calendar as CalendarIcon, CheckCircle2, AlertTriangle, Clock, FileText, Sparkles } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -79,7 +79,6 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
   
-  // 待处理任务：A类和B类中尚未随访的，或者到期的计划任务
   const initialPendingIds = abnormalResults
     .filter(res => !followUps.some(f => f.PERSONID === res.PERSONID))
     .map(r => r.PERSONID)
@@ -183,18 +182,20 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="w-[120px]">档案编号</TableHead>
-                      <TableHead className="w-[120px]">患者姓名</TableHead>
                       <TableHead className="w-[120px]">体检编号</TableHead>
+                      <TableHead className="w-[100px]">姓名</TableHead>
+                      <TableHead className="w-[60px]">性别</TableHead>
+                      <TableHead className="w-[60px]">年龄</TableHead>
                       <TableHead className="w-[120px]">联系电话</TableHead>
-                      <TableHead className="w-[100px]">异常分类</TableHead>
+                      <TableHead className="w-[80px]">分类</TableHead>
                       <TableHead className="min-w-[250px]">异常结果详情</TableHead>
-                      <TableHead className="w-[120px]">任务类型</TableHead>
+                      <TableHead className="w-[110px]">任务类型</TableHead>
                       <TableHead className="text-right sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={8} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={10} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredPending.length > 0 ? filteredPending.map((pid) => {
                       const person = persons.find(p => p.PERSONID === pid)
                       const isScheduled = scheduledTasks.find(t => t.PERSONID === pid && t.XCSFTIME <= today)
@@ -203,12 +204,14 @@ export default function FollowUpsPage() {
                       return (
                         <TableRow key={pid} className="text-xs">
                           <TableCell className="font-mono">{pid}</TableCell>
+                          <TableCell className="font-mono">{latestResult?.TJBHID || '-'}</TableCell>
                           <TableCell className="font-bold text-primary">
                             <Link href={`/patients/${pid}`} className="hover:underline">
                               {person?.PERSONNAME || '未知'}
                             </Link>
                           </TableCell>
-                          <TableCell className="font-mono">{latestResult?.TJBHID || '-'}</TableCell>
+                          <TableCell>{person?.SEX || '-'}</TableCell>
+                          <TableCell>{person?.AGE || '-'}</TableCell>
                           <TableCell>{person?.PHONE || '-'}</TableCell>
                           <TableCell>
                             <Badge variant={latestResult?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
@@ -231,7 +234,7 @@ export default function FollowUpsPage() {
                         </TableRow>
                       )
                     }) : (
-                       <TableRow><TableCell colSpan={8} className="text-center py-24 text-muted-foreground italic">当前暂无待处理随访任务。</TableCell></TableRow>
+                       <TableRow><TableCell colSpan={10} className="text-center py-24 text-muted-foreground italic">当前暂无待处理随访任务。</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -252,15 +255,17 @@ export default function FollowUpsPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-[120px]">档案编号</TableHead>
-                        <TableHead className="w-[120px]">姓名</TableHead>
                         <TableHead className="w-[120px]">体检编号</TableHead>
+                        <TableHead className="w-[100px]">姓名</TableHead>
+                        <TableHead className="w-[60px]">性别</TableHead>
+                        <TableHead className="w-[60px]">年龄</TableHead>
                         <TableHead className="w-[120px]">联系电话</TableHead>
-                        <TableHead className="w-[100px]">异常分类</TableHead>
+                        <TableHead className="w-[80px]">分类</TableHead>
                         <TableHead className="min-w-[200px]">异常详情</TableHead>
                         <TableHead className="min-w-[250px]">随访结果</TableHead>
                         <TableHead className="w-[120px]">回访日期</TableHead>
                         <TableHead className="w-[100px]">回访医生</TableHead>
-                        <TableHead className="w-[150px]">复查/进一步检查</TableHead>
+                        <TableHead className="w-[100px]">是否复查</TableHead>
                         <TableHead className="text-right sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -271,8 +276,10 @@ export default function FollowUpsPage() {
                         return (
                           <TableRow key={f.ID} className="text-xs">
                             <TableCell className="font-mono">{f.PERSONID}</TableCell>
-                            <TableCell className="font-semibold">{person?.PERSONNAME || '未知'}</TableCell>
                             <TableCell className="font-mono">{relResult?.TJBHID || '-'}</TableCell>
+                            <TableCell className="font-semibold">{person?.PERSONNAME || '未知'}</TableCell>
+                            <TableCell>{person?.SEX || '-'}</TableCell>
+                            <TableCell>{person?.AGE || '-'}</TableCell>
                             <TableCell>{person?.PHONE || '-'}</TableCell>
                             <TableCell>
                               <Badge variant={relResult?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
@@ -298,7 +305,7 @@ export default function FollowUpsPage() {
                           </TableRow>
                         )
                       }) : (
-                        <TableRow><TableCell colSpan={11} className="text-center py-24 text-muted-foreground italic">暂无历史结案记录。</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={13} className="text-center py-24 text-muted-foreground italic">暂无历史结案记录。</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
