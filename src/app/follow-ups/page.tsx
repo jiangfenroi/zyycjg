@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, Calendar as CalendarIcon, ClipboardCheck } from 'lucide-react'
+import { Search, Loader2, Calendar as CalendarIcon, ClipboardCheck, FileDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -93,6 +93,39 @@ export default function FollowUpsPage() {
     )
   })
 
+  const handleExportCompleted = () => {
+    if (filteredCompleted.length === 0) return
+    const headers = [
+      "档案编号", "体检编号", "姓名", "性别", "年龄", "重要异常结果详情", 
+      "回访结果详情", "是否复查及进一步病理检查", "回访时间", "回访人", "下次回访时间"
+    ];
+    const rows = filteredCompleted.map(f => {
+      const person = persons.find(p => p.PERSONID === f.PERSONID);
+      const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGTJBH);
+      return [
+        f.PERSONID, 
+        f.ZYYCJGTJBH || '', 
+        person?.PERSONNAME || '未知', 
+        person?.SEX || '-', 
+        person?.AGE || '-', 
+        `"${(result?.ZYYCJGXQ || '').replace(/"/g, '""')}"`, 
+        `"${(f.HFresult || '').replace(/"/g, '""')}"`, 
+        f.jcsf ? '是' : '否', 
+        f.SFTIME, 
+        f.SFGZRY, 
+        f.XCSFTIME || '-'
+      ];
+    });
+    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `重要异常已随访记录表_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    toast({ title: "随访报表导出成功", description: "已生成符合 Excel 标准的随访记录文件。" })
+  }
+
   const handleCompleteTask = async () => {
     if (!selectedResult || !followUpForm.HFresult) {
       toast({ variant: "destructive", title: "校验失败", description: "请填写回访详细结果" })
@@ -147,10 +180,17 @@ export default function FollowUpsPage() {
       </div>
 
       <Tabs defaultValue="pending">
-        <TabsList className="grid w-[400px] grid-cols-2 p-1 bg-muted/50 rounded-lg">
-          <TabsTrigger value="pending" className="rounded-md">待随访任务</TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-md">已回访记录</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-[400px] grid-cols-2 p-1 bg-muted/50 rounded-lg">
+            <TabsTrigger value="pending" className="rounded-md">待随访任务</TabsTrigger>
+            <TabsTrigger value="completed" className="rounded-md">已回访记录</TabsTrigger>
+          </TabsList>
+          <TabsContent value="completed" className="mt-0">
+             <Button variant="outline" size="sm" onClick={handleExportCompleted}>
+               <FileDown className="mr-2 h-4 w-4" /> 导出回访记录
+             </Button>
+          </TabsContent>
+        </div>
 
         <TabsContent value="pending" className="mt-6">
           <Card className="border-none shadow-md overflow-hidden">

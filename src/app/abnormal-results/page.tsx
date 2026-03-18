@@ -99,6 +99,7 @@ export default function AbnormalResultsPage() {
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
       res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR, `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
     ]);
+    // 使用 BOM 确保 Excel 正确识别 UTF-8 编码
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -106,7 +107,7 @@ export default function AbnormalResultsPage() {
     link.href = url;
     link.download = `重要异常结果登记表_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    toast({ title: "报表导出成功" })
+    toast({ title: "报表导出成功", description: "已生成符合 Excel 标准的登记数据文件。" })
   }
 
   const handleSubmit = async () => {
