@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2, HelpCircle, Eye, Sparkles } from 'lucide-react'
+import { Plus, Search, FileDown, Eye, Loader2, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,10 +23,8 @@ import { useToast } from '@/hooks/use-toast'
 import { AbnormalResult } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Checkbox } from '@/components/ui/checkbox'
 import Link from 'next/link'
-import { summarizeAbnormalResult } from '@/ai/flows/ai-result-summary-tool-flow'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
@@ -35,7 +33,6 @@ export default function AbnormalResultsPage() {
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
-  const [aiLoading, setAiLoading] = React.useState(false)
   
   const [formData, setFormData] = React.useState({
     PERSONID: '',
@@ -49,6 +46,7 @@ export default function AbnormalResultsPage() {
     WORKER: '',
     ZYYCJGBTZR: '',
     IS_HEALTH_EDU: true,
+    IS_NOTIFIED: true,
   })
 
   const loadData = React.useCallback(async () => {
@@ -77,23 +75,6 @@ export default function AbnormalResultsPage() {
     }
   }, [loadData])
 
-  const handleAiSummarize = async () => {
-    if (!formData.ZYYCJGXQ) {
-      toast({ variant: "destructive", title: "AI 总结失败", description: "请先输入异常结果详情。" })
-      return
-    }
-    setAiLoading(true)
-    try {
-      const summary = await summarizeAbnormalResult(formData.ZYYCJGXQ)
-      setFormData(prev => ({ ...prev, ZYYCJGCZYJ: summary }))
-      toast({ title: "AI 总结成功", description: "已根据异常结果生成建议摘要。" })
-    } catch (err) {
-      toast({ variant: "destructive", title: "AI 服务异常", description: "无法生成总结，请检查网络。" })
-    } finally {
-      setAiLoading(false)
-    }
-  }
-
   const filteredResults = results.filter(res => {
     const searchLower = searchTerm.toLowerCase();
     const personName = res.PERSONNAME || '';
@@ -109,11 +90,11 @@ export default function AbnormalResultsPage() {
       toast({ title: "导出提示", description: "当前没有记录可供导出。" })
       return
     }
-    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "电话号码", "分类", "详情", "宣教", "处理意见", "日期", "时间", "被通知人", "通知人"];
+    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "重要异常结果详情", "是否通知", "是否健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     const rows = results.map(res => [
-      res.PERSONID, res.TJBHID, res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', `${res.ZYYCJGFL}类`, 
-      `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_HEALTH_EDU ? '是' : '否', `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`,
-      res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.ZYYCJGBTZR, res.WORKER
+      res.PERSONID, res.TJBHID, res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
+      `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
+      res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR, `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
     ]);
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -133,7 +114,7 @@ export default function AbnormalResultsPage() {
       return
     }
     setSubmitting(true)
-    const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}`, IS_NOTIFIED: true } as AbnormalResult)
+    const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
     if (success) {
       toast({ title: "录入成功" })
       setIsDialogOpen(false)
@@ -143,7 +124,7 @@ export default function AbnormalResultsPage() {
       setFormData({
         PERSONID: '', TJBHID: '', ZYYCJGXQ: '', ZYYCJGFL: 'A', ZYYCJGCZYJ: '', ZYYCJGFKJG: '',
         ZYYCJGTZRQ: new Date().toISOString().split('T')[0], ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-        WORKER: realName, ZYYCJGBTZR: '', IS_HEALTH_EDU: true,
+        WORKER: realName, ZYYCJGBTZR: '', IS_HEALTH_EDU: true, IS_NOTIFIED: true
       })
     }
     setSubmitting(false)
@@ -172,14 +153,8 @@ export default function AbnormalResultsPage() {
                   <Textarea className="min-h-[80px]" placeholder="详细记录检查发现的异常指标..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label>处理意见</Label>
-                    <Button variant="ghost" size="sm" className="h-7 text-primary" onClick={handleAiSummarize} disabled={aiLoading}>
-                      {aiLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-                      AI 智能总结意见
-                    </Button>
-                  </div>
-                  <Textarea className="min-h-[60px]" placeholder="临床医生的处置建议..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
+                  <Label>处置建议</Label>
+                  <Textarea className="min-h-[60px]" placeholder="临床医生的处置建议与医学指导..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -192,9 +167,15 @@ export default function AbnormalResultsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center space-x-2 pt-8">
-                    <Checkbox id="health_edu" checked={formData.IS_HEALTH_EDU} onCheckedChange={(checked) => setFormData({...formData, IS_HEALTH_EDU: !!checked})} />
-                    <Label htmlFor="health_edu" className="cursor-pointer font-bold">已进行健康宣教</Label>
+                  <div className="flex items-center gap-6 pt-8">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(checked) => setFormData({...formData, IS_NOTIFIED: !!checked})} />
+                      <Label htmlFor="notified" className="cursor-pointer font-bold">已通知</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="health_edu" checked={formData.IS_HEALTH_EDU} onCheckedChange={(checked) => setFormData({...formData, IS_HEALTH_EDU: !!checked})} />
+                      <Label htmlFor="health_edu" className="cursor-pointer font-bold">已进行健康宣教</Label>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -202,8 +183,8 @@ export default function AbnormalResultsPage() {
                   <div className="space-y-2"><Label>通知时间</Label><Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>登记人/通知人</Label><Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>被通知人 (关系)</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="本人 / 家属" /></div>
+                  <div className="space-y-2"><Label>通知医生</Label><Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>被通知人</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="本人 / 家属" /></div>
                 </div>
               </div>
               <DialogFooter>
@@ -235,21 +216,23 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[100px]">姓名</TableHead>
                   <TableHead className="w-[60px]">性别</TableHead>
                   <TableHead className="w-[60px]">年龄</TableHead>
-                  <TableHead className="w-[120px]">电话号码</TableHead>
+                  <TableHead className="w-[120px]">联系电话</TableHead>
+                  <TableHead className="w-[110px]">体检日期</TableHead>
                   <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[200px]">异常详情</TableHead>
-                  <TableHead className="w-[100px]">健康宣教</TableHead>
-                  <TableHead className="min-w-[150px]">处理意见</TableHead>
+                  <TableHead className="min-w-[200px]">重要异常结果详情</TableHead>
+                  <TableHead className="w-[80px]">是否通知</TableHead>
+                  <TableHead className="w-[80px]">健康宣教</TableHead>
                   <TableHead className="w-[110px]">通知日期</TableHead>
                   <TableHead className="w-[90px]">通知时间</TableHead>
+                  <TableHead className="w-[100px]">通知医生</TableHead>
                   <TableHead className="w-[100px]">被通知人</TableHead>
-                  <TableHead className="w-[100px]">通知人</TableHead>
+                  <TableHead className="min-w-[150px]">处置建议</TableHead>
                   <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={15} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={17} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
@@ -260,14 +243,16 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.SEX || '-'}</TableCell>
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
+                    <TableCell className="font-mono">{res.OCCURDATE || '-'}</TableCell>
                     <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">已通知</Badge> : <Badge variant="outline">未通知</Badge>}</TableCell>
                     <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">已宣教</Badge> : <Badge variant="outline">未宣教</Badge>}</TableCell>
-                    <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
-                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
+                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
@@ -276,7 +261,7 @@ export default function AbnormalResultsPage() {
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={15} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未发现符合条件的登记记录。</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
