@@ -52,6 +52,11 @@ export const MOCK_RESULTS: AbnormalResult[] = [
     ZYYCJGBTZR: '本人',
     IS_NOTIFIED: true,
     IS_HEALTH_EDU: true,
+    PERSONNAME: '张伟',
+    SEX: '男',
+    AGE: 45,
+    PHONE: '13800138000',
+    OCCURDATE: '2023-10-01',
   },
   {
     ID: 'R002',
@@ -67,6 +72,11 @@ export const MOCK_RESULTS: AbnormalResult[] = [
     ZYYCJGBTZR: '家属',
     IS_NOTIFIED: true,
     IS_HEALTH_EDU: true,
+    PERSONNAME: '王强',
+    SEX: '男',
+    AGE: 58,
+    PHONE: '13566667777',
+    OCCURDATE: '2024-01-20',
   }
 ];
 

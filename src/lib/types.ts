@@ -28,6 +28,12 @@ export interface AbnormalResult {
   ZYYCJGBTZR: string; // 重要异常结果被通知人
   IS_NOTIFIED: boolean;
   IS_HEALTH_EDU: boolean;
+  // 关联展示字段
+  PERSONNAME?: string;
+  SEX?: '男' | '女';
+  AGE?: number;
+  PHONE?: string;
+  OCCURDATE?: string;
 }
 
 export interface FollowUp {
