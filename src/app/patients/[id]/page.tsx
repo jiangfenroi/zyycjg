@@ -21,11 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-/**
- * 在静态导出模式下，动态路由必须预先生成路径。
- * 虽然在客户端组件中使用 generateStaticParams 是受限的，
- * 但在 Next.js 15 导出模式下，这有助于编译器处理 Mock 数据。
- */
 export async function generateStaticParams() {
   return MOCK_PERSONS.map((person) => ({
     id: person.PERSONID,
@@ -101,30 +96,32 @@ export default function PatientDetailPage() {
             <TabsContent value="abnormal" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">登记的异常结果</CardTitle>
+                  <CardTitle className="text-base">登记的异常结果 (SP_ZYJG)</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>体检编号</TableHead>
                         <TableHead>日期</TableHead>
                         <TableHead>分类</TableHead>
-                        <TableHead>详情</TableHead>
-                        <TableHead>状态</TableHead>
+                        <TableHead>详情描述</TableHead>
+                        <TableHead>通知人</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {results.length > 0 ? results.map(r => (
                         <TableRow key={r.ID}>
-                          <TableCell>{r.ZYYCJGTZRQ}</TableCell>
+                          <TableCell className="font-mono text-xs">{r.TJBHID}</TableCell>
+                          <TableCell className="text-xs">{r.ZYYCJGTZRQ}</TableCell>
                           <TableCell>
                             <Badge variant={r.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{r.ZYYCJGFL}类</Badge>
                           </TableCell>
-                          <TableCell className="max-w-[200px] truncate">{r.ZYYCJGXQ}</TableCell>
-                          <TableCell>{r.IS_NOTIFIED ? '已通知' : '待通知'}</TableCell>
+                          <TableCell className="max-w-[200px] truncate" title={r.ZYYCJGXQ}>{r.ZYYCJGXQ}</TableCell>
+                          <TableCell className="text-xs">{r.WORKER}</TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={4} className="text-center py-8 opacity-50">暂无登记记录</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="text-center py-8 opacity-50">暂无登记记录</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -142,9 +139,9 @@ export default function PatientDetailPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>日期</TableHead>
-                        <TableHead>结果</TableHead>
-                        <TableHead>人员</TableHead>
-                        <TableHead>进一步检查</TableHead>
+                        <TableHead>结果摘要</TableHead>
+                        <TableHead>随访人员</TableHead>
+                        <TableHead>病理检查</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

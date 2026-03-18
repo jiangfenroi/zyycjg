@@ -27,27 +27,27 @@ export default function AbnormalResultsPage() {
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [formData, setFormData] = React.useState({
     PERSONID: '',
+    TJBHID: '',
     ZYYCJGXQ: '',
     ZYYCJGFL: 'A',
     ZYYCJGCZYJ: '',
+    ZYYCJGFKJG: '',
     ZYYCJGTZRQ: '',
     ZYYCJGTZSJ: '',
+    WORKER: '',
+    ZYYCJGBTZR: '',
   })
 
-  // 本地辅助建议功能（非 AI，纯本地逻辑，无需 API）
   const handleGenerateAdvice = async () => {
     if (!formData.ZYYCJGXQ) {
       toast({ title: "提示", description: "请先输入异常结果详情" })
       return
     }
     setIsProcessing(true)
-    
-    // 模拟处理延迟
     await new Promise(resolve => setTimeout(resolve, 600))
     
     try {
       const text = formData.ZYYCJGXQ;
-      // 本地关键词提取逻辑
       const keywords = ["建议", "复查", "结节", "钙化", "进一步", "检查", "占位", "异常"].filter(k => text.includes(k));
       const summary = text.length > 50 ? text.substring(0, 50) + "..." : text;
       
@@ -60,7 +60,7 @@ export default function AbnormalResultsPage() {
 
       setFormData(prev => ({ 
         ...prev, 
-        ZYYCJGCZYJ: `【内容摘要】${summary}\n\n【处置建议】${advice}\n\n[提示：此建议由系统本地逻辑辅助生成]` 
+        ZYYCJGCZYJ: `【内容摘要】${summary}\n\n【处置建议】${advice}` 
       }))
       
       toast({ title: "生成完毕", description: "已根据本地逻辑生成参考建议" })
@@ -72,7 +72,6 @@ export default function AbnormalResultsPage() {
   }
 
   const openPACS = (id: string) => {
-    // 模拟 PACS 链接跳转
     if (typeof window !== 'undefined') {
       window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
     }
@@ -82,8 +81,8 @@ export default function AbnormalResultsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">管理并跟进体检过程中的关键异常发现。</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记 (SP_ZYJG)</h1>
+          <p className="text-muted-foreground mt-1">管理并登记体检过程中的关键异常发现。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
@@ -98,21 +97,34 @@ export default function AbnormalResultsPage() {
                 <Plus className="mr-2 h-4 w-4" /> 新增登记
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>登记重要异常结果</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="personid">档案编号</Label>
-                  <Input 
-                    id="personid" 
-                    className="col-span-3" 
-                    placeholder="输入患者档案ID" 
-                    value={formData.PERSONID}
-                    onChange={e => setFormData({...formData, PERSONID: e.target.value})}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="personid">档案编号</Label>
+                    <Input 
+                      id="personid" 
+                      className="col-span-3" 
+                      placeholder="PERSONID" 
+                      value={formData.PERSONID}
+                      onChange={e => setFormData({...formData, PERSONID: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="tjbhid">体检编号</Label>
+                    <Input 
+                      id="tjbhid" 
+                      className="col-span-3" 
+                      placeholder="TJBHID" 
+                      value={formData.TJBHID}
+                      onChange={e => setFormData({...formData, TJBHID: e.target.value})}
+                    />
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label>异常分类</Label>
                   <Select 
@@ -128,18 +140,20 @@ export default function AbnormalResultsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="grid grid-cols-4 items-start gap-4">
-                  <Label className="mt-2">详情描述</Label>
+                  <Label className="mt-2">异常详情</Label>
                   <Textarea 
-                    className="col-span-3 min-h-[100px]" 
-                    placeholder="请输入异常结果详细描述..."
+                    className="col-span-3 min-h-[80px]" 
+                    placeholder="请输入重要异常结果详情描述..."
                     value={formData.ZYYCJGXQ}
                     onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})}
                   />
                 </div>
+
                 <div className="grid grid-cols-4 items-start gap-4">
                   <div className="space-y-2">
-                    <Label>辅助工具</Label>
+                    <Label>处置意见</Label>
                     <Button 
                       type="button" 
                       variant="outline" 
@@ -149,30 +163,52 @@ export default function AbnormalResultsPage() {
                       disabled={isProcessing}
                     >
                       <ClipboardList className="mr-1 h-3 w-3 text-secondary" />
-                      {isProcessing ? '处理中...' : '生成建议'}
+                      快速生成建议
                     </Button>
                   </div>
                   <Textarea 
-                    className="col-span-3 min-h-[100px]" 
-                    placeholder="系统将根据详情自动生成辅助摘要和建议..."
+                    className="col-span-3 min-h-[80px]" 
+                    placeholder="请输入处置意见..."
                     value={formData.ZYYCJGCZYJ}
                     onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})}
                   />
                 </div>
+
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label className="mt-2">反馈结果</Label>
+                  <Textarea 
+                    className="col-span-3 min-h-[60px]" 
+                    placeholder="请输入被通知人反馈结果..."
+                    value={formData.ZYYCJGFKJG}
+                    onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label>通知日期</Label>
-                    <Input type="date" value={formData.ZYYCJGTZRQ} onChange={e => setFormData({...formData, ZYYCJGTZRQ: e.target.value})} />
+                    <Input className="col-span-3" type="date" value={formData.ZYYCJGTZRQ} onChange={e => setFormData({...formData, ZYYCJGTZRQ: e.target.value})} />
                   </div>
-                  <div className="grid grid-cols-2 items-center gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label>通知时间</Label>
-                    <Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} />
+                    <Input className="col-span-3" type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label>通知人</Label>
+                    <Input className="col-span-3" placeholder="WORKER" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label>被通知人</Label>
+                    <Input className="col-span-3" placeholder="ZYYCJGBTZR" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline">取消</Button>
-                <Button onClick={() => toast({ title: "保存成功", description: "记录已存入数据库" })}>提交登记</Button>
+                <Button onClick={() => toast({ title: "登记成功", description: "记录已存入 SP_ZYJG" })}>提交登记</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -182,10 +218,10 @@ export default function AbnormalResultsPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">已登记列表</CardTitle>
+            <CardTitle className="text-lg">已登记异常结果列表</CardTitle>
             <div className="relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="搜索姓名或档案号..." className="pl-8 h-9" />
+              <Input placeholder="搜索档案号、体检号..." className="pl-8 h-9" />
             </div>
           </div>
         </CardHeader>
@@ -193,12 +229,13 @@ export default function AbnormalResultsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>档案号</TableHead>
+                <TableHead>档案编号</TableHead>
+                <TableHead>体检编号</TableHead>
                 <TableHead>姓名</TableHead>
                 <TableHead>分类</TableHead>
-                <TableHead className="max-w-xs">重要异常结果详情</TableHead>
-                <TableHead>通知日期</TableHead>
-                <TableHead>被通知人</TableHead>
+                <TableHead className="max-w-[200px]">异常结果详情</TableHead>
+                <TableHead>通知日期/时间</TableHead>
+                <TableHead>通知人/被通知人</TableHead>
                 <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -207,24 +244,25 @@ export default function AbnormalResultsPage() {
                 const person = MOCK_PERSONS.find(p => p.PERSONID === res.PERSONID)
                 return (
                   <TableRow key={res.ID}>
-                    <TableCell className="font-medium">{res.PERSONID}</TableCell>
+                    <TableCell className="font-mono text-xs">{res.PERSONID}</TableCell>
+                    <TableCell className="font-mono text-xs">{res.TJBHID}</TableCell>
                     <TableCell>{person?.PERSONNAME}</TableCell>
                     <TableCell>
                       <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
                         {res.ZYYCJGFL}类
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>
+                    <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>
                       {res.ZYYCJGXQ}
                     </TableCell>
-                    <TableCell>{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
-                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
+                    <TableCell className="text-xs">{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
+                    <TableCell className="text-xs">{res.WORKER} / {res.ZYYCJGBTZR}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="sm" onClick={() => openPACS(res.PERSONID)}>
                           <ExternalLink className="h-4 w-4 mr-1" /> PACS
                         </Button>
-                        <Button variant="outline" size="sm">查看</Button>
+                        <Button variant="outline" size="sm">编辑</Button>
                       </div>
                     </TableCell>
                   </TableRow>

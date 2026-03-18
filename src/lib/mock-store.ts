@@ -29,6 +29,7 @@ export const MOCK_RESULTS: AbnormalResult[] = [
   {
     ID: 'R001',
     PERSONID: 'D00000119554',
+    TJBHID: 'TJ20240501001',
     ZYYCJGXQ: '左肺上叶见磨玻璃结节，大小约8mm，边缘尚清。建议定期随访CT。',
     ZYYCJGFL: 'A',
     ZYYCJGCZYJ: '建议3个月后复查薄层CT',
@@ -47,7 +48,7 @@ export const MOCK_FOLLOW_UPS: FollowUp[] = [];
 export const MOCK_TASKS: FollowUpTask[] = [
   {
     PERSONID: 'D00000119554',
-    XCSFTIME: '2024-05-17', // Exactly 1 week after notification
+    XCSFTIME: '2024-05-17',
     STATUS: 'pending',
   },
 ];
