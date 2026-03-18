@@ -56,6 +56,8 @@ export default function FollowUpsPage() {
       setAbnormalResults(r)
       setFollowUps(f)
       setScheduledTasks(t)
+    } catch (err) {
+      console.error("Failed to load data", err)
     } finally {
       setLoading(false)
     }
@@ -64,14 +66,16 @@ export default function FollowUpsPage() {
   React.useEffect(() => {
     loadData()
     // 初始化当前登录人员
-    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
-    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
-    
-    setFollowUpForm(prev => ({
-      ...prev,
-      SFTIME: new Date().toISOString().split('T')[0],
-      SFGZRY: realName
-    }))
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('currentUser');
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
+      
+      setFollowUpForm(prev => ({
+        ...prev,
+        SFTIME: new Date().toISOString().split('T')[0],
+        SFGZRY: realName
+      }))
+    }
   }, [loadData])
 
   // 待处理任务逻辑：
