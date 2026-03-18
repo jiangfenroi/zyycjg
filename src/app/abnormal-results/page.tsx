@@ -24,6 +24,7 @@ import { AbnormalResult } from '@/lib/types'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
+  // 使用状态管理结果列表，确保新增后 UI 同步
   const [results, setResults] = React.useState<AbnormalResult[]>(MOCK_RESULTS)
   const [isProcessing, setIsProcessing] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -40,12 +41,14 @@ export default function AbnormalResultsPage() {
     ZYYCJGBTZR: '',
   })
 
+  // 本地模拟生成的处置建议逻辑
   const handleGenerateAdvice = async () => {
     if (!formData.ZYYCJGXQ) {
       toast({ title: "提示", description: "请先输入异常结果详情" })
       return
     }
     setIsProcessing(true)
+    // 模拟处理时间
     await new Promise(resolve => setTimeout(resolve, 600))
     
     try {
@@ -73,6 +76,7 @@ export default function AbnormalResultsPage() {
     }
   }
 
+  // 提交登记并更新列表
   const handleSubmit = () => {
     if (!formData.PERSONID || !formData.TJBHID) {
       toast({ variant: "destructive", title: "提交失败", description: "档案编号和体检编号为必填项" })
@@ -86,15 +90,16 @@ export default function AbnormalResultsPage() {
       IS_HEALTH_EDU: true,
     } as AbnormalResult
 
+    // 更新本地状态，新登记的排在最前面
     setResults([newResult, ...results])
     setIsDialogOpen(false)
     
     toast({ 
       title: "登记成功", 
-      description: `体检编号 ${formData.TJBHID} 已存入 SP_ZYJG` 
+      description: `体检编号 ${formData.TJBHID} 已成功登记` 
     })
 
-    // Reset form
+    // 重置表单
     setFormData({
       PERSONID: '',
       TJBHID: '',
@@ -119,7 +124,7 @@ export default function AbnormalResultsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记 (SP_ZYJG)</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
           <p className="text-muted-foreground mt-1">管理并登记体检过程中的关键异常发现。</p>
         </div>
         <div className="flex gap-2">
@@ -278,7 +283,7 @@ export default function AbnormalResultsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {results.map((res) => {
+              {results.length > 0 ? results.map((res) => {
                 const person = MOCK_PERSONS.find(p => p.PERSONID === res.PERSONID)
                 return (
                   <TableRow key={res.ID}>
@@ -305,7 +310,13 @@ export default function AbnormalResultsPage() {
                     </TableCell>
                   </TableRow>
                 )
-              })}
+              }) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                    暂无登记数据
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
