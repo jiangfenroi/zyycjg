@@ -5,10 +5,13 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   /**
    * 执行数据库查询
-   * @param {string} sql SQL 语句
-   * @param {any[]} params 参数
    */
   query: (sql, params = []) => ipcRenderer.invoke('db-query', { sql, params }),
   
-  // 可以添加更多功能，如文件系统访问等
+  /**
+   * 调起原生对话框并上传文件
+   * @param {string} personId 关联患者ID
+   * @param {string} type 报告类型
+   */
+  uploadFile: (personId, type) => ipcRenderer.invoke('file-upload', { personId, type }),
 });

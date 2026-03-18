@@ -1,6 +1,7 @@
 
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const mysql = require('mysql2/promise');
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -35,7 +36,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'), // 注入预加载脚本
+      preload: path.join(__dirname, 'preload.js'), 
     },
     title: "MediTrack Connect"
   });
@@ -47,12 +48,53 @@ function createWindow() {
   }
 }
 
-// 注册 IPC 处理器
+// 注册 IPC 处理器：数据库查询
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) await initDB();
   try {
     const [rows] = await dbPool.execute(sql, params);
     return { success: true, data: rows };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 注册 IPC 处理器：文件选择与上传（保存至本地/服务器目录）
+ipcMain.handle('file-upload', async (event, { personId, type }) => {
+  try {
+    // 1. 选择文件
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'PDF Documents', extensions: ['pdf'] }]
+    });
+
+    if (canceled || filePaths.length === 0) return { success: false, error: 'User canceled' };
+
+    const sourcePath = filePaths[0];
+    const fileName = path.basename(sourcePath);
+    
+    // 2. 确定保存目录 (从 .env 读取，默认为用户文档下的 meditrack_uploads)
+    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_uploads');
+    if (!fs.existsSync(uploadBaseDir)) {
+      fs.mkdirSync(uploadBaseDir, { recursive: true });
+    }
+
+    // 为防止重名，添加时间戳
+    const targetFileName = `${Date.now()}_${fileName}`;
+    const targetPath = path.join(uploadBaseDir, targetFileName);
+
+    // 3. 复制文件
+    fs.copyFileSync(sourcePath, targetPath);
+
+    // 4. 返回文件信息供数据库记录
+    return { 
+      success: true, 
+      data: {
+        fileName: fileName,
+        fileUrl: targetPath,
+        uploadDate: new Date().toISOString().split('T')[0]
+      }
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
