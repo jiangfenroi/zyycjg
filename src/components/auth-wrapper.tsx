@@ -12,31 +12,27 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = React.useState(true)
 
   React.useEffect(() => {
-    // 增加延迟以确保 Next.js 客户端路由已就绪
-    const timer = setTimeout(() => {
-      const checkAuth = () => {
-        const currentPath = window.location.hash.replace('#', '') || pathname;
-        
-        if (currentPath.includes('/login') || currentPath.includes('/setup')) {
-          setChecking(false)
-          return
-        }
-
-        const user = localStorage.getItem('currentUser')
-        if (!user) {
-          // 在静态导出环境下，确保跳转到带哈希的路径
-          if (window.electronAPI) {
-            router.push('/login')
-          } else {
-            router.push('/login')
-          }
-        }
-        setChecking(false)
+    const checkAuth = () => {
+      // 在 Electron 静态导出环境下，优先通过 Hash 判断路径
+      const currentHash = typeof window !== 'undefined' ? window.location.hash : '';
+      const currentPath = currentHash.replace('#', '') || pathname;
+      
+      const isAuthPage = currentPath.includes('/login') || currentPath.includes('/setup');
+      
+      if (isAuthPage) {
+        setChecking(false);
+        return;
       }
 
-      checkAuth()
-    }, 100);
+      const user = localStorage.getItem('currentUser');
+      if (!user) {
+        router.push('/login');
+      }
+      setChecking(false);
+    }
 
+    // 给 Next.js 路由初始化留一点缓冲时间
+    const timer = setTimeout(checkAuth, 200);
     return () => clearTimeout(timer);
   }, [pathname, router])
 
@@ -51,7 +47,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // 判断是否为认证相关页面
   const currentHash = typeof window !== 'undefined' ? window.location.hash : '';
   const isAuthPage = pathname === '/login' || pathname === '/setup' || currentHash.includes('/login') || currentHash.includes('/setup');
 

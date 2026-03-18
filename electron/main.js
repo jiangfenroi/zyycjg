@@ -3,19 +3,18 @@ const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
+
 const isDev = process.env.NODE_ENV === 'development';
 
-require('dotenv').config();
-
-let dbPool;
-let mainWindow;
-const configPath = path.join(app.getPath('userData'), 'db-config.json');
-
-// 注册特权协议，确保 app-file 和 app 协议被视为安全且支持 Fetch
+// 预先注册协议
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
+
+let dbPool;
+let mainWindow;
+const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
 function loadLocalConfig() {
   if (fs.existsSync(configPath)) {
@@ -45,11 +44,7 @@ async function initDB(config) {
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
     if (dbPool) {
-      try {
-        await dbPool.end();
-      } catch (e) {
-        console.error("Failed to close old pool:", e);
-      }
+      try { await dbPool.end(); } catch (e) {}
     }
 
     dbPool = mysql.createPool({
@@ -61,8 +56,6 @@ async function initDB(config) {
       waitForConnections: true,
       connectionLimit: 50,
       queueLimit: 0,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 10000,
       connectTimeout: 15000
     });
     
@@ -147,22 +140,9 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
-    if (userRows.length === 0) {
-      await dbPool.execute(
-        'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)',
-        ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]
-      );
-    }
-
-    const defaultSettings = [
-      ['SYSTEM_NAME', 'MediTrack Connect'],
-      ['SYSTEM_LOGO_TEXT', 'M'],
-      ['SYSTEM_LOGO_URL', '']
-    ];
-    for (const [key, val] of defaultSettings) {
-      await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
-    }
+    // 默认管理员
+    await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
+      ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
     return { success: true };
   } catch (err) {
@@ -179,7 +159,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许加载跨域资源
+      webSecurity: false,
     },
     title: "MediTrack Connect"
   });
@@ -187,7 +167,7 @@ function createWindow(startPath = '/') {
   if (isDev) {
     mainWindow.loadURL(`http://localhost:9002${startPath}`);
   } else {
-    // 静态打包后使用 Hash 路由定位
+    // 静态导出后使用 app 协议加载
     mainWindow.loadURL(`app://./index.html#${startPath}`);
   }
 }
@@ -212,7 +192,6 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbPool.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    console.error("SQL Error:", sql, err.message);
     return { success: false, error: err.message };
   }
 });
@@ -224,9 +203,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
       [username, password]
     );
-    if (rows.length > 0) {
-      return { success: true, user: rows[0] };
-    }
+    if (rows.length > 0) return { success: true, user: rows[0] };
     return { success: false, error: 'INVALID_CREDENTIALS' };
   } catch (err) {
     return { success: false, error: err.message };
@@ -247,57 +224,33 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
     const fileName = path.basename(sourcePath);
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
-    if (!fs.existsSync(uploadBaseDir)) {
-      try {
-        fs.mkdirSync(uploadBaseDir, { recursive: true });
-      } catch (e) {
-        console.error("Failed to create upload dir:", e);
-      }
-    }
+    if (!fs.existsSync(uploadBaseDir)) fs.mkdirSync(uploadBaseDir, { recursive: true });
 
-    const targetFileName = personId === 'SYSTEM' 
-      ? `logo_${Date.now()}${path.extname(fileName)}`
-      : `${personId}_${Date.now()}_${fileName}`;
-    
+    const targetFileName = `${personId}_${Date.now()}_${fileName}`;
     const targetPath = path.join(uploadBaseDir, targetFileName);
     fs.copyFileSync(sourcePath, targetPath);
 
     return { 
       success: true, 
-      data: {
-        fileName: fileName,
-        fileUrl: targetPath,
-        uploadDate: customDate || new Date().toISOString().split('T')[0]
-      }
+      data: { fileName, fileUrl: targetPath, uploadDate: customDate || new Date().toISOString().split('T')[0] }
     };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
-  try {
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      title: '另存为',
-      defaultPath: fileName,
-    });
-
-    if (canceled || !filePath) return { success: false };
-
-    fs.copyFileSync(sourcePath, filePath);
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
 app.whenReady().then(async () => {
-  // 核心：注册 app 协议以支持 Next.js 静态资源的相对路径加载
+  // 注册 app 协议以解决 Next.js 静态资源 404 问题
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
+    // 处理 Windows 路径中的根斜杠问题
+    if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
-    const filePath = path.join(app.getAppPath(), 'out', url);
+    // 如果路径指向 index.html#/... 截断哈希
+    const cleanPath = url.split('#')[0].split('?')[0];
+    const filePath = path.join(app.getAppPath(), 'out', cleanPath);
+    
     callback({ path: path.normalize(filePath) });
   });
 
@@ -307,17 +260,12 @@ app.whenReady().then(async () => {
     try {
       url = decodeURIComponent(url);
       if (process.platform === 'win32') {
-        if (url.startsWith('/') && url[2] === ':') {
-          url = url.slice(1);
-        }
-        if (!url.includes(':') && !url.startsWith('\\\\')) {
-           url = '\\\\' + url.replace(/\//g, '\\');
-        }
+        if (url.startsWith('/') && url[2] === ':') url = url.slice(1);
+        if (!url.includes(':') && !url.startsWith('\\\\')) url = '\\\\' + url.replace(/\//g, '\\');
         url = path.normalize(url);
       }
       callback({ path: url });
     } catch (e) {
-      console.error(e);
       callback({ error: -6 });
     }
   });
