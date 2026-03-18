@@ -18,7 +18,6 @@ declare global {
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export const DataService = {
-  // 系统设置管理
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
@@ -46,7 +45,6 @@ export const DataService = {
     return true;
   },
 
-  // 审计日志
   async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
@@ -64,7 +62,6 @@ export const DataService = {
     return [];
   },
 
-  // 患者档案
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
@@ -91,7 +88,6 @@ export const DataService = {
     return true;
   },
 
-  // 重要异常结果
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const sql = `
@@ -129,7 +125,6 @@ export const DataService = {
     return true;
   },
 
-  // 随访结案 (SP_SF)
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';
@@ -146,10 +141,10 @@ export const DataService = {
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFGZRY, jcsf) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFGZRY, jcsf, XCSFTIME) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
+        followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
       if (result.success) {
         await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
@@ -160,7 +155,6 @@ export const DataService = {
     return true;
   },
 
-  // 后续随访任务 (SP_SFRW)
   async addFollowUpTask(task: FollowUpTask): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_SFRW (PERSONID, ZYYCJGTJBH, XCSFTIME, STATUS) VALUES (?, ?, ?, ?)`;
@@ -170,7 +164,6 @@ export const DataService = {
     return true;
   },
 
-  // 附件管理
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ? ORDER BY UPLOAD_DATE DESC' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
@@ -202,7 +195,6 @@ export const DataService = {
     return false;
   },
 
-  // 账户管理
   async getUsers(): Promise<User[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');

@@ -11,7 +11,6 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// Windows 7/8 适配：注册协议特权
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
@@ -114,7 +113,8 @@ async function initDB(config) {
         HFresult TEXT,
         SFTIME DATE,
         SFGZRY VARCHAR(50),
-        jcsf TINYINT(1) DEFAULT 0
+        jcsf TINYINT(1) DEFAULT 0,
+        XCSFTIME DATE
       )`,
       `CREATE TABLE IF NOT EXISTS SP_SFRW (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -298,12 +298,9 @@ app.whenReady().then(async () => {
     try {
       url = decodeURIComponent(url);
       if (process.platform === 'win32') {
-        // 处理磁盘路径 D:\...
         if (url.startsWith('/') && url[2] === ':') {
           url = url.slice(1);
         }
-        // 处理 UNC 路径 \\Server\...
-        // registerFileProtocol 接收的 URL 有时会将 \\ 变为 /
         if (!url.includes(':') && !url.startsWith('\\\\')) {
            url = '\\\\' + url.replace(/\//g, '\\');
         }

@@ -25,7 +25,6 @@ export interface AbnormalResult {
   ZYYCJGBTZR: string;
   IS_NOTIFIED: boolean;
   IS_HEALTH_EDU: boolean;
-  // Joined fields
   PERSONNAME?: string;
   SEX?: '男' | '女';
   AGE?: number;
@@ -41,6 +40,7 @@ export interface FollowUp {
   SFTIME: string;
   SFGZRY: string;
   jcsf: boolean;
+  XCSFTIME?: string;
 }
 
 export interface FollowUpTask {
