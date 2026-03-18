@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, ClipboardList, ExternalLink } from 'lucide-react'
+import { Plus, Search, FileDown, FileUp, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,6 @@ import { AbnormalResult } from '@/lib/types'
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
   const [results, setResults] = React.useState<AbnormalResult[]>(MOCK_RESULTS)
-  const [isProcessing, setIsProcessing] = React.useState(false)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [formData, setFormData] = React.useState({
     PERSONID: '',
@@ -39,39 +38,6 @@ export default function AbnormalResultsPage() {
     WORKER: '',
     ZYYCJGBTZR: '',
   })
-
-  const handleGenerateAdvice = async () => {
-    if (!formData.ZYYCJGXQ) {
-      toast({ title: "提示", description: "请先输入异常结果详情" })
-      return
-    }
-    setIsProcessing(true)
-    await new Promise(resolve => setTimeout(resolve, 600))
-    
-    try {
-      const text = formData.ZYYCJGXQ;
-      const keywords = ["建议", "复查", "结节", "钙化", "进一步", "检查", "占位", "异常"].filter(k => text.includes(k));
-      const summary = text.length > 50 ? text.substring(0, 50) + "..." : text;
-      
-      let advice = "建议结合临床表现，由专业医师进行综合研判。";
-      if (keywords.includes("结节") || keywords.includes("占位")) {
-        advice = "检测到关键病变描述，建议立即协调专科医师会诊，并预约进一步影像学检查。";
-      } else if (keywords.includes("复查")) {
-        advice = "建议按照体检报告要求的时限进行定期随访复查。";
-      }
-
-      setFormData(prev => ({ 
-        ...prev, 
-        ZYYCJGCZYJ: `【内容摘要】${summary}\n\n【处置建议】${advice}` 
-      }))
-      
-      toast({ title: "生成完毕", description: "已根据本地逻辑生成参考建议" })
-    } catch (e) {
-      toast({ variant: "destructive", title: "处理失败" })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
 
   const handleSubmit = () => {
     if (!formData.PERSONID || !formData.TJBHID) {
@@ -195,20 +161,7 @@ export default function AbnormalResultsPage() {
                 </div>
 
                 <div className="grid grid-cols-4 items-start gap-4">
-                  <div className="space-y-2">
-                    <Label>处置意见</Label>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full text-xs h-8"
-                      onClick={handleGenerateAdvice}
-                      disabled={isProcessing}
-                    >
-                      <ClipboardList className="mr-1 h-3 w-3 text-secondary" />
-                      辅助生成建议
-                    </Button>
-                  </div>
+                  <Label className="mt-2">处置意见</Label>
                   <Textarea 
                     className="col-span-3 min-h-[80px]" 
                     placeholder="请输入处置意见..."
