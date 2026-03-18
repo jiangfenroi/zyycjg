@@ -1,5 +1,7 @@
+
 "use client"
 
+import * as React from "react"
 import { useToast } from "@/hooks/use-toast"
 import {
   Toast,
@@ -10,8 +12,18 @@ import {
   ToastViewport,
 } from "@/components/ui/toast"
 
+/**
+ * 修复水合错误：Toaster 仅在客户端挂载后渲染
+ */
 export function Toaster() {
   const { toasts } = useToast()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
 
   return (
     <ToastProvider>

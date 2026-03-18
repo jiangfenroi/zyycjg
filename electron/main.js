@@ -48,7 +48,7 @@ function saveLocalConfig(config) {
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
-    if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
+    if (!dbConfig || !dbConfig.host) return { success: false, error: 'NO_CONFIG' };
 
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
@@ -58,9 +58,10 @@ async function initDB(config) {
       port: parseInt(dbConfig.port || '3306'),
       user: dbConfig.user,
       password: dbConfig.password,
+      connectTimeout: 10000
     });
 
-    // 2. 自动创建 Schema (服务器端首次运行逻辑)
+    // 2. 自动创建 Schema 
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await connection.end();
 
@@ -165,7 +166,7 @@ async function initDB(config) {
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
-    // 初始化默认管理员 (仅首次运行)
+    // 初始化默认管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
@@ -252,7 +253,7 @@ async function checkPendingTasksInBackground() {
         if (Notification.isSupported()) {
           new Notification({
             title: '待随访工作提醒',
-            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访，请及时处理。`,
+            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访。`,
             silent: false
           }).show();
         }
@@ -312,7 +313,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       [username, password]
     );
     if (rows.length > 0) return { success: true, user: rows[0] };
-    return { success: false, error: '密码错误或账号不存在' };
+    return { success: false, error: '认证失败' };
   } catch (err) {
     return { success: false, error: err.message };
   }

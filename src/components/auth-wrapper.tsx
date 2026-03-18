@@ -8,7 +8,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 
 /**
  * 核心鉴权与启动拦截组件
- * 修复了 Next.js 在文件协议下的水合错误与路由卡死问题
+ * 修复了 Next.js 的水合错误，确保服务器与客户端初始渲染一致
  */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -54,14 +54,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router])
 
-  // SSR 阶段输出空内容，防止 Hydration 报错
-  if (!mounted) {
-    return null;
-  }
-
-  const isLoading = checking && !timeoutReached;
-
-  if (isLoading) {
+  // 为了防止 Hydration 报错，在首次渲染时（无论服务端还是客户端）都渲染相同的加载界面
+  if (!mounted || (checking && !timeoutReached)) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
         <div className="flex flex-col items-center gap-6">

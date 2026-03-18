@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Database, Server, User, Lock, Globe, Loader2, Link as LinkIcon } from "lucide-react"
+import { Server, User, Lock, Globe, Loader2, Link as LinkIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,7 +26,7 @@ export default function SetupPage() {
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!config.host) {
-      toast({ variant: "destructive", title: "配置不完整", description: "请输入中心服务器地址" })
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址" })
       return
     }
 
@@ -35,20 +35,20 @@ export default function SetupPage() {
       if (typeof window !== 'undefined' && window.electronAPI) {
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
-          toast({ title: "网络接入成功", description: "中心数据库已同步，正在进入登录页面" })
+          toast({ title: "网络接入成功", description: "数据库已同步" })
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
             variant: "destructive", 
             title: "连接失败", 
-            description: result.error || "无法连接中心服务器，请检查网络或参数" 
+            description: result.error || "请检查网络或参数" 
           })
         }
       } else {
-        toast({ title: "浏览器演示环境", description: "该环境不支持物理数据库连接" })
+        toast({ title: "演示环境", description: "不支持物理连接" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误", description: "网络配置模块加载异常" })
+      toast({ variant: "destructive", title: "系统错误", description: "模块加载异常" })
     } finally {
       setLoading(false)
     }
@@ -74,7 +74,7 @@ export default function SetupPage() {
               数据库接入参数
             </CardTitle>
             <CardDescription>
-              配置成功后，应用将自动完成中心端业务表的检测与初始化
+              成功接入后系统将自动完成中心端初始化
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSetup}>
@@ -83,7 +83,7 @@ export default function SetupPage() {
                 <div className="col-span-3 space-y-2">
                   <Label>服务器主机</Label>
                   <Input 
-                    placeholder="例如 192.168.1.100" 
+                    placeholder="输入 IP 地址" 
                     value={config.host}
                     onChange={e => setConfig({...config, host: e.target.value})}
                     required
@@ -106,12 +106,11 @@ export default function SetupPage() {
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-10"
-                    placeholder="默认为 meditrack_db" 
+                    placeholder="留空则使用默认库名" 
                     value={config.database}
                     onChange={e => setConfig({...config, database: e.target.value})}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground italic px-1">若填写的库名在服务器上不存在，系统将尝试自动创建</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -135,7 +134,7 @@ export default function SetupPage() {
                     <Input 
                       type="password"
                       className="pl-10"
-                      placeholder="数据库密码" 
+                      placeholder="密码" 
                       value={config.password}
                       onChange={e => setConfig({...config, password: e.target.value})}
                     />
