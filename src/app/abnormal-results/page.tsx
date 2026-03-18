@@ -20,16 +20,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { MOCK_RESULTS, MOCK_PERSONS } from '@/lib/mock-store'
 import { useToast } from '@/hooks/use-toast'
+import { AbnormalResult } from '@/lib/types'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
-  const [results, setResults] = React.useState(MOCK_RESULTS)
+  const [results, setResults] = React.useState<AbnormalResult[]>(MOCK_RESULTS)
   const [isProcessing, setIsProcessing] = React.useState(false)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [formData, setFormData] = React.useState({
     PERSONID: '',
     TJBHID: '',
     ZYYCJGXQ: '',
-    ZYYCJGFL: 'A',
+    ZYYCJGFL: 'A' as 'A' | 'B',
     ZYYCJGCZYJ: '',
     ZYYCJGFKJG: '',
     ZYYCJGTZRQ: '',
@@ -71,6 +73,42 @@ export default function AbnormalResultsPage() {
     }
   }
 
+  const handleSubmit = () => {
+    if (!formData.PERSONID || !formData.TJBHID) {
+      toast({ variant: "destructive", title: "提交失败", description: "档案编号和体检编号为必填项" })
+      return
+    }
+
+    const newResult: AbnormalResult = {
+      ...formData,
+      ID: `R${Date.now()}`,
+      IS_NOTIFIED: true,
+      IS_HEALTH_EDU: true,
+    } as AbnormalResult
+
+    setResults([newResult, ...results])
+    setIsDialogOpen(false)
+    
+    toast({ 
+      title: "登记成功", 
+      description: `体检编号 ${formData.TJBHID} 已存入 SP_ZYJG` 
+    })
+
+    // Reset form
+    setFormData({
+      PERSONID: '',
+      TJBHID: '',
+      ZYYCJGXQ: '',
+      ZYYCJGFL: 'A',
+      ZYYCJGCZYJ: '',
+      ZYYCJGFKJG: '',
+      ZYYCJGTZRQ: '',
+      ZYYCJGTZSJ: '',
+      WORKER: '',
+      ZYYCJGBTZR: '',
+    })
+  }
+
   const openPACS = (id: string) => {
     if (typeof window !== 'undefined') {
       window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
@@ -91,7 +129,7 @@ export default function AbnormalResultsPage() {
           <Button variant="outline" size="sm">
             <FileDown className="mr-2 h-4 w-4" /> 导出报表
           </Button>
-          <Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" /> 新增登记
@@ -207,8 +245,8 @@ export default function AbnormalResultsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline">取消</Button>
-                <Button onClick={() => toast({ title: "登记成功", description: "记录已存入 SP_ZYJG" })}>提交登记</Button>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
+                <Button onClick={handleSubmit}>提交登记</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -246,7 +284,7 @@ export default function AbnormalResultsPage() {
                   <TableRow key={res.ID}>
                     <TableCell className="font-mono text-xs">{res.PERSONID}</TableCell>
                     <TableCell className="font-mono text-xs">{res.TJBHID}</TableCell>
-                    <TableCell>{person?.PERSONNAME}</TableCell>
+                    <TableCell>{person?.PERSONNAME || '未知'}</TableCell>
                     <TableCell>
                       <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
                         {res.ZYYCJGFL}类
