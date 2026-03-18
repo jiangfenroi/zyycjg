@@ -19,6 +19,9 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
+/**
+ * 全局错误处理：连接丢失或配置错误时重定向到接入向导
+ */
 const handleConnectionError = () => {
   if (typeof window !== 'undefined') {
     window.location.hash = '#/setup';
