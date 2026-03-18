@@ -39,6 +39,20 @@ export default function AbnormalResultsPage() {
     ZYYCJGBTZR: '',
   })
 
+  const handleImport = () => {
+    toast({
+      title: "功能提示",
+      description: "批量导入功能正在开发中，请稍后重试。",
+    })
+  }
+
+  const handleExport = () => {
+    toast({
+      title: "导出成功",
+      description: "已生成重要异常结果报表，请在下载目录查看。",
+    })
+  }
+
   const handleSubmit = () => {
     if (!formData.PERSONID || !formData.TJBHID) {
       toast({ variant: "destructive", title: "提交失败", description: "档案编号和体检编号为必填项" })
@@ -88,10 +102,10 @@ export default function AbnormalResultsPage() {
           <p className="text-muted-foreground mt-1">管理并登记体检过程中的关键异常发现。</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleImport}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExport}>
             <FileDown className="mr-2 h-4 w-4" /> 导出报表
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

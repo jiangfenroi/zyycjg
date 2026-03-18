@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Phone, History, Calendar, CheckSquare, MoreHorizontal } from 'lucide-react'
+import { Search, Phone, History, User, MoreHorizontal, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import Link from 'next/link'
 
 export default function FollowUpsPage() {
   const [activeTab, setActiveTab] = React.useState('pending')
@@ -81,7 +82,15 @@ export default function FollowUpsPage() {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium">{person?.PERSONNAME}</TableCell>
+                        <TableCell>
+                          <Link 
+                            href={`/patients/${task.PERSONID}`}
+                            className="font-medium text-primary hover:underline flex items-center gap-1"
+                          >
+                            {person?.PERSONNAME}
+                            <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Phone className="h-3 w-3 text-muted-foreground" />
@@ -95,9 +104,16 @@ export default function FollowUpsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" onClick={() => handleLogFollowUp(task.PERSONID)}>
-                            登记随访结果
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" onClick={() => handleLogFollowUp(task.PERSONID)}>
+                              登记随访
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={`/patients/${task.PERSONID}`}>
+                                查看档案
+                              </Link>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )

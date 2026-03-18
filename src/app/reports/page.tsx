@@ -16,8 +16,18 @@ import {
 } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MOCK_DOCS, MOCK_PERSONS } from '@/lib/mock-store'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ReportsPage() {
+  const { toast } = useToast()
+
+  const handleUpload = () => {
+    toast({
+      title: "上传提示",
+      description: "请选择要上传的报告文件（支持 PDF, JPG, PNG）。",
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
@@ -25,7 +35,7 @@ export default function ReportsPage() {
           <h1 className="text-3xl font-bold tracking-tight text-primary">报告文件管理</h1>
           <p className="text-muted-foreground mt-1">上传及查看体检报告、检查结果及病理文件。</p>
         </div>
-        <Button>
+        <Button onClick={handleUpload}>
           <Upload className="mr-2 h-4 w-4" /> 上传文件
         </Button>
       </div>
