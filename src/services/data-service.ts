@@ -141,7 +141,7 @@ export const DataService = {
         res.WORKER, res.ZYYCJGBTZR
       ]);
       if (result.success) {
-        await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果`, res.ZYYCJGFL === 'A' ? 'alert' : 'update');
+        await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果`, 'update');
       }
       return result.success;
     }
@@ -183,7 +183,7 @@ export const DataService = {
     return [];
   },
 
-  async uploadDocument(personId: string, type: string): Promise<boolean> {
+  async uploadDocument(personId: string, type: string): Promise<any> {
     if (isElectron) {
       const uploadResult = await window.electronAPI.uploadFile(personId, type);
       if (uploadResult.success && uploadResult.data) {
@@ -208,7 +208,7 @@ export const DataService = {
   // 日志管理
   async getLogs(): Promise<SystemLog[]> {
     if (isElectron) {
-      const sql = 'SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 20';
+      const sql = 'SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 100';
       const result = await window.electronAPI.query(sql);
       if (result.success) return result.data;
     }

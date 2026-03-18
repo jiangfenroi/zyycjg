@@ -57,6 +57,7 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
+        // 趋势统计逻辑：以通知日期为准
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         
@@ -134,12 +135,12 @@ export default function Dashboard() {
         
         <Card className="border-l-4 border-l-destructive shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">待处理随访任务</CardTitle>
+            <CardTitle className="text-sm font-medium">待随访任务</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A 类预警</p>
+            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 案例</p>
           </CardContent>
         </Card>
 
@@ -288,7 +289,7 @@ export default function Dashboard() {
           <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-secondary/40 hover:bg-secondary/5 hover:border-secondary" asChild>
             <Link href="/follow-ups">
               <History className="h-6 w-6 text-secondary" />
-              <span>执行待办随访</span>
+              <span>重要异常随访</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>

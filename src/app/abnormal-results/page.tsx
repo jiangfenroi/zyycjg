@@ -61,9 +61,9 @@ export default function AbnormalResultsPage() {
   React.useEffect(() => {
     loadData()
     
-    // 初始化默认值
-    const storedUser = localStorage.getItem('currentUser')
-    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : ''
+    // 初始化默认值，避免水合错误
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
     
     setFormData(prev => ({
       ...prev,
@@ -89,7 +89,7 @@ export default function AbnormalResultsPage() {
       return
     }
 
-    const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "异常详情", "是否通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "结果", "是否通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     
     const rows = results.map(res => [
       res.PERSONNAME || '未知',
@@ -143,8 +143,8 @@ export default function AbnormalResultsPage() {
       setIsDialogOpen(false)
       loadData()
       
-      const storedUser = localStorage.getItem('currentUser')
-      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : ''
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
       
       setFormData({
         PERSONID: '',
@@ -199,7 +199,7 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Label>异常分类</Label>
+                    <Label>分类</Label>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -216,15 +216,13 @@ export default function AbnormalResultsPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="A">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col text-left">
                           <span className="font-semibold text-destructive">A类</span>
-                          <span className="text-[10px] text-muted-foreground">需立即临床干预</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="B">
-                        <div className="flex flex-col">
+                        <div className="flex flex-col text-left">
                           <span className="font-semibold text-primary">B类</span>
-                          <span className="text-[10px] text-muted-foreground">需进一步检查或治疗</span>
                         </div>
                       </SelectItem>
                     </SelectContent>

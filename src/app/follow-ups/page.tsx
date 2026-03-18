@@ -59,6 +59,7 @@ export default function FollowUpsPage() {
 
   React.useEffect(() => {
     loadData()
+    // 延迟初始化表单，避免水合错误
     setFollowUpForm(prev => ({
       ...prev,
       SFTIME: new Date().toISOString().split('T')[0]
@@ -195,7 +196,6 @@ export default function FollowUpsPage() {
                       <TableHead>患者姓名</TableHead>
                       <TableHead>随访结果摘要</TableHead>
                       <TableHead>复查情况</TableHead>
-                      <TableHead>状态</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -212,7 +212,6 @@ export default function FollowUpsPage() {
                                {f.jcsf ? '已复查' : '未复查'}
                              </Badge>
                            </TableCell>
-                           <TableCell><div className="flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" /> 已结案</div></TableCell>
                            <TableCell className="text-right">
                               <Button variant="ghost" size="sm" asChild>
                                  <Link href={`/patients/${f.PERSONID}?tab=followup`}>查看详情</Link>
