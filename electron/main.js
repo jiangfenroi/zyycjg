@@ -4,6 +4,11 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 
+// 解决 Windows 8.1/7 硬件加速导致的启动无反应问题
+if (process.platform === 'win32') {
+  app.disableHardwareAcceleration();
+}
+
 const isDev = process.env.NODE_ENV === 'development';
 const isAutoStart = process.argv.includes('--hidden');
 
@@ -36,15 +41,10 @@ function saveLocalConfig(config) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
     return true;
   } catch (e) {
-    console.error(e);
     return false;
   }
 }
 
-/**
- * 初始化数据库连接与业务表
- * 实现了服务器端首次运行的自动初始化逻辑
- */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
@@ -52,7 +52,6 @@ async function initDB(config) {
 
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
-    // 1. 先尝试连接服务器本身，不指定数据库
     const connection = await mysql.createConnection({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '3306'),
@@ -61,7 +60,6 @@ async function initDB(config) {
       connectTimeout: 10000
     });
 
-    // 2. 自动创建 Schema 
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await connection.end();
 
@@ -69,7 +67,6 @@ async function initDB(config) {
       try { await dbPool.end(); } catch (e) {}
     }
 
-    // 3. 建立连接池并初始化业务表
     dbPool = mysql.createPool({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '3306'),
@@ -160,30 +157,24 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化系统参数
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
-    // 初始化默认管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
     return { success: true };
   } catch (err) {
-    console.error("Database Init Error:", err);
     return { success: false, error: err.message };
   }
 }
 
 function createWindow(startPath = '/') {
   if (mainWindow) {
-    if (isDev) {
-      mainWindow.loadURL(`http://localhost:9002${startPath}`);
-    } else {
-      mainWindow.loadURL(`app://./index.html#${startPath}`);
-    }
+    const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
+    mainWindow.loadURL(url);
     mainWindow.show();
     return;
   }
@@ -191,7 +182,7 @@ function createWindow(startPath = '/') {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    show: !isAutoStart,
+    show: false, // 优化：先隐藏，准备好后再显示
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -201,11 +192,14 @@ function createWindow(startPath = '/') {
     title: "MediTrack Connect"
   });
 
-  if (isDev) {
-    mainWindow.loadURL(`http://localhost:9002${startPath}`);
-  } else {
-    mainWindow.loadURL(`app://./index.html#${startPath}`);
-  }
+  const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
+  mainWindow.loadURL(url);
+
+  mainWindow.once('ready-to-show', () => {
+    if (!isAutoStart) {
+      mainWindow.show();
+    }
+  });
 
   mainWindow.on('close', (event) => {
     if (!app.isQuitting) {
@@ -229,7 +223,6 @@ function createTray() {
   ]);
   tray.setToolTip('MediTrack Connect 医疗闭环管理');
   tray.setContextMenu(contextMenu);
-  tray.on('double-click', () => mainWindow.show());
 }
 
 async function checkPendingTasksInBackground() {
@@ -258,9 +251,7 @@ async function checkPendingTasksInBackground() {
           }).show();
         }
       }
-    } catch (err) {
-      console.error("Background Check Error:", err);
-    }
+    } catch (err) {}
   }
 }
 
@@ -288,7 +279,6 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbPool.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    console.error("Query Error:", err);
     if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
       return { success: false, error: 'NO_CONNECTION' };
     }
@@ -402,6 +392,8 @@ app.whenReady().then(async () => {
 
   setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
   setTimeout(checkPendingTasksInBackground, 10000);
+}).catch(err => {
+  console.error("App Ready Error:", err);
 });
 
 app.on('activate', () => {

@@ -6,10 +6,6 @@ import { usePathname, useRouter } from 'next/navigation'
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
-/**
- * 核心鉴权与启动拦截组件
- * 修复了 Next.js 的水合错误，确保服务器与客户端初始渲染一致
- */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -20,7 +16,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     setMounted(true)
     
-    // 3秒安全超时保护
     const safetyTimer = setTimeout(() => {
       setTimeoutReached(true);
       setChecking(false);
@@ -54,8 +49,17 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router])
 
-  // 为了防止 Hydration 报错，在首次渲染时（无论服务端还是客户端）都渲染相同的加载界面
-  if (!mounted || (checking && !timeoutReached)) {
+  // 严谨修复 Hydration 错误：SSR 阶段只渲染一个空的 Shell
+  if (!mounted) {
+    return (
+      <div className="bg-background flex items-center justify-center min-h-screen w-full">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  // 挂载后显示带文字的加载界面
+  if (checking && !timeoutReached) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
         <div className="flex flex-col items-center gap-6">
