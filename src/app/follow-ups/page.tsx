@@ -31,7 +31,7 @@ export default function FollowUpsPage() {
   const [persons, setPersons] = React.useState<Person[]>([])
   const [abnormalResults, setAbnormalResults] = React.useState<AbnormalResult[]>([])
   const [followUps, setFollowUps] = React.useState<FollowUp[]>([])
-  const [selectedPersonId, setSelectedPersonId] = React.useState<string | null>(null)
+  const [selectedResult, setSelectedResult] = React.useState<AbnormalResult | null>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
 
@@ -39,7 +39,8 @@ export default function FollowUpsPage() {
     HFresult: '',
     SFTIME: '',
     SFGZRY: '',
-    jcsf: false
+    jcsf: false,
+    XCSFTIME: ''
   })
 
   const loadData = React.useCallback(async () => {
@@ -67,40 +68,51 @@ export default function FollowUpsPage() {
     }
   }, [loadData])
 
-  const pendingPersonIds = Array.from(new Set(abnormalResults
-    .filter(res => !followUps.some(f => f.PERSONID === res.PERSONID))
-    .map(r => r.PERSONID)))
+  // 待随访：A类和B类且尚未完成随访的
+  const pendingResults = abnormalResults.filter(res => !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID))
 
-  const filteredPending = pendingPersonIds.filter(id => {
-    const person = persons.find(p => p.PERSONID === id)
-    return (person?.PERSONNAME || '').includes(searchTerm) || id.includes(searchTerm)
+  const filteredPending = pendingResults.filter(res => {
+    return (res.PERSONNAME || '').includes(searchTerm) || res.PERSONID.includes(searchTerm) || (res.TJBHID || '').includes(searchTerm)
   })
 
   const filteredCompleted = followUps.filter(f => {
     const person = persons.find(p => p.PERSONID === f.PERSONID)
-    return (person?.PERSONNAME || '').includes(searchTerm) || f.PERSONID.includes(searchTerm)
+    return (person?.PERSONNAME || '').includes(searchTerm) || f.PERSONID.includes(searchTerm) || (f.ZYYCJGTJBH || '').includes(searchTerm)
   })
 
   const handleCompleteTask = async () => {
-    if (!selectedPersonId || !followUpForm.HFresult) {
+    if (!selectedResult || !followUpForm.HFresult) {
       toast({ variant: "destructive", title: "校验失败", description: "请填写回访详细结果。" })
       return
     }
     setSubmitting(true)
     try {
+      // 1. 保存随访信息 (SP_SF)
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
-        PERSONID: selectedPersonId,
+        PERSONID: selectedResult.PERSONID,
+        ZYYCJGTJBH: selectedResult.TJBHID,
         HFresult: followUpForm.HFresult,
         SFTIME: followUpForm.SFTIME,
         SFGZRY: followUpForm.SFGZRY,
         jcsf: followUpForm.jcsf
       })
+
+      // 2. 如果填写了下次随访日期，保存任务 (SP_SFRW)
+      if (success && followUpForm.XCSFTIME) {
+        await DataService.addFollowUpTask({
+          PERSONID: selectedResult.PERSONID,
+          ZYYCJGTJBH: selectedResult.TJBHID,
+          XCSFTIME: followUpForm.XCSFTIME,
+          STATUS: 'pending'
+        })
+      }
+
       if (success) {
         toast({ title: "随访已存档" })
-        setSelectedPersonId(null)
+        setSelectedResult(null)
         loadData()
-        setFollowUpForm(prev => ({ ...prev, HFresult: '', jcsf: false }))
+        setFollowUpForm(prev => ({ ...prev, HFresult: '', jcsf: false, XCSFTIME: '' }))
       }
     } finally {
       setSubmitting(false)
@@ -112,11 +124,11 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
-          <p className="text-muted-foreground mt-1">闭环管理待随访任务及回访记录。</p>
+          <p className="text-muted-foreground mt-1">闭环管理 A/B 类待随访任务及回访记录。</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="检索姓名、档案号..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="检索姓名、档案号、体检号..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
@@ -134,6 +146,7 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="text-xs">档案编号</TableHead>
+                      <TableHead className="text-xs">体检编号</TableHead>
                       <TableHead className="text-xs">姓名</TableHead>
                       <TableHead className="text-xs">性别</TableHead>
                       <TableHead className="text-xs">年龄</TableHead>
@@ -144,23 +157,22 @@ export default function FollowUpsPage() {
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredPending.length > 0 ? filteredPending.map((pid) => {
-                      const person = persons.find(p => p.PERSONID === pid)
-                      const result = abnormalResults.find(r => r.PERSONID === pid)
+                      <TableRow><TableCell colSpan={8} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : filteredPending.length > 0 ? filteredPending.map((res) => {
                       return (
-                        <TableRow key={pid} className="text-xs">
-                          <TableCell className="font-mono">{pid}</TableCell>
-                          <TableCell className="font-bold text-primary">{person?.PERSONNAME || '未知'}</TableCell>
-                          <TableCell>{person?.SEX || '-'}</TableCell>
-                          <TableCell>{person?.AGE || '-'}</TableCell>
-                          <TableCell>{person?.PHONE || '-'}</TableCell>
-                          <TableCell className="max-w-[300px] truncate" title={result?.ZYYCJGXQ}>{result?.ZYYCJGXQ}</TableCell>
-                          <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedPersonId(pid)}>登记随访</Button></TableCell>
+                        <TableRow key={res.ID} className="text-xs">
+                          <TableCell className="font-mono">{res.PERSONID}</TableCell>
+                          <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
+                          <TableCell className="font-bold text-primary">{res.PERSONNAME || '未知'}</TableCell>
+                          <TableCell>{res.SEX || '-'}</TableCell>
+                          <TableCell>{res.AGE || '-'}</TableCell>
+                          <TableCell>{res.PHONE || '-'}</TableCell>
+                          <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                          <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}>登记随访</Button></TableCell>
                         </TableRow>
                       )
                     }) : (
-                      <TableRow><TableCell colSpan={7} className="text-center py-24 text-muted-foreground italic">无待处理任务</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-24 text-muted-foreground italic">无待处理任务</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -178,6 +190,7 @@ export default function FollowUpsPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="text-xs">档案编号</TableHead>
+                        <TableHead className="text-xs">体检编号</TableHead>
                         <TableHead className="text-xs">姓名</TableHead>
                         <TableHead className="text-xs">性别</TableHead>
                         <TableHead className="text-xs">年龄</TableHead>
@@ -186,16 +199,17 @@ export default function FollowUpsPage() {
                         <TableHead className="min-w-[250px] text-xs">回访结果</TableHead>
                         <TableHead className="text-xs">是否进一步检查</TableHead>
                         <TableHead className="text-xs">回访日期</TableHead>
-                        <TableHead className="text-xs">随访人</TableHead>
+                        <TableHead className="text-xs">回访人</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredCompleted.map((f) => {
                         const person = persons.find(p => p.PERSONID === f.PERSONID)
-                        const result = abnormalResults.find(r => r.PERSONID === f.PERSONID)
+                        const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGTJBH)
                         return (
                           <TableRow key={f.ID} className="text-xs">
                             <TableCell className="font-mono">{f.PERSONID}</TableCell>
+                            <TableCell className="font-mono">{f.ZYYCJGTJBH || '-'}</TableCell>
                             <TableCell className="font-semibold">{person?.PERSONNAME || '未知'}</TableCell>
                             <TableCell>{person?.SEX || '-'}</TableCell>
                             <TableCell>{person?.AGE || '-'}</TableCell>
@@ -217,12 +231,14 @@ export default function FollowUpsPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!selectedPersonId} onOpenChange={(open) => !open && setSelectedPersonId(null)}>
+      <Dialog open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)}>
         <DialogContent className="max-w-xl">
           <DialogHeader><DialogTitle>随访结果登记 (SP_SF)</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="p-3 bg-muted rounded text-xs italic">
-              异常摘要：{abnormalResults.find(r => r.PERSONID === selectedPersonId)?.ZYYCJGXQ || '无'}
+            <div className="p-3 bg-muted rounded text-xs italic space-y-1">
+              <p>患者姓名：{selectedResult?.PERSONNAME}</p>
+              <p>体检编号：{selectedResult?.TJBHID}</p>
+              <p>异常摘要：{selectedResult?.ZYYCJGXQ}</p>
             </div>
             <div className="space-y-2">
               <Label>回访结果 (HFresult)</Label>
@@ -232,9 +248,15 @@ export default function FollowUpsPage() {
                <div className="space-y-2"><Label>随访日期 (SFTIME)</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
                <div className="space-y-2"><Label>随访人 (SFGZRY)</Label><Input value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} /></div>
             </div>
-            <div className="flex items-center space-x-2 p-3 bg-primary/5 rounded border border-primary/20">
-              <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-              <Label htmlFor="jcsf" className="cursor-pointer font-bold">是否进一步检查 (jcsf)</Label>
+            <div className="grid grid-cols-2 gap-4">
+               <div className="flex items-center space-x-2 p-3 bg-primary/5 rounded border border-primary/20">
+                <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
+                <Label htmlFor="jcsf" className="cursor-pointer font-bold">是否进一步检查 (jcsf)</Label>
+              </div>
+              <div className="space-y-2">
+                <Label>下次随访日期 (XCSFTIME)</Label>
+                <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -183,6 +183,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader><TableRow>
+                      <TableHead>体检号</TableHead>
                       <TableHead>日期</TableHead>
                       <TableHead>结果摘要</TableHead>
                       <TableHead>复查情况</TableHead>
@@ -190,6 +191,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                     <TableBody>
                       {followUps.length > 0 ? followUps.map(f => (
                         <TableRow key={f.ID} className="text-xs">
+                          <TableCell className="font-mono">{f.ZYYCJGTJBH || '-'}</TableCell>
                           <TableCell className="font-mono">{f.SFTIME}</TableCell>
                           <TableCell className="max-w-[300px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell>
@@ -199,7 +201,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={3} className="text-center py-12 text-muted-foreground italic">暂无历史随访记录</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无历史随访记录</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>

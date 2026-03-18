@@ -107,12 +107,12 @@ export const DataService = {
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
+        res.ID, res.PERSONID, res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
+        res.WORKER, res.ZYYCJGBTZR || ''
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
@@ -135,16 +135,26 @@ export const DataService = {
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_SF (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
-                   VALUES (?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFGZRY, jcsf) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
+        followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
       ]);
       if (result.success) {
         await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
         return true;
       }
       throw new Error(result.error);
+    }
+    return true;
+  },
+
+  // 后续随访任务 (SP_SFRW)
+  async addFollowUpTask(task: FollowUpTask): Promise<boolean> {
+    if (isElectron) {
+      const sql = `INSERT INTO SP_SFRW (PERSONID, ZYYCJGTJBH, XCSFTIME, STATUS) VALUES (?, ?, ?, ?)`;
+      const result = await window.electronAPI.query(sql, [task.PERSONID, task.ZYYCJGTJBH || '', task.XCSFTIME, task.STATUS]);
+      return result.success;
     }
     return true;
   },

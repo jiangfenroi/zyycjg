@@ -127,12 +127,14 @@ async function initDB(config) {
         SELFUPLOAD BOOLEAN,
         SELFSERIALNO VARCHAR(50),
         SELFUPDATE DATETIME,
-        RYZT VARCHAR(20)
+        RYZT VARCHAR(20),
+        EMPI VARCHAR(50),
+        AGEMOUTH INT,
+        ROWID VARCHAR(50)
       )`,
       `CREATE TABLE IF NOT EXISTS SP_ZYJG (
         ID VARCHAR(50) PRIMARY KEY,
         PERSONID VARCHAR(50),
-        TJBHID VARCHAR(50),
         ZYYCJGXQ TEXT,
         ZYYCJGFL ENUM('A', 'B'),
         ZYYCJGCZYJ TEXT,
@@ -140,13 +142,12 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ TIME,
         WORKER VARCHAR(50),
-        ZYYCJGBTZR VARCHAR(50),
-        IS_NOTIFIED BOOLEAN DEFAULT TRUE,
-        IS_HEALTH_EDU BOOLEAN DEFAULT TRUE
+        ZYYCJGBTZR VARCHAR(50)
       )`,
       `CREATE TABLE IF NOT EXISTS SP_SF (
         ID VARCHAR(50) PRIMARY KEY,
         PERSONID VARCHAR(50),
+        ZYYCJGTJBH VARCHAR(50),
         HFresult TEXT,
         SFTIME DATE,
         SFGZRY VARCHAR(50),
@@ -155,6 +156,7 @@ async function initDB(config) {
       `CREATE TABLE IF NOT EXISTS SP_SFRW (
         ID INT AUTO_INCREMENT PRIMARY KEY,
         PERSONID VARCHAR(50),
+        ZYYCJGTJBH VARCHAR(50),
         XCSFTIME DATE,
         STATUS ENUM('pending', 'completed') DEFAULT 'pending',
         CREATE_TIME TIMESTAMP DEFAULT CURRENT_TIMESTAMP

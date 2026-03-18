@@ -46,6 +46,9 @@ export interface Person {
   SELFSERIALNO?: string;
   SELFUPDATE?: string;
   RYZT?: string;
+  EMPI?: string;
+  AGEMOUTH?: number;
+  ROWID?: string;
 }
 
 export interface AbnormalResult {
@@ -73,6 +76,7 @@ export interface AbnormalResult {
 export interface FollowUp {
   ID: string;
   PERSONID: string;
+  ZYYCJGTJBH?: string;
   HFresult: string;
   SFTIME: string;
   SFGZRY: string;
@@ -82,6 +86,7 @@ export interface FollowUp {
 export interface FollowUpTask {
   ID?: number;
   PERSONID: string;
+  ZYYCJGTJBH?: string;
   XCSFTIME: string;
   STATUS: 'pending' | 'completed';
   CREATE_TIME?: string;
