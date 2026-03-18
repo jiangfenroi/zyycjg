@@ -8,7 +8,8 @@ import {
   UserCog, 
   Key, 
   RefreshCcw,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { User } from '@/lib/types'
+import { DataService } from '@/services/data-service'
 
 export default function UserManagementPage() {
   const { toast } = useToast()
@@ -41,6 +43,7 @@ export default function UserManagementPage() {
   const [loading, setLoading] = React.useState(true)
   const [isAddOpen, setIsAddOpen] = React.useState(false)
   const [isResetOpen, setIsResetOpen] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
   const [selectedUser, setSelectedUser] = React.useState<User | null>(null)
 
   const [newUser, setNewUser] = React.useState({
@@ -52,87 +55,91 @@ export default function UserManagementPage() {
 
   const [newPassword, setNewPassword] = React.useState('')
 
-  const fetchUsers = async () => {
+  const fetchUsers = React.useCallback(async () => {
     setLoading(true)
     try {
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC')
-        if (result.success) setUsers(result.data)
-      }
+      const data = await DataService.getUsers()
+      setUsers(data)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据加载失败", description: "无法连接到数据库" })
+      toast({ variant: "destructive", title: "数据加载失败", description: "无法从中心数据库获取用户信息" })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   React.useEffect(() => {
     fetchUsers()
-  }, [])
+  }, [fetchUsers])
 
   const handleAddUser = async () => {
     if (!newUser.USERNAME || !newUser.PASSWORD || !newUser.REAL_NAME) {
-      toast({ variant: "destructive", title: "添加失败", description: "请填写完整信息" })
+      toast({ variant: "destructive", title: "添加失败", description: "请填写完整的所有必填信息" })
       return
     }
 
+    setSubmitting(true)
     try {
-      const sql = 'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)'
-      const result = await window.electronAPI.query(sql, [
-        newUser.USERNAME, 
-        newUser.PASSWORD, 
-        newUser.REAL_NAME, 
-        newUser.ROLE,
-        new Date().toISOString().split('T')[0]
-      ])
-      
+      const result = await DataService.addUser(newUser)
       if (result.success) {
-        toast({ title: "用户已创建", description: `账号 ${newUser.USERNAME} 已就绪` })
+        toast({ title: "用户已创建", description: `账号 ${newUser.USERNAME} 已同步至中心数据库` })
         setIsAddOpen(false)
         fetchUsers()
         setNewUser({ USERNAME: '', PASSWORD: '', REAL_NAME: '', ROLE: 'operator' })
       } else {
-        toast({ variant: "destructive", title: "创建失败", description: result.error })
+        toast({ 
+          variant: "destructive", 
+          title: "创建失败", 
+          description: result.error?.includes('Duplicate') ? "该用户名已存在，请换一个" : (result.error || "数据库写入异常")
+        })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误" })
+      toast({ variant: "destructive", title: "系统错误", description: "无法连接到服务器" })
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleDeleteUser = async (id: number, username: string) => {
     if (username === 'admin') {
-      toast({ variant: "destructive", title: "禁止操作", description: "主管理员账户不可删除" })
+      toast({ variant: "destructive", title: "禁止操作", description: "主管理员账户不可注销" })
       return
     }
 
     if (!confirm(`确定要永久注销用户 ${username} 吗？`)) return
 
     try {
-      const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ?', [id])
-      if (result.success) {
+      const success = await DataService.deleteUser(id, username)
+      if (success) {
         toast({ title: "用户已删除" })
         fetchUsers()
+      } else {
+        toast({ variant: "destructive", title: "删除失败" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "删除失败" })
+      toast({ variant: "destructive", title: "系统错误" })
     }
   }
 
   const handleResetPassword = async () => {
-    if (!selectedUser || !newPassword) return
+    if (!selectedUser || !newPassword) {
+      toast({ variant: "destructive", title: "重置失败", description: "请输入新密码" })
+      return
+    }
 
+    setSubmitting(true)
     try {
-      const result = await window.electronAPI.query(
-        'UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?',
-        [newPassword, selectedUser.ID]
-      )
-      if (result.success) {
-        toast({ title: "密码重置成功", description: `用户 ${selectedUser.USERNAME} 的密码已更新。` })
+      const success = await DataService.resetPassword(selectedUser.ID, selectedUser.USERNAME, newPassword)
+      if (success) {
+        toast({ title: "密码重置成功", description: `用户 ${selectedUser.USERNAME} 的凭据已更新。` })
         setIsResetOpen(false)
         setNewPassword('')
+      } else {
+        toast({ variant: "destructive", title: "重置失败" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "重置失败" })
+      toast({ variant: "destructive", title: "系统错误" })
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -157,15 +164,27 @@ export default function UserManagementPage() {
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label>登录用户名 (工号/拼音)</Label>
-                <Input value={newUser.USERNAME} onChange={e => setNewUser({...newUser, USERNAME: e.target.value})} placeholder="例如: wangwu" />
+                <Input 
+                  value={newUser.USERNAME} 
+                  onChange={e => setNewUser({...newUser, USERNAME: e.target.value})} 
+                  placeholder="例如: wangwu" 
+                />
               </div>
               <div className="space-y-2">
                 <Label>登录密码</Label>
-                <Input type="password" value={newUser.PASSWORD} onChange={e => setNewUser({...newUser, PASSWORD: e.target.value})} />
+                <Input 
+                  type="password" 
+                  value={newUser.PASSWORD} 
+                  onChange={e => setNewUser({...newUser, PASSWORD: e.target.value})} 
+                />
               </div>
               <div className="space-y-2">
                 <Label>真实姓名</Label>
-                <Input value={newUser.REAL_NAME} onChange={e => setNewUser({...newUser, REAL_NAME: e.target.value})} placeholder="例如: 王五" />
+                <Input 
+                  value={newUser.REAL_NAME} 
+                  onChange={e => setNewUser({...newUser, REAL_NAME: e.target.value})} 
+                  placeholder="例如: 王五" 
+                />
               </div>
               <div className="space-y-2">
                 <Label>系统角色</Label>
@@ -182,7 +201,10 @@ export default function UserManagementPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddOpen(false)}>取消</Button>
-              <Button onClick={handleAddUser}>确认创建</Button>
+              <Button onClick={handleAddUser} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                确认创建
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -209,8 +231,8 @@ export default function UserManagementPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10">同步用户信息中...</TableCell></TableRow>
-              ) : users.map((user) => (
+                <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : users.length > 0 ? users.map((user) => (
                 <TableRow key={user.ID}>
                   <TableCell className="font-mono">{user.USERNAME}</TableCell>
                   <TableCell className="font-medium">{user.REAL_NAME}</TableCell>
@@ -244,7 +266,9 @@ export default function UserManagementPage() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )) : (
+                <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">暂无用户记录</TableCell></TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -274,7 +298,10 @@ export default function UserManagementPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResetOpen(false)}>取消</Button>
-            <Button variant="destructive" onClick={handleResetPassword}>立即更新</Button>
+            <Button variant="destructive" onClick={handleResetPassword} disabled={submitting}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              立即更新
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,4 @@
-import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog } from '@/lib/types';
-import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
+import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
   interface Window {
@@ -41,6 +40,56 @@ export const DataService = {
     return true;
   },
 
+  // 用户管理
+  async getUsers(): Promise<User[]> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
+      if (result.success) return result.data;
+    }
+    return [];
+  },
+
+  async addUser(user: Partial<User>): Promise<{ success: boolean; error?: string }> {
+    if (isElectron) {
+      const sql = `INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) 
+                   VALUES (?, ?, ?, ?, ?)`;
+      const result = await window.electronAPI.query(sql, [
+        user.USERNAME, 
+        user.PASSWORD, 
+        user.REAL_NAME, 
+        user.ROLE,
+        new Date().toISOString().split('T')[0]
+      ]);
+      if (result.success) {
+        await this.addLog('系统', `创建了新用户账号: ${user.USERNAME}`, 'system');
+      }
+      return result;
+    }
+    return { success: false, error: '非客户端环境' };
+  },
+
+  async deleteUser(id: number, username: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ?', [id]);
+      if (result.success) {
+        await this.addLog('系统', `注销了用户账号: ${username}`, 'system');
+      }
+      return result.success;
+    }
+    return false;
+  },
+
+  async resetPassword(id: number, username: string, newPassword: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [newPassword, id]);
+      if (result.success) {
+        await this.addLog('系统', `重置了用户 ${username} 的登录密码`, 'system');
+      }
+      return result.success;
+    }
+    return false;
+  },
+
   // 患者档案
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
@@ -48,7 +97,7 @@ export const DataService = {
       if (result.success) return result.data;
       throw new Error(result.error);
     }
-    return MOCK_PERSONS;
+    return [];
   },
 
   async addPatient(person: Person): Promise<boolean> {
@@ -79,7 +128,7 @@ export const DataService = {
       if (result.success) return result.data;
       throw new Error(result.error);
     }
-    return MOCK_RESULTS;
+    return [];
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
@@ -106,7 +155,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
-    return MOCK_FOLLOW_UPS;
+    return [];
   },
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
@@ -131,7 +180,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
-    return MOCK_DOCS;
+    return [];
   },
 
   async uploadDocument(personId: string, type: string): Promise<boolean> {
