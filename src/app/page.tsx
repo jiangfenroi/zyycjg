@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -49,6 +48,7 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
+        // 统计所有未随访的重要结果
         const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)).length
 
         setStats({
@@ -60,6 +60,7 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
+        // 构建月度趋势
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         

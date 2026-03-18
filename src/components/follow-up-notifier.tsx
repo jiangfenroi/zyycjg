@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -26,6 +25,7 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
+      // 核心业务逻辑：A/B类均为重要异常，且只要未随访即需预警
       const pending = results.filter(r => 
         !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )
@@ -39,7 +39,7 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(loadTasks, 60000)
+    const timer = setInterval(loadTasks, 60000) // 每分钟自动同步中心数据库
     return () => clearInterval(timer)
   }, [loadTasks])
 
