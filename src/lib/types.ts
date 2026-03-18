@@ -10,15 +10,48 @@ export interface Person {
   NATIONNAME?: string;
   IDNO: string;
   PHONE: string;
+  MOBILE?: string;
+  EMAIL?: string;
+  ADDRESS?: string;
+  POSTCODE?: string;
+  QQ?: string;
+  DEPARTMENT?: string;
+  POSITION?: string;
+  VIPNO?: string;
+  UNITCODE?: string;
   UNITNAME?: string;
+  WORKERNO?: string;
+  WEBPASSWORD?: string;
+  ISWEBBOOKING?: boolean;
+  INNERCODE?: string;
+  ISVALID?: boolean;
+  ISIMPORTANT?: boolean;
   OCCURDATE: string;
+  OPTCODE?: string;
   OPTNAME?: string;
+  MEMO?: string;
+  ISTELSAY?: boolean;
+  GR_NUMBER?: string;
+  GR_GONGCH?: string;
+  GR_KE?: string;
+  GR_ZU?: string;
+  GR_BANC?: string;
+  GR_RUSHRIQI?: string;
+  GR_SHELING?: number;
+  GR_QUFEN?: string;
+  GR_WEIHAIYINS?: string;
+  INDUSTRY?: string;
+  VIPSERIALNO?: string;
+  SELFUPLOAD?: boolean;
+  SELFSERIALNO?: string;
+  SELFUPDATE?: string;
+  RYZT?: string;
 }
 
 export interface AbnormalResult {
   ID: string;
   PERSONID: string;
-  TJBHID: string;
+  TJBHID?: string;
   ZYYCJGXQ: string;
   ZYYCJGFL: 'A' | 'B';
   ZYYCJGCZYJ: string;
@@ -27,8 +60,9 @@ export interface AbnormalResult {
   ZYYCJGTZSJ: string;
   WORKER: string;
   ZYYCJGBTZR: string;
-  IS_NOTIFIED: boolean;
-  IS_HEALTH_EDU: boolean;
+  IS_NOTIFIED?: boolean;
+  IS_HEALTH_EDU?: boolean;
+  // Joined fields
   PERSONNAME?: string;
   SEX?: '男' | '女';
   AGE?: number;

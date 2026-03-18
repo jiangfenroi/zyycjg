@@ -80,7 +80,7 @@ export default function AbnormalResultsPage() {
     const personName = res.PERSONNAME || '';
     return (
       res.PERSONID.toLowerCase().includes(searchLower) || 
-      res.TJBHID.toLowerCase().includes(searchLower) ||
+      (res.TJBHID || '').toLowerCase().includes(searchLower) ||
       personName.toLowerCase().includes(searchLower)
     );
   })
@@ -89,7 +89,7 @@ export default function AbnormalResultsPage() {
     if (results.length === 0) return
     const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "重要异常结果详情", "是否通知", "是否健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     const rows = results.map(res => [
-      res.PERSONID, res.TJBHID, res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
+      res.PERSONID, res.TJBHID || '', res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
       res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR, `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
     ]);
@@ -104,8 +104,8 @@ export default function AbnormalResultsPage() {
   }
 
   const handleSubmit = async () => {
-    if (!formData.PERSONID || !formData.TJBHID) {
-      toast({ variant: "destructive", title: "校验失败", description: "关键字段不可为空。" })
+    if (!formData.PERSONID) {
+      toast({ variant: "destructive", title: "校验失败", description: "档案编号不可为空。" })
       return
     }
     setSubmitting(true)
@@ -130,24 +130,24 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">闭环管理业务异常结果，全院数据中心同步。</p>
+          <p className="text-muted-foreground mt-1">闭环管理业务异常结果，全院中心数据库实时同步。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-2 h-4 w-4" /> 导出报表</Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
             <DialogContent className="max-w-4xl">
-              <DialogHeader><DialogTitle>重要异常结果入库登记</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>重要异常结果登记入库</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>档案编号 (PERSONID)</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>体检编号 (TJBHID)</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
-                <div className="space-y-2"><Label>重要异常结果详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
-                <div className="space-y-2"><Label>处置建议</Label><Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} /></div>
+                <div className="space-y-2"><Label>重要异常结果详情 (ZYYCJGXQ)</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
+                <div className="space-y-2"><Label>处置建议 (ZYYCJGCZYJ)</Label><Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>重要异常结果分类</Label>
+                    <Label>重要异常结果分类 (ZYYCJGFL)</Label>
                     <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -168,12 +168,12 @@ export default function AbnormalResultsPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>通知日期</Label><Input type="date" value={formData.ZYYCJGTZRQ} onChange={e => setFormData({...formData, ZYYCJGTZRQ: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>通知时间</Label><Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>通知日期 (ZYYCJGTZRQ)</Label><Input type="date" value={formData.ZYYCJGTZRQ} onChange={e => setFormData({...formData, ZYYCJGTZRQ: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>通知时间 (ZYYCJGTZSJ)</Label><Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>通知医生</Label><Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} /></div>
-                  <div className="space-y-2"><Label>被通知人</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>通知医生 (WORKER)</Label><Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>被通知人 (ZYYCJGBTZR)</Label><Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} /></div>
                 </div>
               </div>
               <DialogFooter>
@@ -187,10 +187,10 @@ export default function AbnormalResultsPage() {
       <Card>
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
+            <CardTitle className="text-lg">已登记异常结果列表</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="检索姓名、档案号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+              <Input placeholder="姓名、档案号、体检号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>
@@ -224,7 +224,7 @@ export default function AbnormalResultsPage() {
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-[10px] sm:text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
-                    <TableCell className="font-mono">{res.TJBHID}</TableCell>
+                    <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
                     <TableCell>{res.SEX || '-'}</TableCell>
                     <TableCell>{res.AGE || '-'}</TableCell>

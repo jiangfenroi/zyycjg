@@ -73,12 +73,12 @@ export default function FollowUpsPage() {
 
   const filteredPending = pendingPersonIds.filter(id => {
     const person = persons.find(p => p.PERSONID === id)
-    return person?.PERSONNAME.includes(searchTerm) || id.includes(searchTerm)
+    return (person?.PERSONNAME || '').includes(searchTerm) || id.includes(searchTerm)
   })
 
   const filteredCompleted = followUps.filter(f => {
     const person = persons.find(p => p.PERSONID === f.PERSONID)
-    return person?.PERSONNAME.includes(searchTerm) || f.PERSONID.includes(searchTerm)
+    return (person?.PERSONNAME || '').includes(searchTerm) || f.PERSONID.includes(searchTerm)
   })
 
   const handleCompleteTask = async () => {
@@ -112,7 +112,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
-          <p className="text-muted-foreground mt-1">管理 A/B 类待处理随访任务及历史记录。</p>
+          <p className="text-muted-foreground mt-1">闭环管理待随访任务及回访记录。</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -123,7 +123,7 @@ export default function FollowUpsPage() {
       <Tabs defaultValue="pending">
         <TabsList className="grid w-[400px] grid-cols-2">
           <TabsTrigger value="pending">待随访任务 ({filteredPending.length})</TabsTrigger>
-          <TabsTrigger value="completed">已结案记录 ({filteredCompleted.length})</TabsTrigger>
+          <TabsTrigger value="completed">已回访记录 ({filteredCompleted.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-6">
@@ -184,9 +184,9 @@ export default function FollowUpsPage() {
                         <TableHead className="text-xs">电话</TableHead>
                         <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
                         <TableHead className="min-w-[250px] text-xs">回访结果</TableHead>
-                        <TableHead className="text-xs">是否复查或进一步检查</TableHead>
+                        <TableHead className="text-xs">是否进一步检查</TableHead>
                         <TableHead className="text-xs">回访日期</TableHead>
-                        <TableHead className="text-xs">回访人</TableHead>
+                        <TableHead className="text-xs">随访人</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -219,26 +219,26 @@ export default function FollowUpsPage() {
 
       <Dialog open={!!selectedPersonId} onOpenChange={(open) => !open && setSelectedPersonId(null)}>
         <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle>随访结果登记</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>随访结果登记 (SP_SF)</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="p-3 bg-muted rounded text-xs italic">
               异常摘要：{abnormalResults.find(r => r.PERSONID === selectedPersonId)?.ZYYCJGXQ || '无'}
             </div>
             <div className="space-y-2">
-              <Label>回访结果</Label>
+              <Label>回访结果 (HFresult)</Label>
               <Textarea placeholder="记录详细回访结论..." value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2"><Label>回访日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
-               <div className="space-y-2"><Label>回访人</Label><Input value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} /></div>
+               <div className="space-y-2"><Label>随访日期 (SFTIME)</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+               <div className="space-y-2"><Label>随访人 (SFGZRY)</Label><Input value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} /></div>
             </div>
-            <div className="flex items-center space-x-2 p-3 bg-primary/5 rounded">
+            <div className="flex items-center space-x-2 p-3 bg-primary/5 rounded border border-primary/20">
               <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-              <Label htmlFor="jcsf" className="cursor-pointer font-bold">已执行复查或进一步检查 (标记结案)</Label>
+              <Label htmlFor="jcsf" className="cursor-pointer font-bold">是否进一步检查 (jcsf)</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleCompleteTask} disabled={submitting}>确认保存</Button>
+            <Button onClick={handleCompleteTask} disabled={submitting}>同步存入中心库</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

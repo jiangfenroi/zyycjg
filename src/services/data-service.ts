@@ -76,11 +76,11 @@ export const DataService = {
 
   async addPatient(person: Person): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
-        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员'
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
       ]);
       if (result.success) {
         await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
@@ -91,7 +91,7 @@ export const DataService = {
     return true;
   },
 
-  // 重要异常结果 (核心 16 维数据处理)
+  // 重要异常结果
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const sql = `
@@ -110,7 +110,7 @@ export const DataService = {
       const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        res.ID, res.PERSONID, res.TJBHID, res.ZYYCJGXQ, res.ZYYCJGFL, 
+        res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
@@ -123,10 +123,10 @@ export const DataService = {
     return true;
   },
 
-  // 随访结案 (核心 10 维数据处理)
+  // 随访结案 (SP_SF)
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
-      const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_FOLLOWUPS ORDER BY SFTIME DESC';
+      const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
@@ -135,7 +135,7 @@ export const DataService = {
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_FOLLOWUPS (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
+      const sql = `INSERT INTO SP_SF (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
                    VALUES (?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
