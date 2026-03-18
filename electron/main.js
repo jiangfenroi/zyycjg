@@ -106,6 +106,13 @@ async function initDB(config) {
         FILENAME VARCHAR(255),
         UPLOAD_DATE DATE,
         FILE_URL TEXT
+      )`,
+      `CREATE TABLE IF NOT EXISTS SP_LOGS (
+        ID INT AUTO_INCREMENT PRIMARY KEY,
+        OPERATOR VARCHAR(50),
+        ACTION TEXT,
+        TYPE VARCHAR(20),
+        LOG_TIME TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 

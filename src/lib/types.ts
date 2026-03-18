@@ -74,3 +74,11 @@ export interface SystemSettings {
   SYSTEM_LOGO_TEXT: string;
   SYSTEM_LOGO_URL?: string;
 }
+
+export interface SystemLog {
+  ID: number;
+  OPERATOR: string;
+  ACTION: string;
+  TYPE: 'alert' | 'update' | 'completed' | 'system';
+  LOG_TIME: string;
+}

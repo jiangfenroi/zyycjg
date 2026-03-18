@@ -1,4 +1,4 @@
-import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings } from '@/lib/types';
+import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog } from '@/lib/types';
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
 
 declare global {
@@ -59,6 +59,9 @@ export const DataService = {
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE, 
         person.UNITNAME, person.OCCURDATE, person.OPTNAME
       ]);
+      if (result.success) {
+        await this.addLog(person.OPTNAME || '未知用户', `为患者 ${person.PERSONNAME} 建立了新档案`, 'update');
+      }
       return result.success;
     }
     return true;
@@ -88,6 +91,9 @@ export const DataService = {
         res.ZYYCJGCZYJ, res.ZYYCJGFKJG, res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR
       ]);
+      if (result.success) {
+        await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果`, res.ZYYCJGFL === 'A' ? 'alert' : 'update');
+      }
       return result.success;
     }
     return true;
@@ -110,6 +116,9 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf
       ]);
+      if (result.success) {
+        await this.addLog(followUp.SFGZRY, `完成了患者 ID ${followUp.PERSONID} 的重要异常结果随访结案`, 'completed');
+      }
       return result.success;
     }
     return true;
@@ -138,9 +147,31 @@ export const DataService = {
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) 
                      VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
+        if (dbResult.success) {
+          await this.addLog('系统', `为患者 ID ${personId} 上传了报告附件: ${fileName}`, 'update');
+        }
         return dbResult.success;
       }
     }
     return false;
+  },
+
+  // 日志管理
+  async getLogs(): Promise<SystemLog[]> {
+    if (isElectron) {
+      const sql = 'SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 20';
+      const result = await window.electronAPI.query(sql);
+      if (result.success) return result.data;
+    }
+    return [];
+  },
+
+  async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
+    if (isElectron) {
+      const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
+      const result = await window.electronAPI.query(sql, [operator, action, type]);
+      return result.success;
+    }
+    return true;
   }
 };

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2, HelpCircle } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2, HelpCircle, ShieldAlert } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -20,9 +20,11 @@ import {
 } from "recharts"
 import { DataService } from "@/services/data-service"
 import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { SystemLog } from "@/lib/types"
 
 export default function Dashboard() {
   const [loading, setLoading] = React.useState(true)
+  const [userRole, setUserRole] = React.useState<string | null>(null)
   const [stats, setStats] = React.useState({
     totalPatients: 0,
     pendingFollowUps: 0,
@@ -32,21 +34,27 @@ export default function Dashboard() {
     totalResults: 0,
   })
   const [trendData, setTrendData] = React.useState<any[]>([])
+  const [logs, setLogs] = React.useState<SystemLog[]>([])
 
   React.useEffect(() => {
-    async function loadStats() {
+    async function loadDashboardData() {
       setLoading(true)
       try {
-        const [patients, results, followUps] = await Promise.all([
+        const storedUser = localStorage.getItem('currentUser')
+        if (storedUser) {
+          setUserRole(JSON.parse(storedUser).ROLE)
+        }
+
+        const [patients, results, followUps, systemLogs] = await Promise.all([
           DataService.getPatients(),
           DataService.getAbnormalResults(),
-          DataService.getFollowUps()
+          DataService.getFollowUps(),
+          DataService.getLogs()
         ])
 
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
-        // 待随访：在结果库中但未在随访库中的
         const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID)).length
 
         setStats({
@@ -58,19 +66,18 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
-        // 处理趋势数据：以通知日期 (ZYYCJGTZRQ) 为准
+        setLogs(systemLogs)
+
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         
         const monthlyStats = months.map(m => {
           const monthLabel = `${parseInt(m)}月`
-          // 筛选出通知日期在该月的记录
           const resultsInMonth = results.filter(r => {
             const date = r.ZYYCJGTZRQ || ""
             return date.includes(`-${m}-`) || date.startsWith(`${currentYear}/${m}/`) || date.includes(`/${m}/`)
           })
           
-          // 在这些记录中，已经完成随访的数量
           const completedInMonth = resultsInMonth.filter(r => 
             followUps.some(f => f.PERSONID === r.PERSONID)
           ).length
@@ -82,14 +89,13 @@ export default function Dashboard() {
           }
         })
 
-        // 仅展示最近6个月或当前上半年的数据
         setTrendData(monthlyStats.slice(0, 6))
 
       } finally {
         setLoading(false)
       }
     }
-    loadStats()
+    loadDashboardData()
   }, [])
 
   const completionRate = (stats.pendingFollowUps + stats.completedFollowUps) > 0 
@@ -101,11 +107,23 @@ export default function Dashboard() {
     { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。" },
   ]
 
+  const formatLogTime = (timeStr: string) => {
+    const logDate = new Date(timeStr);
+    const now = new Date();
+    const diffMs = now.getTime() - logDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}小时前`;
+    return logDate.toLocaleDateString();
+  }
+
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">统计数据同步中...</span>
+        <span className="ml-2">中心数据同步中...</span>
       </div>
     )
   }
@@ -115,7 +133,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">系统概览与重要异常结果随访动态统计。</p>
+          <p className="text-muted-foreground mt-1">网络版中心服务器数据实时概览。</p>
         </div>
         <div className="flex items-center gap-4">
           <FollowUpNotifier />
@@ -282,7 +300,7 @@ export default function Dashboard() {
         <Card className="md:col-span-4">
           <CardHeader>
             <CardTitle>核心业务操作</CardTitle>
-            <CardDescription>快捷访问常用功能模块</CardDescription>
+            <CardDescription>快捷访问中心数据库常用功能</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
@@ -314,30 +332,45 @@ export default function Dashboard() {
 
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle>系统实时日志</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              系统实时日志
+            </CardTitle>
+            <CardDescription>仅系统管理员可查阅全院操作动态</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              {[
-                { name: '中心管理员', action: '同步了 1 条 A 类重要异常记录', time: '2分钟前', type: 'alert' },
-                { name: '系统', action: '基于通知日期更新了月度统计', time: '12分钟前', type: 'update' },
-                { name: '王医生', action: '完成了张伟的随访结案', time: '45分钟前', type: 'completed' },
-                { name: '李护士', action: '上传了 2 份病历 PDF 附件', time: '1小时前', type: 'update' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${item.type === 'alert' ? 'bg-destructive' : item.type === 'completed' ? 'bg-secondary' : 'bg-primary'}`} />
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.action}</p>
+            {userRole === 'admin' ? (
+              <div className="space-y-6">
+                {logs.length > 0 ? logs.map((log) => (
+                  <div key={log.ID} className="flex items-start gap-4">
+                    <div className={`w-2 h-2 rounded-full mt-1.5 ${
+                      log.TYPE === 'alert' ? 'bg-destructive' : 
+                      log.TYPE === 'completed' ? 'bg-secondary' : 
+                      'bg-primary'
+                    }`} />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">{log.OPERATOR}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{log.ACTION}</p>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground whitespace-nowrap pt-0.5">
+                      {formatLogTime(log.LOG_TIME)}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {item.time}
-                  </div>
+                )) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground italic">暂无系统操作记录</div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+                  <ShieldAlert className="h-6 w-6 text-muted-foreground" />
                 </div>
-              ))}
-            </div>
-            <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground">查看完整系统日志...</Button>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold">权限受限</p>
+                  <p className="text-xs text-muted-foreground">出于数据安全考虑，操作日志仅供管理员查阅。</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
