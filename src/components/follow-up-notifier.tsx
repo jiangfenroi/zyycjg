@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -25,11 +26,14 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // 核心业务逻辑：A/B类均为重要异常，且只要未随访即需预警
       const pending = results.filter(r => 
         !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )
       setTasks(pending)
+      
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        window.electronAPI.setTaskbarFlash(pending.length > 0)
+      }
     } catch (err) {
       console.error("Failed to load notification tasks", err)
     } finally {
@@ -39,14 +43,25 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(loadTasks, 60000) // 每分钟自动同步中心数据库
-    return () => clearInterval(timer)
+    const timer = setInterval(loadTasks, 60000)
+    return () => {
+      clearInterval(timer)
+      if (typeof window !== 'undefined' && window.electronAPI) {
+        window.electronAPI.setTaskbarFlash(false)
+      }
+    }
   }, [loadTasks])
 
   const count = tasks.length
 
+  const handleOpenChange = (open: boolean) => {
+    if (open && typeof window !== 'undefined' && window.electronAPI) {
+      window.electronAPI.setTaskbarFlash(false)
+    }
+  }
+
   return (
-    <Popover>
+    <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className={`h-6 w-6 text-primary ${count > 0 ? 'animate-pulse-red' : ''}`} />
@@ -60,8 +75,8 @@ export function FollowUpNotifier() {
       <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
         <div className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
+            <h3 className="font-semibold flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-4 w-4" />
               重要结果随访提醒
             </h3>
             <TooltipProvider>

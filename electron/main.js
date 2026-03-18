@@ -6,7 +6,6 @@ const mysql = require('mysql2/promise');
 
 const isDev = process.env.NODE_ENV === 'development';
 
-// 预先注册协议
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
@@ -40,19 +39,13 @@ function saveLocalConfig(config) {
   }
 }
 
-/**
- * 核心数据库初始化逻辑
- * 负责服务器端首次运行的判定与建表
- */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
-    // 默认 Schema 处理
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
-    // 1. 首先尝试连接服务器（不指定数据库）以检查服务器是否存活
     const connection = await mysql.createConnection({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '3306'),
@@ -60,11 +53,9 @@ async function initDB(config) {
       password: dbConfig.password,
     });
 
-    // 2. 判定数据库是否存在，不存在则创建（服务器端首次运行的核心逻辑）
     await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     await connection.end();
 
-    // 3. 创建正式连接池
     if (dbPool) {
       try { await dbPool.end(); } catch (e) {}
     }
@@ -81,7 +72,6 @@ async function initDB(config) {
       connectTimeout: 10000
     });
 
-    // 4. 执行建表语句（幂等操作）
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -160,12 +150,10 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认配置
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
 
-    // 默认管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
@@ -251,6 +239,12 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
   }
 });
 
+ipcMain.handle('set-flash', (event, flag) => {
+  if (mainWindow) {
+    mainWindow.flashFrame(flag);
+  }
+});
+
 ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -281,7 +275,6 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 });
 
 app.whenReady().then(async () => {
-  // 注册 app 协议以解决 Next.js 静态资源路径问题
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) { url = url.split(':').pop(); }
@@ -298,7 +291,6 @@ app.whenReady().then(async () => {
     }
   });
 
-  // 注册 app-file 协议以加载本地磁盘文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     let url = request.url.replace('app-file://', '');
     try {

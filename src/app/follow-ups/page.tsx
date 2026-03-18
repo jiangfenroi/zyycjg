@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -69,7 +70,6 @@ export default function FollowUpsPage() {
     }
   }, [loadData])
 
-  // A/B类均为重要异常，均列入待处理任务
   const pendingResults = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
   )
@@ -101,7 +101,7 @@ export default function FollowUpsPage() {
     ];
     const rows = filteredCompleted.map(f => {
       const person = persons.find(p => p.PERSONID === f.PERSONID);
-      const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGFL);
+      const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGTJBH);
       return [
         f.PERSONID, 
         f.ZYYCJGTJBH || '', 

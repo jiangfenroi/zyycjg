@@ -15,7 +15,6 @@ export default function SetupPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(false)
   
-  // 完整的 MySQL 数据库配置项
   const [config, setConfig] = React.useState({
     host: '',
     port: '3306',
@@ -112,7 +111,7 @@ export default function SetupPage() {
                     onChange={e => setConfig({...config, database: e.target.value})}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground italic px-1">若填写的库名不存在，系统将自动尝试创建。</p>
+                <p className="text-[10px] text-muted-foreground italic px-1">若填写的库名不存在，系统将自动尝试创建</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -149,7 +148,7 @@ export default function SetupPage() {
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "测试并接入中心网络"}
               </Button>
               <div className="text-center text-[10px] text-muted-foreground">
-                配置成功后，应用将自动完成服务器端首次运行的业务表初始化。
+                配置成功后，应用将自动完成服务器端首次运行的业务表初始化
               </div>
             </CardFooter>
           </form>
