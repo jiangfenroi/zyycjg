@@ -30,6 +30,8 @@ function loadLocalConfig() {
 
 function saveLocalConfig(config) {
   try {
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
     return true;
   } catch (e) {
@@ -97,7 +99,7 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ TIME,
         WORKER VARCHAR(50),
-        ZYYCJGBTZR VARCHAR(50),
+        ZYYCJGBTZR (50),
         IS_NOTIFIED TINYINT(1) DEFAULT 1,
         IS_HEALTH_EDU TINYINT(1) DEFAULT 1
       )`,
@@ -138,6 +140,16 @@ async function initDB(config) {
 
     for (const sql of tables) {
       await dbPool.execute(sql);
+    }
+
+    // 初始化默认配置
+    const defaultSettings = [
+      ['SYSTEM_NAME', 'MediTrack Connect'],
+      ['SYSTEM_LOGO_TEXT', 'M'],
+      ['SYSTEM_LOGO_URL', '']
+    ];
+    for (const [key, val] of defaultSettings) {
+      await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
     }
 
     // 默认管理员
@@ -240,21 +252,30 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 });
 
 app.whenReady().then(async () => {
-  // 注册 app 协议以解决 Next.js 静态资源 404 问题
+  // 注册 app 协议以解决 Next.js 静态资源路径问题
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
-    // 处理 Windows 路径中的根斜杠问题
+    
+    // 移除 Windows 驱动器前缀或首部斜杠
     if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
-    // 如果路径指向 index.html#/... 截断哈希
+    // 如果路径指向 index.html#/... 截断哈希和参数
     const cleanPath = url.split('#')[0].split('?')[0];
+    
+    // 强制映射到导出目录 out
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
-    callback({ path: path.normalize(filePath) });
+    if (fs.existsSync(filePath)) {
+      callback({ path: path.normalize(filePath) });
+    } else {
+      // 容错处理：某些动态 JS 可能引用了根目录
+      const rootPath = path.join(app.getAppPath(), 'out', 'index.html');
+      callback({ path: path.normalize(rootPath) });
+    }
   });
 
-  // 注册 app-file 协议以加载本地磁盘文件
+  // 注册 app-file 协议以加载本地磁盘/UNC 共享文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     let url = request.url.replace('app-file://', '');
     try {
@@ -270,9 +291,14 @@ app.whenReady().then(async () => {
     }
   });
 
-  const result = await initDB();
-  if (result.success) {
-    createWindow('/login');
+  const config = loadLocalConfig();
+  if (config) {
+    const dbResult = await initDB(config);
+    if (dbResult.success) {
+      createWindow('/login');
+    } else {
+      createWindow('/setup');
+    }
   } else {
     createWindow('/setup');
   }
