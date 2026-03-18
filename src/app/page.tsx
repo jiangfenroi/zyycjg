@@ -49,7 +49,7 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
-        const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID)).length
+        const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)).length
 
         setStats({
           totalPatients: patients.length,
@@ -71,7 +71,7 @@ export default function Dashboard() {
           })
           
           const completedInMonth = resultsInMonth.filter(r => 
-            followUps.some(f => f.PERSONID === r.PERSONID)
+            followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
           ).length
 
           return {
@@ -95,8 +95,8 @@ export default function Dashboard() {
     : 0
 
   const categoryData = [
-    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需立即临床干预，否则危及生命的异常结果。" },
-    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需进一步检查确认或医学治疗的重要异常结果。" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需立即临床干预的异常结果。" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需进一步检查确认的重要异常结果。" },
   ]
 
   if (!isClient || loading) {
@@ -113,7 +113,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">MediTrack Connect 网络版中心服务器数据实时概览。</p>
+          <p className="text-muted-foreground mt-1">数据实时概览。</p>
         </div>
         <div className="flex items-center gap-3">
           <FollowUpNotifier />
@@ -131,7 +131,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">全院数据中心同步记录</p>
+            <p className="text-xs text-muted-foreground mt-1">记录总数</p>
           </CardContent>
         </Card>
         
@@ -142,7 +142,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A类 预警</p>
+            <p className="text-xs text-muted-foreground mt-1">未完成闭环</p>
           </CardContent>
         </Card>
 
@@ -153,7 +153,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">累计完成随访 {stats.completedFollowUps} 例</p>
+            <p className="text-xs text-muted-foreground mt-1">累计完成 {stats.completedFollowUps} 例</p>
           </CardContent>
         </Card>
 
@@ -164,7 +164,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalResults}</div>
-            <p className="text-xs text-muted-foreground mt-1">历史录入中心数据库总量</p>
+            <p className="text-xs text-muted-foreground mt-1">录入总量</p>
           </CardContent>
         </Card>
       </div>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -25,9 +26,9 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // 逻辑：所有 A 类且尚未进行过随访结案的
+      // 逻辑：仅显示未随访的 A 类异常结果
       const pending = results.filter(r => 
-        r.ZYYCJGFL === 'A' && !followUps.some(f => f.PERSONID === r.PERSONID)
+        r.ZYYCJGFL === 'A' && !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )
       setTasks(pending)
     } catch (err) {
@@ -39,7 +40,7 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(loadTasks, 60000) // 每分钟静默刷新
+    const timer = setInterval(loadTasks, 60000)
     return () => clearInterval(timer)
   }, [loadTasks])
 
@@ -62,7 +63,7 @@ export function FollowUpNotifier() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              A类重要结果随访提醒
+              重要结果随访提醒
             </h3>
             <TooltipProvider>
               <Tooltip>
@@ -70,13 +71,13 @@ export function FollowUpNotifier() {
                   <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  A类定义：需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。
+                  通知中心仅展示需立即临床干预且尚未随访的异常记录。
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {loading ? "正在同步中心数据库..." : `当前有 ${count} 例 A 类结果尚未完成随访结案。`}
+            {loading ? "正在同步中心数据库..." : `当前有 ${count} 例结果尚未完成随访结案。`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -97,7 +98,7 @@ export function FollowUpNotifier() {
                 <span className="text-[10px] text-muted-foreground mt-1 bg-muted w-fit px-1.5 py-0.5 rounded">通知日期: {task.ZYYCJGTZRQ}</span>
               </Link>
             )) : (
-              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无未处理的 A 类任务</div>
+              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无未处理的预警任务</div>
             )}
           </div>
         </ScrollArea>

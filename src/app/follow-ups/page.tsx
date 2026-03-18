@@ -70,7 +70,7 @@ export default function FollowUpsPage() {
     }
   }, [loadData])
 
-  // 待随访逻辑：结果未在回访记录表(SP_SF)中出现
+  // 待随访逻辑：结果未在回访记录表中出现 (匹配档案号和体检号)
   const pendingResults = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
   )
@@ -101,7 +101,6 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
-      // 1. 保存随访记录
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -113,7 +112,6 @@ export default function FollowUpsPage() {
         XCSFTIME: followUpForm.XCSFTIME
       })
 
-      // 2. 如果设置了下次日期，生成任务
       if (success && followUpForm.XCSFTIME) {
         await DataService.addFollowUpTask({
           PERSONID: selectedResult.PERSONID,
@@ -141,7 +139,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访管理</h1>
-          <p className="text-muted-foreground mt-1">闭环业务流程优化展示。</p>
+          <p className="text-muted-foreground mt-1">闭环业务流程监控。</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -151,8 +149,8 @@ export default function FollowUpsPage() {
 
       <Tabs defaultValue="pending">
         <TabsList className="grid w-[400px] grid-cols-2 p-1 bg-muted/50 rounded-lg">
-          <TabsTrigger value="pending" className="rounded-md">待随访任务 {filteredPending.length}</TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-md">已回访记录 {filteredCompleted.length}</TabsTrigger>
+          <TabsTrigger value="pending" className="rounded-md">待随访任务</TabsTrigger>
+          <TabsTrigger value="completed" className="rounded-md">已回访记录</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-6">
