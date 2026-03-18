@@ -70,7 +70,6 @@ export default function FollowUpsPage() {
     }
   }, [loadData])
 
-  // 待随访逻辑：结果未在回访记录表中出现 (匹配档案号和体检号)
   const pendingResults = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
   )
@@ -207,7 +206,7 @@ export default function FollowUpsPage() {
                         <TableHead className="text-xs font-bold">年龄</TableHead>
                         <TableHead className="min-w-[250px] text-xs font-bold">重要异常结果详情</TableHead>
                         <TableHead className="min-w-[250px] text-xs font-bold">回访结果详情</TableHead>
-                        <TableHead className="text-xs font-bold">是否复查及病理检查</TableHead>
+                        <TableHead className="text-xs font-bold">是否复查及进一步病理检查</TableHead>
                         <TableHead className="text-xs font-bold">回访时间</TableHead>
                         <TableHead className="text-xs font-bold">回访人</TableHead>
                         <TableHead className="text-xs font-bold">下次回访时间</TableHead>
