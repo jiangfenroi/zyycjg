@@ -1,10 +1,11 @@
 
-const { app, BrowserWindow, ipcMain, dialog, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, Tray, Menu, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 
 const isDev = process.env.NODE_ENV === 'development';
+const isAutoStart = process.argv.includes('--hidden');
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -13,6 +14,7 @@ protocol.registerSchemesAsPrivileged([
 
 let dbPool;
 let mainWindow;
+let tray;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
 function loadLocalConfig() {
@@ -153,6 +155,7 @@ async function initDB(config) {
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
+    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
@@ -171,12 +174,14 @@ function createWindow(startPath = '/') {
     } else {
       mainWindow.loadURL(`app://./index.html#${startPath}`);
     }
+    mainWindow.show();
     return;
   }
 
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: !isAutoStart,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -190,6 +195,62 @@ function createWindow(startPath = '/') {
     mainWindow.loadURL(`http://localhost:9002${startPath}`);
   } else {
     mainWindow.loadURL(`app://./index.html#${startPath}`);
+  }
+
+  mainWindow.on('close', (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+    return false;
+  });
+}
+
+function createTray() {
+  const iconPath = path.join(app.getAppPath(), 'public', 'favicon.ico');
+  tray = new Tray(fs.existsSync(iconPath) ? iconPath : path.join(__dirname, 'icon_placeholder.png'));
+  const contextMenu = Menu.buildFromTemplate([
+    { label: '打开系统主界面', click: () => mainWindow.show() },
+    { type: 'separator' },
+    { label: '彻底退出系统', click: () => {
+      app.isQuitting = true;
+      app.quit();
+    }}
+  ]);
+  tray.setToolTip('MediTrack Connect 医疗闭环管理');
+  tray.setContextMenu(contextMenu);
+  tray.on('double-click', () => mainWindow.show());
+}
+
+async function checkPendingTasksInBackground() {
+  if (!dbPool) {
+    const config = loadLocalConfig();
+    if (config) await initDB(config);
+  }
+  
+  if (dbPool) {
+    try {
+      const sql = `
+        SELECT COUNT(*) as count 
+        FROM SP_ZYJG r 
+        LEFT JOIN SP_SF f ON r.PERSONID = f.PERSONID AND r.TJBHID = f.ZYYCJGTJBH 
+        WHERE f.ID IS NULL`;
+      const [rows] = await dbPool.execute(sql);
+      const pendingCount = rows[0].count;
+      
+      if (pendingCount > 0) {
+        if (mainWindow) mainWindow.flashFrame(true);
+        if (Notification.isSupported()) {
+          new Notification({
+            title: '随访工作提醒',
+            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访结案，请及时处理。`,
+            silent: false
+          }).show();
+        }
+      }
+    } catch (err) {
+      console.error("Background Check Error:", err);
+    }
   }
 }
 
@@ -223,6 +284,15 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     }
     return { success: false, error: err.message };
   }
+});
+
+ipcMain.handle('set-autostart', (event, flag) => {
+  app.setLoginItemSettings({
+    openAtLogin: flag,
+    path: app.getPath('exe'),
+    args: ['--hidden']
+  });
+  return true;
 });
 
 ipcMain.handle('auth-login', async (event, { username, password }) => {
@@ -306,6 +376,8 @@ app.whenReady().then(async () => {
     }
   });
 
+  createTray();
+
   const config = loadLocalConfig();
   if (config) {
     const dbResult = await initDB(config);
@@ -317,8 +389,16 @@ app.whenReady().then(async () => {
   } else {
     createWindow('/setup');
   }
+
+  // 启动后台定时任务，每5分钟检查一次
+  setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
+  setTimeout(checkPendingTasksInBackground, 10000); // 启动10秒后先检查一次
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+});
+
+app.on('before-quit', () => {
+  app.isQuitting = true;
 });

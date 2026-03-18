@@ -74,6 +74,7 @@ export interface SystemSettings {
   SYSTEM_NAME: string;
   SYSTEM_LOGO_TEXT: string;
   SYSTEM_LOGO_URL?: string;
+  AUTO_START?: string;
 }
 
 export interface SystemLog {

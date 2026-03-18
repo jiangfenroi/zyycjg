@@ -11,19 +11,16 @@ declare global {
       uploadFile: (personId: string, type: string, customDate?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
+      setAutoStart: (flag: boolean) => Promise<boolean>;
+      setTaskbarFlash: (flag: boolean) => Promise<void>;
     };
   }
 }
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-/**
- * 统一连接异常处理逻辑
- * 当检测到数据库未配置或连接断开时，强制重定向到配置页面
- */
 const handleConnectionError = () => {
   if (typeof window !== 'undefined') {
-    // 使用 Hash 路由确保在静态导出模式下能正确识别
     window.location.hash = '#/setup';
   }
 };
@@ -44,7 +41,7 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '' };
+    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '', AUTO_START: '0' };
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
@@ -52,13 +49,18 @@ export const DataService = {
       const promises = Object.entries(settings).map(([key, val]) => 
         window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
+      
+      if (settings.AUTO_START !== undefined) {
+        await window.electronAPI.setAutoStart(settings.AUTO_START === '1');
+      }
+
       const results = await Promise.all(promises);
       if (results.some(r => !r.success && (r.error === 'NO_CONNECTION' || r.error === 'NO_CONFIG'))) {
         handleConnectionError();
         return false;
       }
       const success = results.every(r => r.success);
-      if (success) await this.addLog('管理员', '更新了系统品牌配置', 'system');
+      if (success) await this.addLog('管理员', '更新了系统配置', 'system');
       return success;
     }
     return true;

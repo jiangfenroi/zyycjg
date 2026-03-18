@@ -2,11 +2,12 @@
 "use client"
 
 import * as React from 'react'
-import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X } from 'lucide-react'
+import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X, Monitor } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { SystemSettings } from '@/lib/types'
@@ -19,7 +20,8 @@ export default function SystemSettingsPage() {
   const [settings, setSettings] = React.useState<SystemSettings>({
     SYSTEM_NAME: '',
     SYSTEM_LOGO_TEXT: '',
-    SYSTEM_LOGO_URL: ''
+    SYSTEM_LOGO_URL: '',
+    AUTO_START: '0'
   })
 
   React.useEffect(() => {
@@ -38,7 +40,7 @@ export default function SystemSettingsPage() {
     setSubmitting(true)
     const success = await DataService.updateSystemSettings(settings)
     if (success) {
-      toast({ title: "设置已同步", description: "系统身份信息已更新，所有联网终端将同步生效。" })
+      toast({ title: "设置已同步", description: "系统配置已更新，所有联网终端将同步生效。" })
     } else {
       toast({ variant: "destructive", title: "更新失败", description: "请检查数据库连接" })
     }
@@ -149,10 +151,26 @@ export default function SystemSettingsPage() {
             </div>
           </div>
 
+          <div className="pt-4 border-t space-y-4">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-primary" />
+                  <Label className="text-base">开机自动启动</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">电脑启动后自动运行程序并进入托盘静默预警</p>
+              </div>
+              <Switch 
+                checked={settings.AUTO_START === '1'} 
+                onCheckedChange={(checked) => setSettings({...settings, AUTO_START: checked ? '1' : '0'})} 
+              />
+            </div>
+          </div>
+
           <div className="bg-blue-50 border border-blue-100 p-4 rounded-md flex gap-3">
             <Info className="h-5 w-5 text-blue-500 shrink-0" />
             <p className="text-xs text-blue-700 leading-relaxed">
-              <b>管理员提示：</b> 修改完成后，所有接入中心服务器的终端均会同步应用新的品牌标识。图片文件将自动同步至中心存储路径。
+              <b>管理员提示：</b> 修改完成后，所有接入中心服务器的终端均会同步应用。开启自启动后，程序将在开机时静默启动，仅在有待随访任务时提醒。
             </p>
           </div>
 
