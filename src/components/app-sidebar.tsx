@@ -11,7 +11,8 @@ import {
   FileText,
   UserCog,
   LogOut,
-  Palette
+  Palette,
+  Clock
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -137,6 +138,19 @@ export function AppSidebar() {
                     <Link href="/settings/users">
                       <UserCog className="size-5" />
                       <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/settings/logs'}
+                    tooltip="系统操作日志"
+                    className="h-11 px-4"
+                  >
+                    <Link href="/settings/logs">
+                      <Clock className="size-5" />
+                      <span className="group-data-[collapsible=icon]:hidden">系统操作日志</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

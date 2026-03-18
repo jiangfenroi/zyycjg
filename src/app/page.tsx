@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2, HelpCircle, ShieldAlert } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, HelpCircle } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -20,11 +20,9 @@ import {
 } from "recharts"
 import { DataService } from "@/services/data-service"
 import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { SystemLog } from "@/lib/types"
 
 export default function Dashboard() {
   const [loading, setLoading] = React.useState(true)
-  const [userRole, setUserRole] = React.useState<string | null>(null)
   const [stats, setStats] = React.useState({
     totalPatients: 0,
     pendingFollowUps: 0,
@@ -34,22 +32,15 @@ export default function Dashboard() {
     totalResults: 0,
   })
   const [trendData, setTrendData] = React.useState<any[]>([])
-  const [logs, setLogs] = React.useState<SystemLog[]>([])
 
   React.useEffect(() => {
     async function loadDashboardData() {
       setLoading(true)
       try {
-        const storedUser = localStorage.getItem('currentUser')
-        if (storedUser) {
-          setUserRole(JSON.parse(storedUser).ROLE)
-        }
-
-        const [patients, results, followUps, systemLogs] = await Promise.all([
+        const [patients, results, followUps] = await Promise.all([
           DataService.getPatients(),
           DataService.getAbnormalResults(),
-          DataService.getFollowUps(),
-          DataService.getLogs()
+          DataService.getFollowUps()
         ])
 
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
@@ -65,8 +56,6 @@ export default function Dashboard() {
           bClassResults: bClass,
           totalResults: results.length
         })
-
-        setLogs(systemLogs)
 
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
@@ -106,18 +95,6 @@ export default function Dashboard() {
     { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。" },
     { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。" },
   ]
-
-  const formatLogTime = (timeStr: string) => {
-    const logDate = new Date(timeStr);
-    const now = new Date();
-    const diffMs = now.getTime() - logDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return '刚刚';
-    if (diffMins < 60) return `${diffMins}分钟前`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}小时前`;
-    return logDate.toLocaleDateString();
-  }
 
   if (loading) {
     return (
@@ -296,84 +273,38 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4">
-          <CardHeader>
-            <CardTitle>核心业务操作</CardTitle>
-            <CardDescription>快捷访问中心数据库常用功能</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
-              <Link href="/abnormal-results">
-                <AlertCircle className="h-6 w-6 text-primary" />
-                <span>登记 A/B 类结果</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-secondary/40 hover:bg-secondary/5 hover:border-secondary" asChild>
-              <Link href="/follow-ups">
-                <History className="h-6 w-6 text-secondary" />
-                <span>执行待办随访</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
-              <Link href="/reports">
-                <FileText className="h-6 w-6" />
-                <span>上传检查报告</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
-              <Link href="/patients">
-                <Users className="h-6 w-6" />
-                <span>管理患者档案</span>
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              系统实时日志
-            </CardTitle>
-            <CardDescription>仅系统管理员可查阅全院操作动态</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {userRole === 'admin' ? (
-              <div className="space-y-6">
-                {logs.length > 0 ? logs.map((log) => (
-                  <div key={log.ID} className="flex items-start gap-4">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 ${
-                      log.TYPE === 'alert' ? 'bg-destructive' : 
-                      log.TYPE === 'completed' ? 'bg-secondary' : 
-                      'bg-primary'
-                    }`} />
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-none">{log.OPERATOR}</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{log.ACTION}</p>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground whitespace-nowrap pt-0.5">
-                      {formatLogTime(log.LOG_TIME)}
-                    </div>
-                  </div>
-                )) : (
-                  <div className="py-12 text-center text-xs text-muted-foreground italic">暂无系统操作记录</div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
-                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
-                  <ShieldAlert className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold">权限受限</p>
-                  <p className="text-xs text-muted-foreground">出于数据安全考虑，操作日志仅供管理员查阅。</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>核心业务操作</CardTitle>
+          <CardDescription>快捷访问中心数据库常用功能</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
+            <Link href="/abnormal-results">
+              <AlertCircle className="h-6 w-6 text-primary" />
+              <span>登记 A/B 类结果</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-secondary/40 hover:bg-secondary/5 hover:border-secondary" asChild>
+            <Link href="/follow-ups">
+              <History className="h-6 w-6 text-secondary" />
+              <span>执行待办随访</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
+            <Link href="/reports">
+              <FileText className="h-6 w-6" />
+              <span>上传检查报告</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-muted-foreground/40" asChild>
+            <Link href="/patients">
+              <Users className="h-6 w-6" />
+              <span>管理患者档案</span>
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 }

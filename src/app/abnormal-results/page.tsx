@@ -60,11 +60,16 @@ export default function AbnormalResultsPage() {
 
   React.useEffect(() => {
     loadData()
-    // 客户端初始化默认值
+    
+    // 初始化默认值
+    const storedUser = localStorage.getItem('currentUser')
+    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : ''
+    
     setFormData(prev => ({
       ...prev,
       ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
       ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+      WORKER: realName // 默认为当前登录用户姓名
     }))
   }, [loadData])
 
@@ -137,6 +142,10 @@ export default function AbnormalResultsPage() {
       toast({ title: "登记成功", description: `体检编号 ${formData.TJBHID} 已录入数据库。` })
       setIsDialogOpen(false)
       loadData()
+      
+      const storedUser = localStorage.getItem('currentUser')
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : ''
+      
       setFormData({
         PERSONID: '',
         TJBHID: '',
@@ -146,7 +155,7 @@ export default function AbnormalResultsPage() {
         ZYYCJGFKJG: '',
         ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
         ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-        WORKER: '',
+        WORKER: realName,
         ZYYCJGBTZR: '',
       })
     } else {
