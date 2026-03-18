@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { FileText, Search, Upload, Download, Eye, Trash2, Plus } from 'lucide-react'
+import { FileText, Search, Upload, Download, Eye, Trash2, Plus, Calendar as CalendarIcon, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,11 +29,13 @@ export default function ReportsPage() {
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [filterType, setFilterType] = React.useState('all')
+  const [submitting, setSubmitting] = React.useState(false)
   
   const [isUploadDialogOpen, setIsUploadDialogOpen] = React.useState(false)
   const [uploadForm, setUploadForm] = React.useState({
     personId: '',
-    type: 'PE_REPORT' as 'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'
+    type: 'PE_REPORT' as 'PE_REPORT' | 'IMAGING' | 'PATHOLOGY',
+    date: ''
   })
 
   const loadData = async () => {
@@ -49,6 +51,7 @@ export default function ReportsPage() {
 
   React.useEffect(() => {
     loadData()
+    setUploadForm(prev => ({ ...prev, date: new Date().toISOString().split('T')[0] }))
   }, [])
 
   const filteredDocs = docs.filter(doc => {
@@ -66,14 +69,23 @@ export default function ReportsPage() {
       return
     }
 
-    const success = await DataService.uploadDocument(uploadForm.personId, uploadForm.type)
+    setSubmitting(true)
+    const success = await DataService.uploadDocument(uploadForm.personId, uploadForm.type, uploadForm.date)
     
     if (success) {
       toast({ title: "上传成功", description: "报告已存档并同步至数据库。" })
       setIsUploadDialogOpen(false)
-      loadData() // 刷新列表
+      loadData()
     } else {
-      toast({ variant: "destructive", title: "上传取消或失败", description: "请检查数据库连接或权限。" })
+      toast({ variant: "destructive", title: "上传取消或失败" })
+    }
+    setSubmitting(false)
+  }
+
+  const handleDownload = async (doc: PatientDocument) => {
+    const success = await DataService.downloadDocument(doc.FILE_URL, doc.FILENAME);
+    if (success) {
+      toast({ title: "保存成功", description: `文件 ${doc.FILENAME} 已导出。` });
     }
   }
 
@@ -82,7 +94,7 @@ export default function ReportsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">报告附件管理</h1>
-          <p className="text-muted-foreground mt-1">管理关联电子文档与影像扫描件。</p>
+          <p className="text-muted-foreground mt-1">管理全院关联电子文档与影像扫描件，支持跨终端实时查阅。</p>
         </div>
         
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
@@ -96,6 +108,10 @@ export default function ReportsPage() {
               <DialogTitle>上传新报告附件</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>检查日期</Label>
+                <Input type="date" value={uploadForm.date} onChange={e => setUploadForm({...uploadForm, date: e.target.value})} />
+              </div>
               <div className="space-y-2">
                 <Label>关联患者</Label>
                 <Select value={uploadForm.personId} onValueChange={v => setUploadForm({...uploadForm, personId: v})}>
@@ -127,7 +143,9 @@ export default function ReportsPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>取消</Button>
-              <Button onClick={handleUploadClick}>选择并上传文件</Button>
+              <Button onClick={handleUploadClick} disabled={submitting}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "选择并上传文件"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -163,7 +181,7 @@ export default function ReportsPage() {
 
         <Card className="md:col-span-3">
           <CardHeader className="pb-3 border-b">
-            <CardTitle className="text-base">文档库列表</CardTitle>
+            <CardTitle className="text-base">中心库文档列表</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
              <Table>
@@ -172,7 +190,7 @@ export default function ReportsPage() {
                     <TableHead>文件名称</TableHead>
                     <TableHead>关联患者</TableHead>
                     <TableHead>文档分类</TableHead>
-                    <TableHead>上传日期</TableHead>
+                    <TableHead>检查/上传日期</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -186,31 +204,36 @@ export default function ReportsPage() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-blue-500" />
-                            {doc.FILENAME}
+                            <span className="truncate max-w-[200px]" title={doc.FILENAME}>{doc.FILENAME}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary">
                             {person?.PERSONNAME}
                           </Link>
-                          <span className="text-xs text-muted-foreground ml-2">({doc.PERSONID})</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
                             {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检汇总' : '病理报告'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs">{doc.UPLOAD_DATE}</TableCell>
+                        <TableCell className="text-xs font-mono">{doc.UPLOAD_DATE}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "正在打开本地目录..." })}><Eye className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => toast({ title: "下载请求已发送" })}><Download className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" asChild>
+                              <Link href={`/patients/${doc.PERSONID}`}>
+                                <Eye className="h-4 w-4 text-primary" />
+                              </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDownload(doc)}>
+                              <Download className="h-4 w-4 text-secondary" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     )
                   }) : (
-                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">暂无相关附件。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">暂无相关附件记录。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

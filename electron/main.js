@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -155,7 +155,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许加载本地资源
+      webSecurity: false,
     },
     title: "MediTrack Connect"
   });
@@ -212,7 +212,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
   }
 });
 
-ipcMain.handle('file-upload', async (event, { personId, type }) => {
+ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       title: '选择文件',
@@ -224,6 +224,7 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
+    // 优先使用环境变量中的 UPLOAD_PATH，否则使用本地文档目录
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
@@ -242,7 +243,7 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
       data: {
         fileName: fileName,
         fileUrl: targetPath,
-        uploadDate: new Date().toISOString().split('T')[0]
+        uploadDate: customDate || new Date().toISOString().split('T')[0]
       }
     };
   } catch (err) {
@@ -250,15 +251,36 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
   }
 });
 
+ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: '另存为',
+      defaultPath: fileName,
+    });
+
+    if (canceled || !filePath) return { success: false };
+
+    fs.copyFileSync(sourcePath, filePath);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 app.whenReady().then(async () => {
-  // 注册自定义协议以安全访问本地资源 (PDF/图片)
+  // 注册自定义协议以安全访问本地/局域网资源 (PDF/图片)
   protocol.handle('app-file', (request) => {
-    const filePath = decodeURIComponent(request.url.slice('app-file://'.length));
-    // 在 Windows 下处理路径开头的斜杠
-    const normalizedPath = process.platform === 'win32' && filePath.startsWith('/') 
-      ? filePath.slice(1) 
-      : filePath;
-    return net.fetch('file://' + normalizedPath);
+    const urlStr = request.url;
+    let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
+    
+    // Windows 路径兼容处理: 如果路径以 /C:/ 开头，去掉开头的斜杠
+    if (process.platform === 'win32') {
+      if (filePath.startsWith('/') && filePath[2] === ':') {
+        filePath = filePath.slice(1);
+      }
+    }
+    
+    return net.fetch('file://' + filePath);
   });
 
   const result = await initDB();

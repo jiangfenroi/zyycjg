@@ -14,7 +14,8 @@ import {
   Upload,
   Activity,
   Loader2,
-  Eye
+  Eye,
+  Calendar as CalendarIcon
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DataService } from '@/services/data-service'
@@ -44,9 +46,9 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
   
   const [isUploadOpen, setIsUploadOpen] = React.useState(false)
   const [uploadType, setUploadType] = React.useState<'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'>('PE_REPORT')
+  const [uploadDate, setUploadDate] = React.useState('')
   const [uploading, setUploading] = React.useState(false)
   
-  // PDF 预览状态
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
 
   const loadAllData = React.useCallback(async () => {
@@ -72,6 +74,8 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
 
   React.useEffect(() => {
     loadAllData()
+    // 初始化检查日期为今天
+    setUploadDate(new Date().toISOString().split('T')[0])
   }, [loadAllData])
 
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
@@ -86,24 +90,28 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
   const handleUpload = async () => {
     setUploading(true)
     try {
-      const success = await DataService.uploadDocument(id, uploadType)
+      const success = await DataService.uploadDocument(id, uploadType, uploadDate)
       if (success) {
-        toast({ title: "上传成功", description: "报告附件已保存至中心存储并关联至病历。" })
+        toast({ title: "上传成功", description: "报告附件已同步至中心存储并关联至病历。" })
         setIsUploadOpen(false)
         loadAllData()
       } else {
-        toast({ variant: "destructive", title: "上传取消", description: "未选择文件或数据库写入失败。" })
+        toast({ variant: "destructive", title: "上传失败", description: "未选择文件或系统写入异常。" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误", description: "上传过程中出现异常。" })
+      toast({ variant: "destructive", title: "系统错误" })
     } finally {
       setUploading(false)
     }
   }
 
-  /**
-   * 转换本地路径为 app-file 协议
-   */
+  const handleDownload = async (doc: PatientDocument) => {
+    const success = await DataService.downloadDocument(doc.FILE_URL, doc.FILENAME);
+    if (success) {
+      toast({ title: "保存成功", description: `文件 ${doc.FILENAME} 已导出。` });
+    }
+  }
+
   const getAppFileUrl = (localPath: string) => {
     if (!localPath) return null;
     return `app-file://${localPath}`;
@@ -248,6 +256,10 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                     </DialogHeader>
                     <div className="py-4 space-y-4">
                       <div className="space-y-2">
+                        <Label>检查/报告日期</Label>
+                        <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
                         <Label>报告分类</Label>
                         <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                           <SelectTrigger>
@@ -260,7 +272,9 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                           </SelectContent>
                         </Select>
                       </div>
-                      <p className="text-xs text-muted-foreground">支持 PDF 格式。文件将自动同步至中心网络路径并在数据库中登记。</p>
+                      <p className="text-xs text-muted-foreground bg-blue-50 p-2 rounded">
+                        支持 PDF/JPG 格式。文件将自动同步至中心网络路径并在数据库中登记。
+                      </p>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
@@ -279,7 +293,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                       <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-medium truncate">{doc.FILENAME}</p>
+                      <p className="text-sm font-medium truncate" title={doc.FILENAME}>{doc.FILENAME}</p>
                       <p className="text-xs text-muted-foreground">
                         {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检汇总' : '病理报告'} · {doc.UPLOAD_DATE}
                       </p>
@@ -288,8 +302,8 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(getAppFileUrl(doc.FILE_URL))}>
                         <Eye className="h-4 w-4 text-primary" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>
-                        <Download className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc)}>
+                        <Download className="h-4 w-4 text-secondary" />
                       </Button>
                     </div>
                   </Card>

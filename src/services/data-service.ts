@@ -5,7 +5,8 @@ declare global {
     electronAPI: {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
-      uploadFile: (personId: string, type: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+      uploadFile: (personId: string, type: string, customDate?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+      downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
     };
   }
@@ -183,9 +184,9 @@ export const DataService = {
     return [];
   },
 
-  async uploadDocument(personId: string, type: string): Promise<any> {
+  async uploadDocument(personId: string, type: string, customDate?: string): Promise<any> {
     if (isElectron) {
-      const uploadResult = await window.electronAPI.uploadFile(personId, type);
+      const uploadResult = await window.electronAPI.uploadFile(personId, type, customDate);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         
@@ -201,6 +202,14 @@ export const DataService = {
         }
         return dbResult.success;
       }
+    }
+    return false;
+  },
+
+  async downloadDocument(sourcePath: string, fileName: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.downloadFile(sourcePath, fileName);
+      return result.success;
     }
     return false;
   },

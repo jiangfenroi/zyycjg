@@ -20,5 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /**
    * 调起原生对话框并上传文件
    */
-  uploadFile: (personId, type) => ipcRenderer.invoke('file-upload', { personId, type }),
+  uploadFile: (personId, type, customDate) => ipcRenderer.invoke('file-upload', { personId, type, customDate }),
+
+  /**
+   * 下载/另存为中心库文件
+   */
+  downloadFile: (sourcePath, fileName) => ipcRenderer.invoke('file-save', { sourcePath, fileName }),
 });
