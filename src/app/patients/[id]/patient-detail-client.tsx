@@ -101,6 +101,14 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
     }
   }
 
+  /**
+   * 转换本地路径为 app-file 协议
+   */
+  const getAppFileUrl = (localPath: string) => {
+    if (!localPath) return null;
+    return `app-file://${localPath}`;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -277,7 +285,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(doc.FILE_URL)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(getAppFileUrl(doc.FILE_URL))}>
                         <Eye className="h-4 w-4 text-primary" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toast({ title: "即将通过本地程序打开文件" })}>

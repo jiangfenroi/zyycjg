@@ -64,7 +64,6 @@ export function AppSidebar() {
     
     loadSettings()
     
-    // 设置定时刷新配置，实现品牌实时同步
     const timer = setInterval(loadSettings, 30000)
     return () => clearInterval(timer)
   }, [loadSettings, pathname])
@@ -75,6 +74,14 @@ export function AppSidebar() {
     toast({ title: "已退出登录", description: "您的会话已安全结束。" })
   }
 
+  /**
+   * 转换本地路径为 app-file 协议以加载 Logo
+   */
+  const getLogoUrl = () => {
+    if (!settings.SYSTEM_LOGO_URL) return null;
+    return `app-file://${settings.SYSTEM_LOGO_URL}`;
+  }
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
@@ -82,7 +89,7 @@ export function AppSidebar() {
           <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner overflow-hidden">
             {settings.SYSTEM_LOGO_URL ? (
               <img 
-                src={`file://${settings.SYSTEM_LOGO_URL}`} 
+                src={getLogoUrl() || ''} 
                 alt="Logo" 
                 className="w-full h-full object-cover"
                 onError={(e) => {

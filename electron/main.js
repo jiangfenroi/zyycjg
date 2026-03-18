@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, protocol, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -120,7 +120,6 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认管理员
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
@@ -129,7 +128,6 @@ async function initDB(config) {
       );
     }
 
-    // 初始化系统配置
     const defaultConfig = [
       ['SYSTEM_NAME', 'MediTrack Connect'],
       ['SYSTEM_LOGO_TEXT', 'M'],
@@ -157,6 +155,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
+      webSecurity: false, // 允许加载本地资源
     },
     title: "MediTrack Connect"
   });
@@ -216,7 +215,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
 ipcMain.handle('file-upload', async (event, { personId, type }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择病历附件',
+      title: '选择文件',
       properties: ['openFile'],
       filters: [{ name: 'PDF/Image', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
     });
@@ -252,6 +251,16 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
 });
 
 app.whenReady().then(async () => {
+  // 注册自定义协议以安全访问本地资源 (PDF/图片)
+  protocol.handle('app-file', (request) => {
+    const filePath = decodeURIComponent(request.url.slice('app-file://'.length));
+    // 在 Windows 下处理路径开头的斜杠
+    const normalizedPath = process.platform === 'win32' && filePath.startsWith('/') 
+      ? filePath.slice(1) 
+      : filePath;
+    return net.fetch('file://' + normalizedPath);
+  });
+
   const result = await initDB();
   if (result.success) {
     createWindow('/login');

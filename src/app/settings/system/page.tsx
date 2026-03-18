@@ -47,7 +47,6 @@ export default function SystemSettingsPage() {
   const handleLogoUpload = async () => {
     setUploading(true)
     try {
-      // 借用 DataService 的上传逻辑，传入特殊 ID "SYSTEM"
       const result = await DataService.uploadDocument('SYSTEM', 'LOGO')
       if (typeof result === 'string') {
         setSettings({ ...settings, SYSTEM_LOGO_URL: result })
@@ -65,6 +64,14 @@ export default function SystemSettingsPage() {
   }
 
   if (loading) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+
+  /**
+   * 转换本地路径为 app-file 协议以预览 Logo
+   */
+  const getPreviewLogoUrl = () => {
+    if (!settings.SYSTEM_LOGO_URL) return null;
+    return `app-file://${settings.SYSTEM_LOGO_URL}`;
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -97,9 +104,8 @@ export default function SystemSettingsPage() {
               <div className="relative group">
                 <div className="w-24 h-24 bg-muted rounded-xl flex items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden shadow-inner">
                   {settings.SYSTEM_LOGO_URL ? (
-                    // 在 Electron 中预览本地文件，注意如果是 build 后的版本可能需要处理协议
                     <img 
-                      src={`file://${settings.SYSTEM_LOGO_URL}`} 
+                      src={getPreviewLogoUrl() || ''} 
                       alt="Logo Preview" 
                       className="w-full h-full object-cover"
                       onError={(e) => (e.currentTarget.src = "https://placehold.co/100x100?text=Error")}
