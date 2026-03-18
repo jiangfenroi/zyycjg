@@ -40,31 +40,48 @@ function saveLocalConfig(config) {
   }
 }
 
+/**
+ * 核心数据库初始化逻辑
+ * 负责服务器端首次运行的判定与建表
+ */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
+    // 默认 Schema 处理
+    const targetDatabase = dbConfig.database || 'meditrack_db';
+
+    // 1. 首先尝试连接服务器（不指定数据库）以检查服务器是否存活
+    const connection = await mysql.createConnection({
+      host: dbConfig.host,
+      port: parseInt(dbConfig.port || '3306'),
+      user: dbConfig.user,
+      password: dbConfig.password,
+    });
+
+    // 2. 判定数据库是否存在，不存在则创建（服务器端首次运行的核心逻辑）
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    await connection.end();
+
+    // 3. 创建正式连接池
     if (dbPool) {
       try { await dbPool.end(); } catch (e) {}
     }
 
     dbPool = mysql.createPool({
       host: dbConfig.host,
-      port: parseInt(dbConfig.port),
+      port: parseInt(dbConfig.port || '3306'),
       user: dbConfig.user,
       password: dbConfig.password,
-      database: dbConfig.database,
+      database: targetDatabase,
       waitForConnections: true,
       connectionLimit: 50,
       queueLimit: 0,
-      connectTimeout: 10000 // 缩短超时时间以快速反馈
+      connectTimeout: 10000
     });
-    
-    // 测试连接
-    const connection = await dbPool.getConnection();
-    connection.release();
 
+    // 4. 执行建表语句（幂等操作）
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -213,7 +230,6 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     return { success: true, data: rows };
   } catch (err) {
     console.error("Query Error:", err);
-    // 捕获连接丢失类错误
     if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
       return { success: false, error: 'NO_CONNECTION' };
     }
@@ -268,22 +284,16 @@ app.whenReady().then(async () => {
   // 注册 app 协议以解决 Next.js 静态资源路径问题
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
-    
-    // 移除路径中可能存在的非法绝对路径前缀 (针对 Windows 下 Next.js 导出引用问题)
-    if (url.includes(':')) {
-       url = url.split(':').pop(); 
-    }
+    if (url.includes(':')) { url = url.split(':').pop(); }
     if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
-    // 截断 Hash 和参数
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
     if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
       callback({ path: path.normalize(filePath) });
     } else {
-      // 路由兜底：Next.js 单页应用刷新问题
       callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
     }
   });

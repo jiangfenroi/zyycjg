@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Database, Server, User, Lock, Globe, Loader2, ShieldCheck, Link as LinkIcon } from "lucide-react"
+import { Database, Server, User, Lock, Globe, Loader2, Link as LinkIcon, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,8 @@ export default function SetupPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(false)
+  
+  // 完整的 MySQL 数据库配置项
   const [config, setConfig] = React.useState({
     host: '',
     port: '3306',
@@ -25,7 +27,7 @@ export default function SetupPage() {
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!config.host) {
-      toast({ variant: "destructive", title: "配置不完整", description: "请输入中心服务器 IP 地址" })
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址" })
       return
     }
 
@@ -34,20 +36,20 @@ export default function SetupPage() {
       if (typeof window !== 'undefined' && window.electronAPI) {
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
-          toast({ title: "服务器连接成功", description: "客户端已成功接入中心网络" })
+          toast({ title: "服务器接入成功", description: "中心网络已建立，正在进入登录页面" })
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
             variant: "destructive", 
             title: "连接失败", 
-            description: result.error || "无法连接至指定的中心服务器" 
+            description: result.error || "无法连接到中心服务器，请检查网络或参数" 
           })
         }
       } else {
         toast({ title: "环境提示", description: "当前处于浏览器演示模式" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误", description: "无法调用客户端配置模块" })
+      toast({ variant: "destructive", title: "系统错误", description: "配置模块加载异常" })
     } finally {
       setLoading(false)
     }
@@ -55,14 +57,14 @@ export default function SetupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-lg">
+      <div className="w-full max-w-lg">
         <div className="flex flex-col items-center text-center space-y-4 mb-8">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
             <LinkIcon className="h-10 w-10 text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">网络版接入向导</h1>
-            <p className="text-muted-foreground mt-2">连接至中心服务器同步数据</p>
+            <p className="text-muted-foreground mt-2">首次运行需连接中心服务器以同步数据</p>
           </div>
         </div>
 
@@ -73,7 +75,7 @@ export default function SetupPage() {
               中心数据库配置
             </CardTitle>
             <CardDescription>
-              配置成功后将实现全院数据实时共享
+              请输入医院中心服务器 MySQL 连接信息
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSetup}>
@@ -100,17 +102,17 @@ export default function SetupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>业务数据库名称</Label>
+                <Label>数据库名称</Label>
                 <div className="relative">
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-10"
-                    placeholder="meditrack_db" 
+                    placeholder="默认为 meditrack_db" 
                     value={config.database}
                     onChange={e => setConfig({...config, database: e.target.value})}
-                    required
                   />
                 </div>
+                <p className="text-[10px] text-muted-foreground italic px-1">若填写的库名不存在，系统将自动尝试创建。</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -120,7 +122,7 @@ export default function SetupPage() {
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       className="pl-10"
-                      placeholder="db_user" 
+                      placeholder="root" 
                       value={config.user}
                       onChange={e => setConfig({...config, user: e.target.value})}
                       required
@@ -146,6 +148,9 @@ export default function SetupPage() {
               <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "测试并接入中心网络"}
               </Button>
+              <div className="text-center text-[10px] text-muted-foreground">
+                配置成功后，应用将自动完成服务器端首次运行的业务表初始化。
+              </div>
             </CardFooter>
           </form>
         </Card>

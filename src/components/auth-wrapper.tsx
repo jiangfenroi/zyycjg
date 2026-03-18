@@ -13,15 +13,17 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [timeoutReached, setTimeoutReached] = React.useState(false)
 
   React.useEffect(() => {
-    // 设置一个超时保护，防止系统卡死在启动画面
+    // 设置 3 秒超时保护，解决在 Electron 下由于资源加载延迟引起的黑屏/启动白屏
     const safetyTimer = setTimeout(() => {
       setTimeoutReached(true);
+      setChecking(false);
     }, 3000);
 
     const checkAuth = () => {
       if (typeof window === 'undefined') return;
 
       const currentHash = window.location.hash || '';
+      // 兼容静态导出下的 Hash 路由匹配
       const currentPath = currentHash.replace('#', '') || pathname;
       
       const isAuthPage = currentPath.includes('/login') || currentPath.includes('/setup');
@@ -33,6 +35,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
 
       const user = localStorage.getItem('currentUser');
       if (!user) {
+        // 如果没有登录信息，优先检查是否已经配置了数据库
         router.push('/login');
       }
       setChecking(false);
@@ -45,7 +48,6 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router])
 
-  // 超时兜底处理：如果 3 秒还没加载完，强制允许显示（可能是路由解析问题）
   const isLoading = checking && !timeoutReached;
 
   if (isLoading) {
@@ -53,7 +55,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
         <div className="flex flex-col items-center gap-6">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-primary font-bold animate-pulse text-lg">系统正在安全启动</div>
+          <div className="text-primary font-bold animate-pulse text-lg">系统正在同步中心数据库</div>
         </div>
       </div>
     )

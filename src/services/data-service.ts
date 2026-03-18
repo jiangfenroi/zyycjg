@@ -17,9 +17,13 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-// 统一错误处理：如果检测到数据库未连接，强制刷新页面或跳转
+/**
+ * 统一连接异常处理逻辑
+ * 当检测到数据库未配置或连接断开时，强制重定向到配置页面
+ */
 const handleConnectionError = () => {
   if (typeof window !== 'undefined') {
+    // 使用 Hash 路由确保在静态导出模式下能正确识别
     window.location.hash = '#/setup';
   }
 };
@@ -28,7 +32,7 @@ export const DataService = {
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
-      if (!result.success && result.error === 'NO_CONNECTION') {
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) {
         handleConnectionError();
         return { SYSTEM_NAME: 'MediTrack', SYSTEM_LOGO_TEXT: 'M' };
       }
@@ -49,7 +53,7 @@ export const DataService = {
         window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
       const results = await Promise.all(promises);
-      if (results.some(r => !r.success && r.error === 'NO_CONNECTION')) {
+      if (results.some(r => !r.success && (r.error === 'NO_CONNECTION' || r.error === 'NO_CONFIG'))) {
         handleConnectionError();
         return false;
       }
@@ -64,7 +68,7 @@ export const DataService = {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
       const result = await window.electronAPI.query(sql, [operator, action, type]);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       return result.success;
     }
     return true;
@@ -73,7 +77,7 @@ export const DataService = {
   async getLogs(): Promise<SystemLog[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 200');
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -83,7 +87,7 @@ export const DataService = {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (!result.success) {
-        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        if (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG') handleConnectionError();
         throw new Error(result.error || '数据库连接异常');
       }
       return result.data;
@@ -100,7 +104,7 @@ export const DataService = {
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
       ]);
       if (!result.success) {
-        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        if (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG') handleConnectionError();
         throw new Error(result.error);
       }
       await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
@@ -117,7 +121,7 @@ export const DataService = {
         LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
         ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
       const result = await window.electronAPI.query(sql);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       if (result.success) {
         return result.data.map((r: any) => ({
           ...r,
@@ -139,10 +143,10 @@ export const DataService = {
         res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
       if (!result.success) {
-        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        if (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG') handleConnectionError();
         throw new Error(result.error);
       }
-      await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
+      await this.addLog(res.WORKER, `登记异常结果 ID: ${res.PERSONID}`, 'alert');
       return true;
     }
     return true;
@@ -152,7 +156,7 @@ export const DataService = {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       if (result.success) {
         return result.data.map((f: any) => ({
           ...f,
@@ -171,10 +175,10 @@ export const DataService = {
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
       if (!result.success) {
-        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        if (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG') handleConnectionError();
         throw new Error(result.error);
       }
-      await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
+      await this.addLog(followUp.SFGZRY, `随访结案 ID: ${followUp.PERSONID}`, 'completed');
       return true;
     }
     return true;
@@ -184,7 +188,7 @@ export const DataService = {
     if (isElectron) {
       const sql = `INSERT INTO SP_SFRW (PERSONID, ZYYCJGTJBH, XCSFTIME, STATUS) VALUES (?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [task.PERSONID, task.ZYYCJGTJBH || '', task.XCSFTIME, task.STATUS]);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       return result.success;
     }
     return true;
@@ -194,7 +198,7 @@ export const DataService = {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ? ORDER BY UPLOAD_DATE DESC' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -208,7 +212,7 @@ export const DataService = {
         if (personId === 'SYSTEM') return fileUrl;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
-        if (!dbResult.success && dbResult.error === 'NO_CONNECTION') handleConnectionError();
+        if (!dbResult.success && (dbResult.error === 'NO_CONNECTION' || dbResult.error === 'NO_CONFIG')) handleConnectionError();
         return dbResult.success;
       }
     }
@@ -226,7 +230,7 @@ export const DataService = {
   async getUsers(): Promise<User[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -238,7 +242,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]
       ]);
-      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
       return result;
     }
     return { success: false, error: 'OFFLINE' };
@@ -247,7 +251,7 @@ export const DataService = {
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
-      if (!result.success && result.error === 'NO_CONNECTION') {
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) {
         handleConnectionError();
         return false;
       }
@@ -260,7 +264,7 @@ export const DataService = {
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
-      if (!result.success && result.error === 'NO_CONNECTION') {
+      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) {
         handleConnectionError();
         return false;
       }
