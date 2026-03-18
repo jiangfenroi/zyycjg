@@ -1,3 +1,5 @@
+'use client';
+
 import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
@@ -96,7 +98,7 @@ export const DataService = {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (result.success) return result.data;
-      throw new Error(result.error);
+      throw new Error(result.error || '无法获取患者列表');
     }
     return [];
   },
@@ -106,11 +108,13 @@ export const DataService = {
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE, 
-        person.UNITNAME, person.OCCURDATE, person.OPTNAME
+        person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员'
       ]);
       if (result.success) {
-        await this.addLog(person.OPTNAME || '未知用户', `为患者 ${person.PERSONNAME} 建立了新档案`, 'update');
+        await this.addLog(person.OPTNAME || '系统管理员', `为患者 ${person.PERSONNAME} 建立了新档案`, 'update');
+      } else {
+        throw new Error(result.error || '数据库写入失败');
       }
       return result.success;
     }
@@ -127,7 +131,7 @@ export const DataService = {
         ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
       const result = await window.electronAPI.query(sql);
       if (result.success) return result.data;
-      throw new Error(result.error);
+      throw new Error(result.error || '无法获取异常结果列表');
     }
     return [];
   },
@@ -138,11 +142,13 @@ export const DataService = {
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         res.ID, res.PERSONID, res.TJBHID, res.ZYYCJGXQ, res.ZYYCJGFL, 
-        res.ZYYCJGCZYJ, res.ZYYCJGFKJG, res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR
+        res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
+        res.WORKER, res.ZYYCJGBTZR || ''
       ]);
       if (result.success) {
-        await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果`, 'update');
+        await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果 (ID: ${res.ID})`, 'update');
+      } else {
+        throw new Error(result.error || '结果写入数据库失败');
       }
       return result.success;
     }
@@ -164,10 +170,12 @@ export const DataService = {
       const sql = `INSERT INTO SP_FOLLOWUPS (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
                    VALUES (?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf
+        followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0
       ]);
       if (result.success) {
         await this.addLog(followUp.SFGZRY, `完成了患者 ID ${followUp.PERSONID} 的重要异常结果随访结案`, 'completed');
+      } else {
+        throw new Error(result.error || '随访记录写入失败');
       }
       return result.success;
     }
@@ -225,6 +233,8 @@ export const DataService = {
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
         if (dbResult.success) {
           await this.addLog('系统', `为患者 ID ${personId} 上传了报告附件: ${fileName}`, 'update');
+        } else {
+          throw new Error(dbResult.error || '文档记录写入数据库失败');
         }
         return dbResult.success;
       }

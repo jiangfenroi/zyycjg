@@ -37,6 +37,15 @@ async function initDB(config) {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
+    // 如果已存在连接池，先关闭旧的
+    if (dbPool) {
+      try {
+        await dbPool.end();
+      } catch (e) {
+        console.error("Failed to close old pool:", e);
+      }
+    }
+
     dbPool = mysql.createPool({
       host: dbConfig.host,
       port: parseInt(dbConfig.port),
@@ -44,12 +53,14 @@ async function initDB(config) {
       password: dbConfig.password,
       database: dbConfig.database,
       waitForConnections: true,
-      connectionLimit: 30,
+      connectionLimit: 50,
       queueLimit: 0,
       enableKeepAlive: true,
-      keepAliveInitialDelay: 10000
+      keepAliveInitialDelay: 10000,
+      connectTimeout: 15000 // 增加连接超时限制
     });
     
+    // 测试连接
     const connection = await dbPool.getConnection();
     connection.release();
 
@@ -127,7 +138,7 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认设置
+    // 初始化默认数据
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
@@ -150,7 +161,7 @@ async function initDB(config) {
 
     return { success: true };
   } catch (err) {
-    console.error(err);
+    console.error("Database Init Error:", err);
     return { success: false, error: err.message };
   }
 }
@@ -163,7 +174,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许加载局域网/共享路径资源
+      webSecurity: false,
     },
     title: "MediTrack Connect"
   });
@@ -196,10 +207,10 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
   
   try {
-    const [rows] = await dbPool.execute(sql, params);
+    const [rows] = await dbPool.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    console.error(err);
+    console.error("SQL Error:", sql, params, err.message);
     return { success: false, error: err.message };
   }
 });
@@ -275,17 +286,14 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // 注册安全协议加载局域网/中心库资源
   protocol.handle('app-file', (request) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
-    
     if (process.platform === 'win32') {
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }
     }
-    
     return net.fetch('file://' + filePath);
   });
 

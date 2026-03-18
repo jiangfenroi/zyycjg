@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 import * as React from 'react'
 import { Search, Plus, FileUp, MoreVertical, Eye, Loader2 } from 'lucide-react'
@@ -43,25 +43,35 @@ export default function PatientsPage() {
   const [submitting, setSubmitting] = React.useState(false)
 
   const [formData, setFormData] = React.useState<Partial<Person>>({
-    PERSONID: `D${Date.now().toString().slice(-8)}`,
+    PERSONID: '',
     PERSONNAME: '',
     SEX: '男',
     AGE: 0,
     PHONE: '',
     UNITNAME: '',
-    OCCURDATE: new Date().toISOString().split('T')[0],
+    OCCURDATE: '',
   })
 
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     setLoading(true)
-    const data = await DataService.getPatients()
-    setPersons(data)
-    setLoading(false)
-  }
+    try {
+      const data = await DataService.getPatients()
+      setPersons(data)
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "数据同步失败", description: err.message || "无法从服务器获取档案列表" })
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
 
   React.useEffect(() => {
     fetchData()
-  }, [])
+    setFormData(prev => ({
+      ...prev,
+      PERSONID: `D${Date.now().toString().slice(-8)}`,
+      OCCURDATE: new Date().toISOString().split('T')[0]
+    }))
+  }, [fetchData])
 
   const filteredPersons = persons.filter(p => 
     p.PERSONNAME.includes(searchTerm) || 
@@ -76,24 +86,34 @@ export default function PatientsPage() {
     }
 
     setSubmitting(true)
-    const newPerson: Person = { ...formData as Person, OPTNAME: '管理员' }
-    const success = await DataService.addPatient(newPerson)
-    
-    if (success) {
-      toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至数据库。` })
-      setIsAddDialogOpen(false)
-      fetchData()
-      setFormData({
-        PERSONID: `D${Date.now().toString().slice(-8)}`,
-        PERSONNAME: '',
-        SEX: '男',
-        AGE: 0,
-        PHONE: '',
-        UNITNAME: '',
-        OCCURDATE: new Date().toISOString().split('T')[0],
-      })
+    try {
+      const storedUser = localStorage.getItem('currentUser');
+      const optName = storedUser ? JSON.parse(storedUser).REAL_NAME : '管理员';
+      
+      const newPerson: Person = { ...formData as Person, OPTNAME: optName };
+      const success = await DataService.addPatient(newPerson);
+      
+      if (success) {
+        toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至中心数据库。` });
+        setIsAddDialogOpen(false);
+        await fetchData(); // 强制刷新
+        
+        // 重置表单
+        setFormData({
+          PERSONID: `D${Date.now().toString().slice(-8)}`,
+          PERSONNAME: '',
+          SEX: '男',
+          AGE: 0,
+          PHONE: '',
+          UNITNAME: '',
+          OCCURDATE: new Date().toISOString().split('T')[0],
+        });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "建档失败", description: err.message || "中心服务器写入异常" });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false)
   }
 
   return (
@@ -182,7 +202,7 @@ export default function PatientsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : filteredPersons.length > 0 ? filteredPersons.map((person) => (
                 <TableRow key={person.PERSONID}>
                   <TableCell className="font-mono text-xs">{person.PERSONID}</TableCell>
