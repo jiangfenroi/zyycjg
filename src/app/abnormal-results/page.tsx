@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, Sparkles, ExternalLink } from 'lucide-react'
+import { Plus, Search, FileDown, FileUp, ClipboardList, ExternalLink } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast'
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
   const [results, setResults] = React.useState(MOCK_RESULTS)
-  const [isSummarizing, setIsSummarizing] = React.useState(false)
+  const [isProcessing, setIsProcessing] = React.useState(false)
   const [formData, setFormData] = React.useState({
     PERSONID: '',
     ZYYCJGXQ: '',
@@ -34,41 +34,48 @@ export default function AbnormalResultsPage() {
     ZYYCJGTZSJ: '',
   })
 
-  // 客户端模拟 AI 摘要功能（为了支持静态导出，不使用服务器端流程）
-  const handleAISummarize = async () => {
+  // 本地辅助建议功能（非 AI，纯本地逻辑，无需 API）
+  const handleGenerateAdvice = async () => {
     if (!formData.ZYYCJGXQ) {
       toast({ title: "提示", description: "请先输入异常结果详情" })
       return
     }
-    setIsSummarizing(true)
+    setIsProcessing(true)
     
-    // 模拟网络处理延迟
-    await new Promise(resolve => setTimeout(resolve, 1200))
+    // 模拟处理延迟
+    await new Promise(resolve => setTimeout(resolve, 600))
     
     try {
       const text = formData.ZYYCJGXQ;
-      // 模拟简单的 AI 提取逻辑
-      const keywords = ["建议", "复查", "结节", "钙化", "进一步", "检查"].filter(k => text.includes(k));
-      const summary = text.length > 40 ? text.substring(0, 40) + "..." : text;
-      const advice = keywords.length > 0 
-        ? `针对"${keywords.join('、')}"等关键词，建议遵医嘱进行专项复查。`
-        : "建议结合临床表现，由专业医师进行综合研判。";
+      // 本地关键词提取逻辑
+      const keywords = ["建议", "复查", "结节", "钙化", "进一步", "检查", "占位", "异常"].filter(k => text.includes(k));
+      const summary = text.length > 50 ? text.substring(0, 50) + "..." : text;
+      
+      let advice = "建议结合临床表现，由专业医师进行综合研判。";
+      if (keywords.includes("结节") || keywords.includes("占位")) {
+        advice = "检测到关键病变描述，建议立即协调专科医师会诊，并预约进一步影像学检查。";
+      } else if (keywords.includes("复查")) {
+        advice = "建议按照体检报告要求的时限进行定期随访复查。";
+      }
 
       setFormData(prev => ({ 
         ...prev, 
-        ZYYCJGCZYJ: `【AI 摘要】${summary}\n\n【辅助建议】${advice}\n\n[注意：此摘要由本地辅助算法生成]` 
+        ZYYCJGCZYJ: `【内容摘要】${summary}\n\n【处置建议】${advice}\n\n[提示：此建议由系统本地逻辑辅助生成]` 
       }))
       
-      toast({ title: "处理完成", description: "已通过辅助算法生成摘要建议" })
+      toast({ title: "生成完毕", description: "已根据本地逻辑生成参考建议" })
     } catch (e) {
-      toast({ variant: "destructive", title: "摘要处理失败" })
+      toast({ variant: "destructive", title: "处理失败" })
     } finally {
-      setIsSummarizing(false)
+      setIsProcessing(false)
     }
   }
 
   const openPACS = (id: string) => {
-    window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
+    // 模拟 PACS 链接跳转
+    if (typeof window !== 'undefined') {
+      window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
+    }
   }
 
   return (
@@ -132,22 +139,22 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <div className="space-y-2">
-                    <Label>智能辅助</Label>
+                    <Label>辅助工具</Label>
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="sm" 
                       className="w-full text-xs h-8"
-                      onClick={handleAISummarize}
-                      disabled={isSummarizing}
+                      onClick={handleGenerateAdvice}
+                      disabled={isProcessing}
                     >
-                      <Sparkles className="mr-1 h-3 w-3 text-secondary" />
-                      {isSummarizing ? '分析中...' : '快速建议'}
+                      <ClipboardList className="mr-1 h-3 w-3 text-secondary" />
+                      {isProcessing ? '处理中...' : '生成建议'}
                     </Button>
                   </div>
                   <Textarea 
                     className="col-span-3 min-h-[100px]" 
-                    placeholder="辅助摘要将在此生成..."
+                    placeholder="系统将根据详情自动生成辅助摘要和建议..."
                     value={formData.ZYYCJGCZYJ}
                     onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})}
                   />
