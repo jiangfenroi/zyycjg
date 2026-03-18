@@ -99,7 +99,6 @@ export default function AbnormalResultsPage() {
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
       res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR, `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
     ]);
-    // 使用 BOM 确保 Excel 正确识别 UTF-8 编码
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

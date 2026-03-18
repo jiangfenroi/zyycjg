@@ -26,7 +26,6 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // A类和B类重要异常结果均视为同等重要，只要尚未随访结案即提示
       const pending = results.filter(r => 
         !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )

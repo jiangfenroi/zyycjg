@@ -4,7 +4,7 @@
 import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
-  interface Window {
+  interface window {
     electronAPI: {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
