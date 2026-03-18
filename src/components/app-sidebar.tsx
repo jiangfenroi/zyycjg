@@ -10,7 +10,8 @@ import {
   Bell,
   FileText,
   UserCog,
-  LogOut
+  LogOut,
+  Palette
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -28,6 +29,7 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { useToast } from "@/hooks/use-toast"
+import { DataService } from "@/services/data-service"
 
 const navigation = [
   { name: "工作台", href: "/", icon: LayoutDashboard },
@@ -42,12 +44,16 @@ export function AppSidebar() {
   const router = useRouter()
   const { toast } = useToast()
   const [user, setUser] = React.useState<any>(null)
+  const [settings, setSettings] = React.useState({ SYSTEM_NAME: 'MediTrack', SYSTEM_LOGO_TEXT: 'M' })
 
   React.useEffect(() => {
     const storedUser = localStorage.getItem('currentUser')
     if (storedUser) {
       setUser(JSON.parse(storedUser))
     }
+    
+    // 加载系统配置
+    DataService.getSystemSettings().then(setSettings)
   }, [pathname])
 
   const handleLogout = () => {
@@ -61,9 +67,9 @@ export function AppSidebar() {
       <SidebarHeader className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner">
-            M
+            {settings.SYSTEM_LOGO_TEXT}
           </div>
-          <span className="font-bold text-lg tracking-tight group-data-[collapsible=icon]:hidden">MediTrack</span>
+          <span className="font-bold text-lg tracking-tight group-data-[collapsible=icon]:hidden">{settings.SYSTEM_NAME}</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="pt-4">
@@ -100,11 +106,24 @@ export function AppSidebar() {
                     asChild
                     isActive={pathname === '/settings/users'}
                     tooltip="用户权限管理"
-                    className="h-11 px-4 text-blue-400 hover:text-blue-300"
+                    className="h-11 px-4"
                   >
                     <Link href="/settings/users">
                       <UserCog className="size-5" />
                       <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/settings/system'}
+                    tooltip="系统身份设置"
+                    className="h-11 px-4 text-blue-400 hover:text-blue-300"
+                  >
+                    <Link href="/settings/system">
+                      <Palette className="size-5" />
+                      <span className="group-data-[collapsible=icon]:hidden">系统身份设置</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

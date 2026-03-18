@@ -39,9 +39,9 @@ export interface AbnormalResult {
 export interface FollowUp {
   ID: string;
   PERSONID: string;
-  HFresult: string; // 结果
-  SFTIME: string; // 日期
-  SFGZRY: string; // 随访工作人员
+  HFresult: string; // 随访详细结果
+  SFTIME: string; // 随访日期
+  SFGZRY: string; // 随访人员
   jcsf: boolean; // 是否进一步病理检查
 }
 
@@ -67,4 +67,9 @@ export interface User {
   REAL_NAME: string;
   ROLE: 'admin' | 'operator';
   CREATE_DATE: string;
+}
+
+export interface SystemSettings {
+  SYSTEM_NAME: string;
+  SYSTEM_LOGO_TEXT: string;
 }

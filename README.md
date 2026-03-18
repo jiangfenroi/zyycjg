@@ -1,35 +1,61 @@
+# MediTrack Connect - 网络版部署手册
 
-# MediTrack Connect - 桌面端构建指南
+本项目是一个采用 **Client-Server (C/S)** 架构的医疗管理系统。客户端基于 Electron + Next.js，服务器端依赖 MySQL 数据库。
 
-本项目使用 Next.js 开发，并集成 Electron 以支持 Windows 桌面安装程序。
+## 一、 环境要求
 
-## 技术栈
-- **前端**: Next.js 15, React 19, Tailwind CSS, ShadCN UI
-- **桌面环境**: Electron 30
-- **数据库交互**: 目前使用 `src/lib/mock-store.ts` 进行本地模拟。
+### 1. 服务器端 (Server)
+- **数据库**: MySQL 8.0+
+- **网络**: 确保服务器 3306 端口对客户端 IP 开放。
 
-## 数据库配置
-若要对接真实的 MySQL Server：
-1. **配置文件**: 修改根目录下的 `.env` 文件。
-2. **数据流转**: 
-   - 由于 Next.js 使用 `output: export` 模式，前端代码无法直接运行 SQL 查询。
-   - **推荐方案**: 在 `electron/main.js` 中使用 `mysql2` 库连接数据库，并通过 `ipcMain` / `ipcRenderer` 与前端进行通信。
+### 2. 客户端 (Client)
+- **操作系统**: Windows 10/11 (x64)
+- **运行时**: Node.js v20+ (仅开发/编译时需要)
 
-## 本地构建步骤
+---
 
-### 1. 准备环境
-确保本地已安装 [Node.js (v20+)](https://nodejs.org/)。
+## 二、 部署步骤
 
-### 2. 安装依赖
-```bash
-npm install
-```
+### 第一步：服务器端配置 (MySQL)
+1. 安装 MySQL Server。
+2. 创建一个名为 `meditrack_db` 的数据库：
+   ```sql
+   CREATE DATABASE meditrack_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+3. 创建一个远程访问账号并授权：
+   ```sql
+   CREATE USER 'medi_admin'@'%' IDENTIFIED BY 'YourStrongPassword';
+   GRANT ALL PRIVILEGES ON meditrack_db.* TO 'medi_admin'@'%';
+   FLUSH PRIVILEGES;
+   ```
 
-### 3. 生成安装程序 (.exe)
-```bash
-# 构建网页并打包成 exe
-npm run dist
-```
+### 第二步：客户端编译与分发
+1. 下载源码并安装依赖：
+   ```bash
+   npm install
+   ```
+2. 执行打包命令生成安装包 (.exe)：
+   ```bash
+   npm run dist
+   ```
+3. 将 `dist/` 目录下生成的 `MediTrack Connect Setup.exe` 分发给科室人员安装。
 
-### 4. 查看结果
-构建完成后，生成的安装包位于 `dist/` 目录下。
+### 第三步：客户端首次运行
+1. 打开程序，系统会检测到无连接并跳转至 **[网络版接入向导]**。
+2. 填写服务器 IP、端口、数据库名、用户名及密码。
+3. 点击“测试并接入”，连接成功后程序会自动在服务器上创建业务表并初始化默认管理员。
+4. **默认管理员账号**: `admin` / **密码**: `123456`。
+
+---
+
+## 三、 功能特性
+- **数据同步**: 全院多台终端实时共享患者档案、重要异常结果及随访动态。
+- **身份自定义**: 管理员可在 [系统身份设置] 中统一修改程序名称和 Logo。
+- **文件存储**: 建议在服务器配置 SMB/NFS 共享目录，并将客户端安装路径指向该共享盘，以实现全网 PDF 附件预览。
+
+---
+
+## 四、 常见问题
+- **无法连接服务器**: 请检查服务器防火墙是否允许 3306 端口 TCP 入站。
+- **中文乱码**: 系统导出 CSV 采用 UTF-8 BOM 编码，推荐使用 Office 2016+ 或 WPS 开启。
+- **附件打不开**: 确保客户端运行环境拥有对报告存储路径的读写权限。

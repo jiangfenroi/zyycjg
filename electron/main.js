@@ -62,6 +62,10 @@ async function initDB(config) {
         ROLE ENUM('admin', 'operator') DEFAULT 'operator',
         CREATE_DATE DATE
       )`,
+      `CREATE TABLE IF NOT EXISTS SP_SETTINGS (
+        CONF_KEY VARCHAR(50) PRIMARY KEY,
+        CONF_VALUE TEXT
+      )`,
       `CREATE TABLE IF NOT EXISTS SP_PERSON (
         PERSONID VARCHAR(50) PRIMARY KEY,
         PERSONNAME VARCHAR(50) NOT NULL,
@@ -109,12 +113,25 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    const [rows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
-    if (rows.length === 0) {
+    // 初始化默认管理员
+    const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
+    if (userRows.length === 0) {
       await dbPool.execute(
         'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)',
-        ['admin', '123456', '中心管理员', 'admin', new Date().toISOString().split('T')[0]]
+        ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]
       );
+    }
+
+    // 初始化系统配置
+    const defaultConfig = [
+      ['SYSTEM_NAME', 'MediTrack Connect'],
+      ['SYSTEM_LOGO_TEXT', 'M']
+    ];
+    for (const [key, val] of defaultConfig) {
+      const [rows] = await dbPool.execute('SELECT * FROM SP_SETTINGS WHERE CONF_KEY = ?', [key]);
+      if (rows.length === 0) {
+        await dbPool.execute('INSERT INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
+      }
     }
 
     return { success: true };

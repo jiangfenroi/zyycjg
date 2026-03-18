@@ -1,4 +1,4 @@
-import { Person, AbnormalResult, FollowUp, PatientDocument } from '@/lib/types';
+import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings } from '@/lib/types';
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
 
 declare global {
@@ -15,6 +15,33 @@ declare global {
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export const DataService = {
+  // 系统设置
+  async getSystemSettings(): Promise<SystemSettings> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
+      if (result.success) {
+        const settings: any = {};
+        result.data.forEach((row: any) => {
+          settings[row.CONF_KEY] = row.CONF_VALUE;
+        });
+        return settings as SystemSettings;
+      }
+    }
+    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M' };
+  },
+
+  async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
+    if (isElectron) {
+      const promises = Object.entries(settings).map(([key, val]) => 
+        window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val, key])
+      );
+      const results = await Promise.all(promises);
+      return results.every(r => r.success);
+    }
+    return true;
+  },
+
+  // 患者档案
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
@@ -37,6 +64,7 @@ export const DataService = {
     return true;
   },
 
+  // 重要异常结果
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const sql = `
@@ -65,6 +93,7 @@ export const DataService = {
     return true;
   },
 
+  // 重要异常结果随访
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ?' : 'SELECT * FROM SP_FOLLOWUPS ORDER BY SFTIME DESC';
@@ -86,6 +115,7 @@ export const DataService = {
     return true;
   },
 
+  // 报告管理
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ?' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
