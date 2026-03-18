@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, Eye, Loader2, ExternalLink } from 'lucide-react'
+import { Plus, Search, FileDown, Eye, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -87,7 +87,7 @@ export default function AbnormalResultsPage() {
 
   const handleExport = () => {
     if (results.length === 0) return
-    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "异常结果详情", "是否通知", "宣教状态", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    const headers = ["档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", "重要异常结果详情", "是否通知", "是否健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
     const rows = results.map(res => [
       res.PERSONID, res.TJBHID, res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
       `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
@@ -143,11 +143,11 @@ export default function AbnormalResultsPage() {
                   <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
                   <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
-                <div className="space-y-2"><Label>异常结果详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
+                <div className="space-y-2"><Label>重要异常结果详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
                 <div className="space-y-2"><Label>处置建议</Label><Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>异常分类</Label>
+                    <Label>重要异常结果分类</Label>
                     <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -159,11 +159,11 @@ export default function AbnormalResultsPage() {
                   <div className="flex items-center gap-6 pt-8">
                     <div className="flex items-center space-x-2">
                       <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(v) => setFormData({...formData, IS_NOTIFIED: !!v})} />
-                      <Label htmlFor="notified">已通知</Label>
+                      <Label htmlFor="notified">是否通知</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox id="health" checked={formData.IS_HEALTH_EDU} onCheckedChange={(v) => setFormData({...formData, IS_HEALTH_EDU: !!v})} />
-                      <Label htmlFor="health">已健康宣教</Label>
+                      <Label htmlFor="health">是否健康宣教</Label>
                     </div>
                   </div>
                 </div>
@@ -199,30 +199,30 @@ export default function AbnormalResultsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[120px] sticky left-0 bg-muted/50 z-10">档案编号</TableHead>
-                  <TableHead className="w-[120px]">体检编号</TableHead>
-                  <TableHead className="w-[100px]">姓名</TableHead>
-                  <TableHead className="w-[60px]">性别</TableHead>
-                  <TableHead className="w-[60px]">年龄</TableHead>
-                  <TableHead className="w-[120px]">联系电话</TableHead>
-                  <TableHead className="w-[110px]">体检日期</TableHead>
-                  <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[200px]">异常详情</TableHead>
-                  <TableHead className="w-[80px]">是否通知</TableHead>
-                  <TableHead className="w-[80px]">健康宣教</TableHead>
-                  <TableHead className="w-[110px]">通知日期</TableHead>
-                  <TableHead className="w-[90px]">通知时间</TableHead>
-                  <TableHead className="w-[100px]">通知医生</TableHead>
-                  <TableHead className="w-[100px]">被通知人</TableHead>
-                  <TableHead className="min-w-[150px]">处置建议</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
+                  <TableHead className="w-[120px] sticky left-0 bg-muted/50 z-10 text-xs">档案编号</TableHead>
+                  <TableHead className="w-[120px] text-xs">体检编号</TableHead>
+                  <TableHead className="w-[100px] text-xs">姓名</TableHead>
+                  <TableHead className="w-[60px] text-xs">性别</TableHead>
+                  <TableHead className="w-[60px] text-xs">年龄</TableHead>
+                  <TableHead className="w-[120px] text-xs">联系电话</TableHead>
+                  <TableHead className="w-[110px] text-xs">体检日期</TableHead>
+                  <TableHead className="w-[80px] text-xs">分类</TableHead>
+                  <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
+                  <TableHead className="w-[80px] text-xs">是否通知</TableHead>
+                  <TableHead className="w-[80px] text-xs">是否健康宣教</TableHead>
+                  <TableHead className="w-[110px] text-xs">通知日期</TableHead>
+                  <TableHead className="w-[90px] text-xs">通知时间</TableHead>
+                  <TableHead className="w-[100px] text-xs">通知医生</TableHead>
+                  <TableHead className="w-[100px] text-xs">被通知人</TableHead>
+                  <TableHead className="min-w-[150px] text-xs">处置建议</TableHead>
+                  <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)] text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow><TableCell colSpan={17} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
-                  <TableRow key={res.ID} className="text-xs">
+                  <TableRow key={res.ID} className="text-[10px] sm:text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
                     <TableCell className="font-mono">{res.TJBHID}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
@@ -230,10 +230,10 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
                     <TableCell className="font-mono">{res.OCCURDATE || '-'}</TableCell>
-                    <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{res.ZYYCJGFL}类</Badge></TableCell>
+                    <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600">已通知</Badge> : <Badge variant="outline">未通知</Badge>}</TableCell>
-                    <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600">已宣教</Badge> : <Badge variant="outline">未宣教</Badge>}</TableCell>
+                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 border-blue-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
+                    <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600 border-green-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>

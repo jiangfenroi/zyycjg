@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, History, Loader2, Clock, CheckCircle2 } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,7 +21,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { Person, AbnormalResult, FollowUp, FollowUpTask } from '@/lib/types'
@@ -32,7 +31,6 @@ export default function FollowUpsPage() {
   const [persons, setPersons] = React.useState<Person[]>([])
   const [abnormalResults, setAbnormalResults] = React.useState<AbnormalResult[]>([])
   const [followUps, setFollowUps] = React.useState<FollowUp[]>([])
-  const [scheduledTasks, setScheduledTasks] = React.useState<FollowUpTask[]>([])
   const [selectedPersonId, setSelectedPersonId] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
@@ -47,16 +45,14 @@ export default function FollowUpsPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const [p, r, f, t] = await Promise.all([
+      const [p, r, f] = await Promise.all([
         DataService.getPatients(),
         DataService.getAbnormalResults(),
-        DataService.getFollowUps(),
-        DataService.getFollowUpTasks('pending')
+        DataService.getFollowUps()
       ])
       setPersons(p)
       setAbnormalResults(r)
       setFollowUps(f)
-      setScheduledTasks(t)
     } finally {
       setLoading(false)
     }
@@ -115,7 +111,7 @@ export default function FollowUpsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环管理</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
           <p className="text-muted-foreground mt-1">管理 A/B 类待处理随访任务及历史记录。</p>
         </div>
         <div className="relative w-80">
@@ -137,13 +133,13 @@ export default function FollowUpsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead>档案编号</TableHead>
-                      <TableHead>姓名</TableHead>
-                      <TableHead>性别</TableHead>
-                      <TableHead>年龄</TableHead>
-                      <TableHead>电话</TableHead>
-                      <TableHead className="min-w-[300px]">异常详情</TableHead>
-                      <TableHead className="text-right">操作</TableHead>
+                      <TableHead className="text-xs">档案编号</TableHead>
+                      <TableHead className="text-xs">姓名</TableHead>
+                      <TableHead className="text-xs">性别</TableHead>
+                      <TableHead className="text-xs">年龄</TableHead>
+                      <TableHead className="text-xs">电话</TableHead>
+                      <TableHead className="min-w-[300px] text-xs">重要异常结果详情</TableHead>
+                      <TableHead className="text-right text-xs">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -181,16 +177,16 @@ export default function FollowUpsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead>档案编号</TableHead>
-                        <TableHead>姓名</TableHead>
-                        <TableHead>性别</TableHead>
-                        <TableHead>年龄</TableHead>
-                        <TableHead>电话</TableHead>
-                        <TableHead className="min-w-[200px]">异常详情</TableHead>
-                        <TableHead className="min-w-[250px]">回访结果</TableHead>
-                        <TableHead>是否复查</TableHead>
-                        <TableHead>回访日期</TableHead>
-                        <TableHead>回访人</TableHead>
+                        <TableHead className="text-xs">档案编号</TableHead>
+                        <TableHead className="text-xs">姓名</TableHead>
+                        <TableHead className="text-xs">性别</TableHead>
+                        <TableHead className="text-xs">年龄</TableHead>
+                        <TableHead className="text-xs">电话</TableHead>
+                        <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
+                        <TableHead className="min-w-[250px] text-xs">回访结果</TableHead>
+                        <TableHead className="text-xs">是否复查或进一步检查</TableHead>
+                        <TableHead className="text-xs">回访日期</TableHead>
+                        <TableHead className="text-xs">回访人</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -206,7 +202,7 @@ export default function FollowUpsPage() {
                             <TableCell>{person?.PHONE || '-'}</TableCell>
                             <TableCell className="max-w-[200px] truncate" title={result?.ZYYCJGXQ}>{result?.ZYYCJGXQ}</TableCell>
                             <TableCell className="max-w-[250px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
-                            <TableCell>{f.jcsf ? <Badge className="bg-green-100 text-green-700">是</Badge> : <Badge variant="outline">否</Badge>}</TableCell>
+                            <TableCell>{f.jcsf ? <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
                             <TableCell className="font-mono text-muted-foreground">{f.SFTIME}</TableCell>
                             <TableCell>{f.SFGZRY}</TableCell>
                           </TableRow>
