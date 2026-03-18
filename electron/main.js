@@ -231,8 +231,6 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
     const targetPath = path.join(uploadBaseDir, targetFileName);
     fs.copyFileSync(sourcePath, targetPath);
 
-    // 对于文件系统，返回转换后的本地文件协议路径，方便前端显示
-    // 在 Electron 中展示本地文件通常需要设置 webSecurity 或使用自定义协议，这里返回原始路径
     return { 
       success: true, 
       data: {

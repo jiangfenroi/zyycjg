@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { Textarea } from '@/textarea'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
@@ -59,14 +59,12 @@ export default function FollowUpsPage() {
 
   React.useEffect(() => {
     loadData()
-    // 客户端挂载后再设置默认日期，避免水合错误
     setFollowUpForm(prev => ({
       ...prev,
       SFTIME: new Date().toISOString().split('T')[0]
     }))
   }, [loadData])
 
-  // 待随访 = 有异常结果但没有随访记录的患者
   const pendingTasks = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID)
   )
@@ -196,6 +194,7 @@ export default function FollowUpsPage() {
                       <TableHead>完成日期</TableHead>
                       <TableHead>患者姓名</TableHead>
                       <TableHead>随访结果摘要</TableHead>
+                      <TableHead>复查情况</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -208,6 +207,11 @@ export default function FollowUpsPage() {
                            <TableCell className="text-xs">{f.SFTIME}</TableCell>
                            <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
                            <TableCell className="max-w-[300px] truncate text-xs">{f.HFresult}</TableCell>
+                           <TableCell>
+                             <Badge variant={f.jcsf ? "default" : "outline"} className="text-[10px]">
+                               {f.jcsf ? '已复查' : '未复查'}
+                             </Badge>
+                           </TableCell>
                            <TableCell><div className="flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" /> 已结案</div></TableCell>
                            <TableCell className="text-right">
                               <Button variant="ghost" size="sm" asChild>
@@ -251,7 +255,7 @@ export default function FollowUpsPage() {
             </div>
             <div className="flex items-center space-x-2 border p-3 rounded-md bg-muted/20">
               <Checkbox id="further" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-              <Label htmlFor="further" className="cursor-pointer leading-none">是否已执行进一步病理/影像复查？</Label>
+              <Label htmlFor="further" className="cursor-pointer leading-none font-semibold text-primary">复查情况：已执行进一步病理/影像复查</Label>
             </div>
           </div>
           <DialogFooter>

@@ -131,7 +131,6 @@ export const DataService = {
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         
-        // 如果是系统 Logo 上传，不需要记录到文档表，直接返回 URL
         if (personId === 'SYSTEM') {
            return uploadResult.data.fileUrl;
         }

@@ -211,7 +211,11 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
                           <TableCell className="text-xs">{f.SFTIME}</TableCell>
                           <TableCell className="text-xs max-w-[200px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell className="text-xs">{f.SFGZRY}</TableCell>
-                          <TableCell className="text-xs">{f.jcsf ? '已复查' : '未复查'}</TableCell>
+                          <TableCell className="text-xs">
+                             <Badge variant={f.jcsf ? "default" : "outline"} className="text-[10px]">
+                               {f.jcsf ? '已复查' : '未复查'}
+                             </Badge>
+                          </TableCell>
                         </TableRow>
                       )) : (
                         <TableRow><TableCell colSpan={4} className="text-center py-8 opacity-50">暂无历史随访记录</TableCell></TableRow>
@@ -292,7 +296,6 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
         </div>
       </div>
 
-      {/* PDF 预览弹窗 */}
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
           <div className="p-4 border-b flex justify-between items-center bg-muted/20">
