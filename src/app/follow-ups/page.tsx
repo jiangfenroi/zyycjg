@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Phone, History, ExternalLink, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Search, Phone, History, ExternalLink, AlertCircle, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
-import { Person, AbnormalResult, FollowUp } from '@/lib/types'
+import { Person, AbnormalResult, FollowUp, FollowUpTask } from '@/lib/types'
 
 export default function FollowUpsPage() {
   const { toast } = useToast()
@@ -30,6 +30,7 @@ export default function FollowUpsPage() {
   const [persons, setPersons] = React.useState<Person[]>([])
   const [abnormalResults, setAbnormalResults] = React.useState<AbnormalResult[]>([])
   const [followUps, setFollowUps] = React.useState<FollowUp[]>([])
+  const [scheduledTasks, setScheduledTasks] = React.useState<FollowUpTask[]>([])
   const [selectedPersonId, setSelectedPersonId] = React.useState<string | null>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
@@ -38,20 +39,23 @@ export default function FollowUpsPage() {
     HFresult: '',
     SFTIME: '',
     SFGZRY: '',
-    jcsf: false
+    jcsf: false,
+    XCSFTIME: '' // 下次随访日期
   })
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const [p, r, f] = await Promise.all([
+      const [p, r, f, t] = await Promise.all([
         DataService.getPatients(),
         DataService.getAbnormalResults(),
-        DataService.getFollowUps()
+        DataService.getFollowUps(),
+        DataService.getFollowUpTasks('pending')
       ])
       setPersons(p)
       setAbnormalResults(r)
       setFollowUps(f)
+      setScheduledTasks(t)
     } finally {
       setLoading(false)
     }
@@ -59,21 +63,40 @@ export default function FollowUpsPage() {
 
   React.useEffect(() => {
     loadData()
-    // 延迟初始化表单，避免水合错误
+    // 初始化当前登录人员
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
+    
     setFollowUpForm(prev => ({
       ...prev,
-      SFTIME: new Date().toISOString().split('T')[0]
+      SFTIME: new Date().toISOString().split('T')[0],
+      SFGZRY: realName
     }))
   }, [loadData])
 
-  const pendingTasks = abnormalResults.filter(res => 
+  // 待处理任务逻辑：
+  // 1. 重要异常结果但尚未有随访记录的 (初始任务)
+  // 2. 计划随访任务中，日期小于等于今天的 (定时任务)
+  const today = new Date().toISOString().split('T')[0]
+  
+  const initialPending = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID)
   )
 
-  const filteredPending = pendingTasks.filter(task => {
-    const person = persons.find(p => p.PERSONID === task.PERSONID)
+  const activeScheduled = scheduledTasks.filter(task => 
+    task.XCSFTIME <= today
+  )
+
+  // 合并唯一待办
+  const pendingPersonIds = Array.from(new Set([
+    ...initialPending.map(p => p.PERSONID),
+    ...activeScheduled.map(p => p.PERSONID)
+  ]))
+
+  const filteredPending = pendingPersonIds.filter(id => {
+    const person = persons.find(p => p.PERSONID === id)
     const personName = person?.PERSONNAME || '';
-    return personName.includes(searchTerm) || task.PERSONID.includes(searchTerm)
+    return personName.includes(searchTerm) || id.includes(searchTerm)
   })
 
   const handleCompleteTask = async () => {
@@ -86,26 +109,54 @@ export default function FollowUpsPage() {
     const newFollowUp: FollowUp = {
       ID: `F${Date.now()}`,
       PERSONID: selectedPersonId,
-      ...followUpForm
+      HFresult: followUpForm.HFresult,
+      SFTIME: followUpForm.SFTIME,
+      SFGZRY: followUpForm.SFGZRY,
+      jcsf: followUpForm.jcsf
     }
 
-    const success = await DataService.addFollowUp(newFollowUp)
-    if (success) {
-      toast({ title: "随访已记录", description: "该案例已正式进入已结案库。" })
+    try {
+      // 1. 记录当次随访
+      await DataService.addFollowUp(newFollowUp)
+      
+      // 2. 如果有计划随访任务，将其标记为已完成
+      await DataService.updateFollowUpTaskStatus(selectedPersonId, 'completed')
+
+      // 3. 如果设置了下一次随访日期，创建新任务
+      if (followUpForm.XCSFTIME) {
+        await DataService.addFollowUpTask({
+          PERSONID: selectedPersonId,
+          XCSFTIME: followUpForm.XCSFTIME,
+          STATUS: 'pending'
+        })
+      }
+
+      toast({ title: "随访已记录", description: followUpForm.XCSFTIME ? `已创建下次随访计划：${followUpForm.XCSFTIME}` : "该案例已结案。" })
       setSelectedPersonId(null)
       loadData()
-      setFollowUpForm({ HFresult: '', SFTIME: new Date().toISOString().split('T')[0], SFGZRY: '', jcsf: false })
-    } else {
-      toast({ variant: "destructive", title: "数据库写入失败" })
+      
+      const storedUser = typeof window !== 'undefined' ? localStorage.getItem('currentUser') : null;
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
+      
+      setFollowUpForm({ 
+        HFresult: '', 
+        SFTIME: new Date().toISOString().split('T')[0], 
+        SFGZRY: realName, 
+        jcsf: false,
+        XCSFTIME: ''
+      })
+    } catch (err) {
+      toast({ variant: "destructive", title: "操作失败", description: "数据库同步异常" })
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
-        <p className="text-muted-foreground mt-1">闭环管理重要异常随访任务，确保医疗质量安全。</p>
+        <p className="text-muted-foreground mt-1">闭环管理重要异常随访任务，支持预设下次随访计划。</p>
       </div>
 
       <Tabs defaultValue="pending" className="space-y-4">
@@ -128,8 +179,8 @@ export default function FollowUpsPage() {
         <TabsContent value="pending">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">待随访列表</CardTitle>
-              <CardDescription>系统实时匹配的尚未进行随访闭环的重要异常案例。</CardDescription>
+              <CardTitle className="text-lg">待处理列表</CardTitle>
+              <CardDescription>包含初次随访任务及到达预设日期的计划随访任务。</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -137,42 +188,47 @@ export default function FollowUpsPage() {
                   <TableRow>
                     <TableHead>患者信息</TableHead>
                     <TableHead className="w-[300px]">关联异常详情</TableHead>
-                    <TableHead className="w-[200px]">既往处置建议</TableHead>
+                    <TableHead className="w-[120px]">任务类型</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                  ) : filteredPending.length > 0 ? filteredPending.map((task) => {
-                    const person = persons.find(p => p.PERSONID === task.PERSONID)
+                  ) : filteredPending.length > 0 ? filteredPending.map((pid) => {
+                    const person = persons.find(p => p.PERSONID === pid)
+                    const isScheduled = activeScheduled.find(t => t.PERSONID === pid)
+                    const taskInfo = abnormalResults.find(r => r.PERSONID === pid)
+                    
                     return (
-                      <TableRow key={task.ID}>
+                      <TableRow key={pid}>
                         <TableCell>
                           <div className="space-y-1">
-                            <Link href={`/patients/${task.PERSONID}`} className="font-bold text-primary hover:underline flex items-center gap-1">
+                            <Link href={`/patients/${pid}`} className="font-bold text-primary hover:underline flex items-center gap-1">
                               {person?.PERSONNAME || '未知'} <ExternalLink className="h-3 w-3" />
                             </Link>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Phone className="h-3 w-3" /> {person?.PHONE || '-'}
                             </div>
-                            <Badge variant={task.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">
-                              {task.ZYYCJGFL}类
-                            </Badge>
                           </div>
                         </TableCell>
                         <TableCell>
                            <div className="text-xs bg-muted/30 p-2 rounded border border-dashed">
-                             <div className="flex items-start gap-1 mb-1">
-                               <AlertCircle className="h-3 w-3 mt-0.5 text-destructive" />
-                               <span className="font-semibold">详情：</span>
-                             </div>
-                             <p className="line-clamp-2 text-muted-foreground">{task.ZYYCJGXQ}</p>
+                             <p className="line-clamp-2 text-muted-foreground">{taskInfo?.ZYYCJGXQ || '无异常明细记录'}</p>
                            </div>
                         </TableCell>
-                        <TableCell><p className="text-xs text-primary italic">{task.ZYYCJGCZYJ}</p></TableCell>
+                        <TableCell>
+                          {isScheduled ? (
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-600 border-amber-200">计划复查</Badge>
+                              <span className="text-[9px] text-muted-foreground">到期日: {isScheduled.XCSFTIME}</span>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-600 border-blue-200">初次告知</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" onClick={() => setSelectedPersonId(task.PERSONID)}>登记随访</Button>
+                          <Button size="sm" onClick={() => setSelectedPersonId(pid)}>登记随访</Button>
                         </TableCell>
                       </TableRow>
                     )
@@ -236,7 +292,7 @@ export default function FollowUpsPage() {
             <div className="space-y-2">
               <Label>随访详细结果</Label>
               <Textarea 
-                className="min-h-[120px]" 
+                className="min-h-[100px]" 
                 placeholder="记录随访沟通内容、患者康复情况或复查结果..." 
                 value={followUpForm.HFresult}
                 onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})}
@@ -252,9 +308,23 @@ export default function FollowUpsPage() {
                   <Input placeholder="姓名" value={followUpForm.SFGZRY} onChange={e => setFollowUpForm({...followUpForm, SFGZRY: e.target.value})} />
                </div>
             </div>
-            <div className="flex items-center space-x-2 border p-3 rounded-md bg-muted/20">
+            
+            <div className="space-y-2 border p-3 rounded-md bg-muted/20">
+              <Label className="text-primary font-bold flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" /> 下次随访计划 (可选)
+              </Label>
+              <Input 
+                type="date" 
+                value={followUpForm.XCSFTIME} 
+                onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} 
+                className="bg-white"
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">设置后，系统将在该日期自动触发新的随访提醒任务。</p>
+            </div>
+
+            <div className="flex items-center space-x-2 border p-3 rounded-md">
               <Checkbox id="further" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-              <Label htmlFor="further" className="cursor-pointer leading-none font-semibold text-primary">复查情况：已执行进一步病理/影像复查</Label>
+              <Label htmlFor="further" className="cursor-pointer leading-none font-semibold">复查情况：已执行进一步病理/影像复查</Label>
             </div>
           </div>
           <DialogFooter>

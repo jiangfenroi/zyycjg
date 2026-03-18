@@ -99,6 +99,13 @@ async function initDB(config) {
         SFGZRY VARCHAR(50),
         jcsf BOOLEAN DEFAULT FALSE
       )`,
+      `CREATE TABLE IF NOT EXISTS SP_FOLLOWUP_TASKS (
+        ID INT AUTO_INCREMENT PRIMARY KEY,
+        PERSONID VARCHAR(50),
+        XCSFTIME DATE,
+        STATUS ENUM('pending', 'completed') DEFAULT 'pending',
+        CREATE_TIME TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
       `CREATE TABLE IF NOT EXISTS SP_DOCUMENTS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
         PERSONID VARCHAR(50),
@@ -224,7 +231,6 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
-    // 优先使用环境变量中的 UPLOAD_PATH，否则使用本地文档目录
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
@@ -268,12 +274,10 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // 注册自定义协议以安全访问本地/局域网资源 (PDF/图片)
   protocol.handle('app-file', (request) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     
-    // Windows 路径兼容处理: 如果路径以 /C:/ 开头，去掉开头的斜杠
     if (process.platform === 'win32') {
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);

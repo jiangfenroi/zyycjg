@@ -1,4 +1,4 @@
-import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
+import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
   interface Window {
@@ -169,6 +169,32 @@ export const DataService = {
       if (result.success) {
         await this.addLog(followUp.SFGZRY, `完成了患者 ID ${followUp.PERSONID} 的重要异常结果随访结案`, 'completed');
       }
+      return result.success;
+    }
+    return true;
+  },
+
+  // 随访计划管理
+  async getFollowUpTasks(status = 'pending'): Promise<FollowUpTask[]> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('SELECT * FROM SP_FOLLOWUP_TASKS WHERE STATUS = ? ORDER BY XCSFTIME ASC', [status]);
+      if (result.success) return result.data;
+    }
+    return [];
+  },
+
+  async addFollowUpTask(task: FollowUpTask): Promise<boolean> {
+    if (isElectron) {
+      const sql = 'INSERT INTO SP_FOLLOWUP_TASKS (PERSONID, XCSFTIME, STATUS) VALUES (?, ?, ?)';
+      const result = await window.electronAPI.query(sql, [task.PERSONID, task.XCSFTIME, task.STATUS]);
+      return result.success;
+    }
+    return true;
+  },
+
+  async updateFollowUpTaskStatus(personId: string, status: string): Promise<boolean> {
+    if (isElectron) {
+      const result = await window.electronAPI.query('UPDATE SP_FOLLOWUP_TASKS SET STATUS = ? WHERE PERSONID = ? AND STATUS = "pending"', [status, personId]);
       return result.success;
     }
     return true;
