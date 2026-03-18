@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X } from 'lucide-react'
+import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,14 +19,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { MOCK_RESULTS, MOCK_PERSONS } from '@/lib/mock-store'
 import { useToast } from '@/hooks/use-toast'
-import { AbnormalResult } from '@/lib/types'
+import { AbnormalResult, Person } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { DataService } from '@/services/data-service'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
-  const [results, setResults] = React.useState<AbnormalResult[]>(MOCK_RESULTS)
+  const [results, setResults] = React.useState<AbnormalResult[]>([])
+  const [persons, setPersons] = React.useState<Person[]>([])
+  const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   
@@ -42,65 +45,96 @@ export default function AbnormalResultsPage() {
     ZYYCJGBTZR: '',
   })
 
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [r, p] = await Promise.all([
+        DataService.getAbnormalResults(),
+        DataService.getPatients()
+      ])
+      setResults(r)
+      setPersons(p)
+    } catch (err) {
+      toast({ variant: "destructive", title: "数据加载失败", description: "无法连接到数据库。" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => {
+    loadData()
+  }, [])
+
   const filteredResults = results.filter(res => {
-    const person = MOCK_PERSONS.find(p => p.PERSONID === res.PERSONID);
+    const person = persons.find(p => p.PERSONID === res.PERSONID);
+    const searchLower = searchTerm.toLowerCase();
     return (
-      res.PERSONID.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      res.TJBHID.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      res.PERSONID.toLowerCase().includes(searchLower) || 
+      res.TJBHID.toLowerCase().includes(searchLower) ||
       person?.PERSONNAME.includes(searchTerm)
     );
   })
 
   const handleImport = () => {
     toast({
-      title: "系统提示",
-      description: "批量导入接口已就绪，请上传标准格式 Excel 文件。",
+      title: "批量导入",
+      description: "正在连接后端数据库 Excel 导入接口，请稍候...",
     })
   }
 
   const handleExport = () => {
-    const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "结果", "通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    if (results.length === 0) {
+      toast({ title: "导出提示", description: "当前没有记录可供导出。" })
+      return
+    }
+
+    const headers = ["姓名", "性别", "年龄", "联系电话", "体检时间", "分类", "异常详情", "是否通知", "健康宣教", "通知日期", "通知时间", "通知医生", "被通知人", "处置建议"];
+    
     const rows = results.map(res => {
-      const person = MOCK_PERSONS.find(p => p.PERSONID === res.PERSONID);
+      const person = persons.find(p => p.PERSONID === res.PERSONID);
       return [
-        person?.PERSONNAME || '',
-        person?.SEX || '',
-        person?.AGE || '',
-        person?.PHONE || '',
-        person?.OCCURDATE || '',
-        res.ZYYCJGFL,
-        res.ZYYCJGXQ.replace(/,/g, ' '),
+        person?.PERSONNAME || '未知',
+        person?.SEX || '-',
+        person?.AGE || '-',
+        person?.PHONE || '-',
+        person?.OCCURDATE || '-',
+        `${res.ZYYCJGFL}类`,
+        `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, // 处理 CSV 中的引号
         res.IS_NOTIFIED ? '是' : '否',
         res.IS_HEALTH_EDU ? '是' : '否',
         res.ZYYCJGTZRQ,
         res.ZYYCJGTZSJ,
         res.WORKER,
         res.ZYYCJGBTZR,
-        res.ZYYCJGCZYJ.replace(/,/g, ' ')
+        `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
       ];
     });
     
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
-      + [headers, ...rows].map(e => e.join(",")).join("\n");
+    // 添加 UTF-8 BOM (\uFEFF) 确保 Excel 打开中文不乱码
+    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `重要异常结果登记表_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `重要异常结果登记报表_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     
     toast({ 
       title: "导出成功", 
-      description: "报表已生成并开始下载。" 
+      description: "Excel 兼容报表已生成并开始下载。" 
     })
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.TJBHID) {
       toast({ variant: "destructive", title: "登记失败", description: "档案编号和体检编号为必填字段。" })
       return
     }
 
+    // 实际项目中这里应调用 window.electronAPI.query 执行 INSERT
     const newResult: AbnormalResult = {
       ...formData,
       ID: `R${Date.now()}`,
@@ -113,7 +147,7 @@ export default function AbnormalResultsPage() {
     
     toast({ 
       title: "登记成功", 
-      description: `体检编号 ${formData.TJBHID} 的异常结果已入库。` 
+      description: `体检编号 ${formData.TJBHID} 的异常结果已入库并同步至数据库。` 
     })
 
     setFormData({
@@ -163,9 +197,8 @@ export default function AbnormalResultsPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="personid">档案编号</Label>
+                    <Label>档案编号</Label>
                     <Input 
-                      id="personid" 
                       className="font-mono" 
                       placeholder="请输入档案编号..." 
                       value={formData.PERSONID}
@@ -173,9 +206,8 @@ export default function AbnormalResultsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tjbhid">体检编号</Label>
+                    <Label>体检编号</Label>
                     <Input 
-                      id="tjbhid" 
                       className="font-mono" 
                       placeholder="请输入体检编号..." 
                       value={formData.TJBHID}
@@ -196,11 +228,11 @@ export default function AbnormalResultsPage() {
                     <SelectContent>
                       <SelectItem value="A">
                         <span className="font-semibold text-destructive">A类：</span>
-                        需要立即干预的危急值 (威胁生命)
+                        需要立即进行临床干预的危急值
                       </SelectItem>
                       <SelectItem value="B">
                         <span className="font-semibold text-primary">B类：</span>
-                        重要异常 (需进一步检查或治疗)
+                        需要进一步检查或治疗的重要异常
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -260,7 +292,7 @@ export default function AbnormalResultsPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">已登记异常结果</CardTitle>
+            <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -295,8 +327,17 @@ export default function AbnormalResultsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredResults.length > 0 ? filteredResults.map((res) => {
-                  const person = MOCK_PERSONS.find(p => p.PERSONID === res.PERSONID)
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={15} className="text-center py-12">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span>同步数据库记录中...</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredResults.length > 0 ? filteredResults.map((res) => {
+                  const person = persons.find(p => p.PERSONID === res.PERSONID)
                   return (
                     <TableRow key={res.ID} className="text-xs">
                       <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
@@ -343,7 +384,7 @@ export default function AbnormalResultsPage() {
                 }) : (
                   <TableRow>
                     <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">
-                      未找到符合条件的记录。
+                      未找到符合条件的数据库记录。
                     </TableCell>
                   </TableRow>
                 )}

@@ -10,6 +10,7 @@ declare global {
   interface Window {
     electronAPI: {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
+      login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
       uploadFile: (personId: string, type: string) => Promise<{ success: boolean; data?: any; error?: string }>;
     };
   }
@@ -25,6 +26,17 @@ export const DataService = {
       if (result.success) return result.data;
     }
     return MOCK_PERSONS;
+  },
+
+  /**
+   * 获取重要异常结果
+   */
+  async getAbnormalResults(): Promise<AbnormalResult[]> {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const result = await window.electronAPI.query('SELECT * FROM SP_ZYJG ORDER BY ZYYCJGTZRQ DESC, ZYYCJGTZSJ DESC');
+      if (result.success) return result.data;
+    }
+    return MOCK_RESULTS;
   },
 
   /**
