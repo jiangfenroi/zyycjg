@@ -2,19 +2,23 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Database, Server, User, Lock, Globe, Loader2, ShieldCheck } from "lucide-react"
+import { Database, Server, User, Lock, Globe, Loader2, ShieldCheck, Link as LinkIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 
+/**
+ * 网络版初始化配置页面
+ * 引导客户端连接至中心 MySQL 服务器
+ */
 export default function SetupPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(false)
   const [config, setConfig] = React.useState({
-    host: '127.0.0.1',
+    host: '',
     port: '3306',
     user: 'root',
     password: '',
@@ -23,61 +27,67 @@ export default function SetupPage() {
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    if (!config.host) {
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入中心服务器 IP 地址。" })
+      return
+    }
 
+    setLoading(true)
     try {
       if (typeof window !== 'undefined' && window.electronAPI) {
+        // 调用 Electron 主进程测试并保存中心数据库连接
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
-          toast({ title: "数据库连接成功", description: "配置已保存，正在跳转至登录界面..." })
+          toast({ title: "服务器连接成功", description: "客户端已成功接入 MediTrack 中心网络。" })
+          // 延迟跳转至登录页
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
             variant: "destructive", 
             title: "连接失败", 
-            description: result.error || "请检查数据库服务是否启动或参数是否正确。" 
+            description: result.error || "无法连接至指定的中心服务器，请检查网络设置或防火墙。" 
           })
         }
       } else {
-        toast({ title: "模拟模式", description: "浏览器环境仅支持 Mock 数据演示。" })
+        toast({ title: "环境提示", description: "当前处于浏览器演示模式，未检测到网络版客户端环境。" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误", description: "无法调用主进程配置接口。" })
+      toast({ variant: "destructive", title: "系统错误", description: "无法调用客户端配置模块。" })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-lg">
         <div className="flex flex-col items-center text-center space-y-4 mb-8">
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-            <Database className="h-10 w-10 text-primary-foreground" />
+            <LinkIcon className="h-10 w-10 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">服务器部署向导</h1>
-            <p className="text-muted-foreground">请填写 MySQL 数据库连接信息以完成系统初始化</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">网络版接入向导</h1>
+            <p className="text-muted-foreground mt-2">连接至 MediTrack Connect 中心服务器以同步业务数据</p>
           </div>
         </div>
 
-        <Card className="shadow-xl border-t-4 border-t-primary">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Server className="h-5 w-5 text-primary" />
-              数据库环境配置
+        <Card className="shadow-2xl border-none ring-1 ring-slate-200">
+          <CardHeader className="bg-slate-50/50 border-b pb-6">
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Server className="h-5 w-5" />
+              中心数据库配置
             </CardTitle>
             <CardDescription>
-              配置成功后，系统将自动创建业务表并初始化管理员账号。
+              配置成功后，本客户端将实现与全院数据的实时共享与同步。
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSetup}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 pt-6">
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-3 space-y-2">
-                  <Label>服务器主机 (Host)</Label>
+                  <Label>服务器主机 (Remote IP/Host)</Label>
                   <Input 
-                    placeholder="localhost 或 IP 地址" 
+                    placeholder="例如: 192.168.1.100" 
                     value={config.host}
                     onChange={e => setConfig({...config, host: e.target.value})}
                     required
@@ -95,7 +105,7 @@ export default function SetupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>数据库名称 (Schema)</Label>
+                <Label>业务数据库名称</Label>
                 <div className="relative">
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
@@ -110,12 +120,12 @@ export default function SetupPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>用户名 (User)</Label>
+                  <Label>访问账号</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       className="pl-10"
-                      placeholder="root" 
+                      placeholder="db_user" 
                       value={config.user}
                       onChange={e => setConfig({...config, user: e.target.value})}
                       required
@@ -123,13 +133,13 @@ export default function SetupPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>密码 (Password)</Label>
+                  <Label>访问密码</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       type="password"
                       className="pl-10"
-                      placeholder="数据库密码" 
+                      placeholder="密码" 
                       value={config.password}
                       onChange={e => setConfig({...config, password: e.target.value})}
                     />
@@ -137,17 +147,23 @@ export default function SetupPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full h-11" disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "测试连接并保存配置"}
+            <CardFooter className="flex flex-col space-y-4 pb-8">
+              <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "测试并接入中心网络"}
               </Button>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted p-2 rounded w-full">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <span>首次配置成功后，默认管理员账号为 admin，密码为 123456</span>
+              <div className="flex items-start gap-2 text-xs text-muted-foreground bg-blue-50/50 p-3 rounded-md w-full border border-blue-100">
+                <ShieldCheck className="h-4 w-4 text-blue-600 mt-0.5" />
+                <span>
+                  <b>注意：</b> 请确保您的计算机能够访问服务器 IP 的 3306 端口。如有疑问，请咨询系统管理员。
+                </span>
               </div>
             </CardFooter>
           </form>
         </Card>
+        
+        <p className="text-center text-xs text-slate-400 mt-8">
+          MediTrack Connect v1.0 网络版客户端
+        </p>
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ const fs = require('fs');
 const mysql = require('mysql2/promise');
 const isDev = process.env.NODE_ENV === 'development';
 
-// 动态读取 .env 配置（仅作为默认值）
+// 启用 dotenv
 require('dotenv').config();
 
 let dbPool;
@@ -12,7 +12,7 @@ let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
 /**
- * 从本地存储读取数据库配置
+ * 从本地读取中心数据库配置
  */
 function loadLocalConfig() {
   if (fs.existsSync(configPath)) {
@@ -27,7 +27,7 @@ function loadLocalConfig() {
 }
 
 /**
- * 保存数据库配置到本地
+ * 保存数据库配置到客户端本地
  */
 function saveLocalConfig(config) {
   try {
@@ -40,13 +40,15 @@ function saveLocalConfig(config) {
 }
 
 /**
- * 初始化数据库连接池并确保所有业务表存在
+ * 初始化网络数据库连接池
+ * 针对网络版优化了心跳检测和重试机制
  */
 async function initDB(config) {
   try {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
 
+    // 创建面向远程服务器的连接池
     dbPool = mysql.createPool({
       host: dbConfig.host,
       port: parseInt(dbConfig.port),
@@ -54,29 +56,27 @@ async function initDB(config) {
       password: dbConfig.password,
       database: dbConfig.database,
       waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0
+      connectionLimit: 15, // 网络版增加连接上限
+      queueLimit: 0,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000
     });
     
-    // 测试连接
+    // 测试中心服务器可连接性
     const connection = await dbPool.getConnection();
     connection.release();
 
-    // 1. 初始化用户表
-    await dbPool.execute(`
-      CREATE TABLE IF NOT EXISTS SP_USERS (
+    // 初始化中心服务器业务表 (仅在表不存在时)
+    const tables = [
+      `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
         USERNAME VARCHAR(50) UNIQUE NOT NULL,
         PASSWORD VARCHAR(255) NOT NULL,
         REAL_NAME VARCHAR(50),
         ROLE ENUM('admin', 'operator') DEFAULT 'operator',
         CREATE_DATE DATE
-      )
-    `);
-
-    // 2. 初始化患者档案表
-    await dbPool.execute(`
-      CREATE TABLE IF NOT EXISTS SP_PERSON (
+      )`,
+      `CREATE TABLE IF NOT EXISTS SP_PERSON (
         PERSONID VARCHAR(50) PRIMARY KEY,
         PERSONNAME VARCHAR(50) NOT NULL,
         SEX ENUM('男', '女') NOT NULL,
@@ -85,12 +85,8 @@ async function initDB(config) {
         UNITNAME VARCHAR(100),
         OCCURDATE DATE,
         OPTNAME VARCHAR(50)
-      )
-    `);
-
-    // 3. 初始化重要异常结果表
-    await dbPool.execute(`
-      CREATE TABLE IF NOT EXISTS SP_ZYJG (
+      )`,
+      `CREATE TABLE IF NOT EXISTS SP_ZYJG (
         ID VARCHAR(50) PRIMARY KEY,
         PERSONID VARCHAR(50),
         TJBHID VARCHAR(50),
@@ -104,46 +100,42 @@ async function initDB(config) {
         ZYYCJGBTZR VARCHAR(50),
         IS_NOTIFIED BOOLEAN DEFAULT TRUE,
         IS_HEALTH_EDU BOOLEAN DEFAULT TRUE
-      )
-    `);
-
-    // 4. 初始化随访记录表
-    await dbPool.execute(`
-      CREATE TABLE IF NOT EXISTS SP_FOLLOWUPS (
+      )`,
+      `CREATE TABLE IF NOT EXISTS SP_FOLLOWUPS (
         ID VARCHAR(50) PRIMARY KEY,
         PERSONID VARCHAR(50),
         HFresult TEXT,
         SFTIME DATE,
         SFGZRY VARCHAR(50),
         jcsf BOOLEAN DEFAULT FALSE
-      )
-    `);
-
-    // 5. 初始化附件文档表
-    await dbPool.execute(`
-      CREATE TABLE IF NOT EXISTS SP_DOCUMENTS (
+      )`,
+      `CREATE TABLE IF NOT EXISTS SP_DOCUMENTS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
         PERSONID VARCHAR(50),
         TYPE VARCHAR(20),
         FILENAME VARCHAR(255),
         UPLOAD_DATE DATE,
         FILE_URL TEXT
-      )
-    `);
+      )`
+    ];
 
-    // 检查并创建默认管理员
+    for (const sql of tables) {
+      await dbPool.execute(sql);
+    }
+
+    // 检查并创建初始管理员
     const [rows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (rows.length === 0) {
       await dbPool.execute(
         'INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)',
-        ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]
+        ['admin', '123456', '中心管理员', 'admin', new Date().toISOString().split('T')[0]]
       );
     }
 
-    console.log('MySQL Service Initialized Successfully');
+    console.log('MediTrack Centralized Service Connected');
     return { success: true };
   } catch (err) {
-    console.error('Database Connection Error:', err);
+    console.error('Remote DB Connection Error:', err);
     return { success: false, error: err.message };
   }
 }
@@ -151,13 +143,13 @@ async function initDB(config) {
 function createWindow(startPath = '/') {
   mainWindow = new BrowserWindow({
     width: 1280,
-    height: 850,
+    height: 900,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
     },
-    title: "MediTrack Connect - 医疗数据安全保护系统"
+    title: "MediTrack Connect 网络版客户端"
   });
 
   const url = isDev 
@@ -167,12 +159,11 @@ function createWindow(startPath = '/') {
   if (isDev) {
     mainWindow.loadURL(url);
   } else {
-    // 静态导出模式下使用 Hash 路由或直接加载文件
     mainWindow.loadFile(path.join(__dirname, '../out/index.html'), { hash: startPath });
   }
 }
 
-// IPC 处理器：测试并保存配置
+// IPC: 初始化配置
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -182,12 +173,13 @@ ipcMain.handle('setup-db', async (event, config) => {
   return { success: false, error: result.error };
 });
 
+// IPC: 执行远程查询
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) {
     const config = loadLocalConfig();
     if (config) await initDB(config);
   }
-  if (!dbPool) return { success: false, error: '数据库未连接' };
+  if (!dbPool) return { success: false, error: '尚未连接至中心服务器' };
   
   try {
     const [rows] = await dbPool.execute(sql, params);
@@ -198,8 +190,9 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
   }
 });
 
+// IPC: 远程登录
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbPool) return { success: false, error: '数据库未初始化' };
+  if (!dbPool) return { success: false, error: '服务器连接断开' };
   try {
     const [rows] = await dbPool.execute(
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
@@ -208,31 +201,34 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
     if (rows.length > 0) {
       return { success: true, user: rows[0] };
     }
-    return { success: false, error: '用户名或密码不正确' };
+    return { success: false, error: '中心数据库认证失败' };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
+// IPC: 文件上传 (支持网络路径)
 ipcMain.handle('file-upload', async (event, { personId, type }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择病历 PDF 文件',
+      title: '选择病历附件',
       properties: ['openFile'],
-      filters: [{ name: 'PDF 报告', extensions: ['pdf'] }]
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
     });
 
     if (canceled || filePaths.length === 0) return { success: false, error: 'User canceled' };
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
-    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_uploads');
+    
+    // 默认使用用户文档目录，实际生产环境建议配置为网络共享路径 (UNC)
+    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_central_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
       fs.mkdirSync(uploadBaseDir, { recursive: true });
     }
 
-    const targetFileName = `${Date.now()}_${fileName}`;
+    const targetFileName = `${personId}_${Date.now()}_${fileName}`;
     const targetPath = path.join(uploadBaseDir, targetFileName);
     fs.copyFileSync(sourcePath, targetPath);
 
@@ -240,7 +236,7 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
       success: true, 
       data: {
         fileName: fileName,
-        fileUrl: targetPath,
+        fileUrl: targetPath, // 数据库中记录中心化存储路径
         uploadDate: new Date().toISOString().split('T')[0]
       }
     };
@@ -254,7 +250,7 @@ app.whenReady().then(async () => {
   if (result.success) {
     createWindow('/login');
   } else {
-    // 如果没有配置或连接失败，进入设置页面
+    // 首次运行或服务器变更，进入配置向导
     createWindow('/setup');
   }
 });

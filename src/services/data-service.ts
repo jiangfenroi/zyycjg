@@ -1,6 +1,6 @@
 /**
- * 数据服务抽象层
- * 统一处理前端的数据请求，支持 MySQL 持久化
+ * 网络版数据服务层
+ * 封装客户端与中心 MySQL 服务器的全部数据交互
  */
 import { Person, AbnormalResult, FollowUp, PatientDocument } from '@/lib/types';
 import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
@@ -20,16 +20,20 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export const DataService = {
   /**
-   * 患者档案操作
+   * 获取远程患者档案
    */
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (result.success) return result.data;
+      throw new Error(result.error);
     }
     return MOCK_PERSONS;
   },
 
+  /**
+   * 同步新档案至中心库
+   */
   async addPatient(person: Person): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME) 
@@ -44,16 +48,20 @@ export const DataService = {
   },
 
   /**
-   * 重要异常结果操作
+   * 获取中心化异常结果记录
    */
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_ZYJG ORDER BY ZYYCJGTZRQ DESC, ZYYCJGTZSJ DESC');
       if (result.success) return result.data;
+      throw new Error(result.error);
     }
     return MOCK_RESULTS;
   },
 
+  /**
+   * 登记并同步异常结果
+   */
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
@@ -69,7 +77,7 @@ export const DataService = {
   },
 
   /**
-   * 随访记录操作
+   * 获取全网随访记录
    */
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
@@ -80,6 +88,9 @@ export const DataService = {
     return MOCK_FOLLOW_UPS;
   },
 
+  /**
+   * 提交随访结案并存档
+   */
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
       const sql = `INSERT INTO SP_FOLLOWUPS (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
@@ -93,7 +104,7 @@ export const DataService = {
   },
 
   /**
-   * 附件管理
+   * 获取远程附件列表
    */
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
@@ -104,6 +115,9 @@ export const DataService = {
     return MOCK_DOCS;
   },
 
+  /**
+   * 上传文件并同步至中心存储库
+   */
   async uploadDocument(personId: string, type: string): Promise<boolean> {
     if (isElectron) {
       const uploadResult = await window.electronAPI.uploadFile(personId, type);
