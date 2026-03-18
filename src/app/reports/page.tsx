@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -83,13 +82,13 @@ export default function ReportsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">报告附件管理</h1>
-          <p className="text-muted-foreground mt-1">管理 SP_DOCUMENTS 中的关联电子文档与影像扫描件。</p>
+          <p className="text-muted-foreground mt-1">管理关联电子文档与影像扫描件。</p>
         </div>
         
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Upload className="mr-2 h-4 w-4" /> 上传报告 (PDF)
+              <Upload className="mr-2 h-4 w-4" /> 上传报告
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -194,6 +193,7 @@ export default function ReportsPage() {
                           <Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary">
                             {person?.PERSONNAME}
                           </Link>
+                          <span className="text-xs text-muted-foreground ml-2">({doc.PERSONID})</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">

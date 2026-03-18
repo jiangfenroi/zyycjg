@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -89,7 +88,7 @@ export default function PatientsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">患者档案管理</h1>
-          <p className="text-muted-foreground mt-1">SP_PERSON 全局档案检索与管理系统。</p>
+          <p className="text-muted-foreground mt-1">全局档案检索与管理系统。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleImport}>
@@ -109,7 +108,7 @@ export default function PatientsPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>档案编号 (自动生成)</Label>
+                    <Label>档案编号</Label>
                     <Input value={formData.PERSONID} readOnly className="bg-muted" />
                   </div>
                   <div className="space-y-2">

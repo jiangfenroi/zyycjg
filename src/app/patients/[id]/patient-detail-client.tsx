@@ -95,7 +95,7 @@ export function PatientDetailClient({ id }: PatientDetailClientProps) {
             <TabsContent value="abnormal" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">登记的异常结果 (SP_ZYJG)</CardTitle>
+                  <CardTitle className="text-base">登记的异常结果</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>

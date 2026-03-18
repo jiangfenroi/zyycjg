@@ -29,7 +29,7 @@ import {
 
 const navigation = [
   { name: "工作台", href: "/", icon: LayoutDashboard },
-  { name: "重要异常结果登记 (SP_ZYJG)", href: "/abnormal-results", icon: AlertCircle },
+  { name: "重要异常结果登记", href: "/abnormal-results", icon: AlertCircle },
   { name: "异常结果随访", href: "/follow-ups", icon: History },
   { name: "患者档案管理", href: "/patients", icon: Users },
   { name: "报告查询", href: "/reports", icon: FileText },

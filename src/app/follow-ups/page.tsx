@@ -62,7 +62,7 @@ export default function FollowUpsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">异常结果随访</h1>
         <p className="text-muted-foreground mt-1">
-          基于 SP_ZYJG 的随访任务中心，闭环管理异常结果的后续诊疗。
+          基于已登记异常结果的随访任务中心，闭环管理后续诊疗。
         </p>
       </div>
 
@@ -205,7 +205,7 @@ export default function FollowUpsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>回访详细结果 (HFresult)</Label>
+              <Label>回访详细结果</Label>
               <Textarea className="min-h-[120px]" placeholder="详细记录患者目前情况、就诊经历、用药反馈等..." />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -214,7 +214,7 @@ export default function FollowUpsPage() {
                   <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
                </div>
                <div className="space-y-2">
-                  <Label>随访人员 (SFGZRY)</Label>
+                  <Label>随访人员</Label>
                   <Input defaultValue="管理员" />
                </div>
             </div>

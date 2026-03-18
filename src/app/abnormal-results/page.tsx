@@ -54,7 +54,7 @@ export default function AbnormalResultsPage() {
   const handleImport = () => {
     toast({
       title: "系统提示",
-      description: "SP_ZYJG 批量导入接口已就绪，请上传标准格式 Excel 文件。",
+      description: "批量导入接口已就绪，请上传标准格式 Excel 文件。",
     })
   }
 
@@ -141,7 +141,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">管理 SP_ZYJG 数据库，确保危急值与重要异常结果的闭环管理。</p>
+          <p className="text-muted-foreground mt-1">管理数据库记录，确保危急值与重要异常结果的闭环管理。</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleImport}>
@@ -163,21 +163,21 @@ export default function AbnormalResultsPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="personid">档案编号 (PERSONID)</Label>
+                    <Label htmlFor="personid">档案编号</Label>
                     <Input 
                       id="personid" 
                       className="font-mono" 
-                      placeholder="D00000..." 
+                      placeholder="请输入档案编号..." 
                       value={formData.PERSONID}
                       onChange={e => setFormData({...formData, PERSONID: e.target.value})}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="tjbhid">体检编号 (TJBHID)</Label>
+                    <Label htmlFor="tjbhid">体检编号</Label>
                     <Input 
                       id="tjbhid" 
                       className="font-mono" 
-                      placeholder="TJ202..." 
+                      placeholder="请输入体检编号..." 
                       value={formData.TJBHID}
                       onChange={e => setFormData({...formData, TJBHID: e.target.value})}
                     />
@@ -207,7 +207,7 @@ export default function AbnormalResultsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>异常详情 (ZYYCJGXQ)</Label>
+                  <Label>异常详情</Label>
                   <Textarea 
                     className="min-h-[80px]" 
                     placeholder="请输入具体的异常结果描述..."
@@ -217,7 +217,7 @@ export default function AbnormalResultsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>处置意见 (ZYYCJGCZYJ)</Label>
+                  <Label>处置意见</Label>
                   <Textarea 
                     className="min-h-[80px]" 
                     placeholder="请输入医学处置或随访建议..."
@@ -239,11 +239,11 @@ export default function AbnormalResultsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>通知医生 (WORKER)</Label>
+                    <Label>通知医生</Label>
                     <Input placeholder="执行通知的医生姓名" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>被通知人 (ZYYCJGBTZR)</Label>
+                    <Label>被通知人</Label>
                     <Input placeholder="家属或本人姓名" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
                   </div>
                 </div>
