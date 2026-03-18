@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2 } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2, HelpCircle } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -19,6 +19,7 @@ import {
   CartesianGrid
 } from "recharts"
 import { DataService } from "@/services/data-service"
+import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export default function Dashboard() {
   const [loading, setLoading] = React.useState(true)
@@ -44,7 +45,6 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
-        // 简单计算待随访：有异常结果但没有随访记录的
         const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID)).length
 
         setStats({
@@ -66,7 +66,6 @@ export default function Dashboard() {
     ? Math.round((stats.completedFollowUps / (stats.pendingFollowUps + stats.completedFollowUps)) * 100) 
     : 0
 
-  // 柱状图数据：模拟近6个月的随访量
   const trendData = [
     { month: "1月", count: 12 },
     { month: "2月", count: 18 },
@@ -76,10 +75,9 @@ export default function Dashboard() {
     { month: "6月", count: 0 },
   ]
 
-  // 饼图数据：异常分类比例
   const categoryData = [
-    { name: "A类危急值", value: stats.aClassResults, color: "hsl(var(--destructive))" },
-    { name: "B类重要异常", value: stats.bClassResults, color: "hsl(var(--primary))" },
+    { name: "A类危急值", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果。" },
+    { name: "B类重要异常", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗。" },
   ]
 
   if (loading) {
@@ -106,7 +104,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 核心指标卡片 */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -153,7 +150,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* 图表展示区 */}
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="md:col-span-4">
           <CardHeader>
@@ -190,10 +186,25 @@ export default function Dashboard() {
 
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-primary" />
-              重要异常结果分类占比
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-primary" />
+                异常分类占比
+              </CardTitle>
+              <TooltipProvider>
+                <UITooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-bold text-destructive">A类：危急值</p>
+                    <p className="text-xs mb-2">需要立即进行临床干预，否则将危及生命或导致严重不良后果。</p>
+                    <p className="font-bold text-primary">B类：重要异常</p>
+                    <p className="text-xs">需要临床进一步检查以确认诊断或医学治疗。</p>
+                  </TooltipContent>
+                </UITooltip>
+              </TooltipProvider>
+            </div>
           </CardHeader>
           <CardContent className="h-[300px] flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="80%">
@@ -211,7 +222,20 @@ export default function Dashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-background border p-2 rounded-lg shadow-xl text-xs max-w-[200px]">
+                          <p className="font-bold" style={{ color: payload[0].payload.color }}>{payload[0].name}</p>
+                          <p className="text-foreground mt-1">{payload[0].payload.description}</p>
+                          <p className="font-bold mt-2">数量: {payload[0].value}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
               </RePieChart>
             </ResponsiveContainer>
             <div className="flex gap-4 text-xs mt-2">

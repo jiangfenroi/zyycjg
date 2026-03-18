@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2 } from 'lucide-react'
+import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2, HelpCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,9 +19,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { AbnormalResult, Person } from '@/lib/types'
+import { AbnormalResult } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
@@ -58,6 +59,7 @@ export default function AbnormalResultsPage() {
 
   React.useEffect(() => {
     loadData()
+    // 客户端初始化默认值
     setFormData(prev => ({
       ...prev,
       ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
@@ -67,10 +69,11 @@ export default function AbnormalResultsPage() {
 
   const filteredResults = results.filter(res => {
     const searchLower = searchTerm.toLowerCase();
+    const personName = res.PERSONNAME || '';
     return (
       res.PERSONID.toLowerCase().includes(searchLower) || 
       res.TJBHID.toLowerCase().includes(searchLower) ||
-      (res.PERSONNAME || '').includes(searchTerm)
+      personName.includes(searchTerm)
     );
   })
 
@@ -105,7 +108,7 @@ export default function AbnormalResultsPage() {
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `MediTrack_异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `MediTrack_重要异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -185,22 +188,45 @@ export default function AbnormalResultsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>异常分类</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>异常分类</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p><b>A类：</b>需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。</p>
+                          <p className="mt-2"><b>B类：</b>需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A"><span className="font-semibold text-destructive">A类：</span>危急值</SelectItem>
-                      <SelectItem value="B"><span className="font-semibold text-primary">B类：</span>重要异常</SelectItem>
+                      <SelectItem value="A">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-destructive">A类：危急值</span>
+                          <span className="text-[10px] text-muted-foreground">需立即临床干预，危及生命风险</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="B">
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-primary">B类：重要异常</span>
+                          <span className="text-[10px] text-muted-foreground">需进一步检查确认诊断或医学治疗</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>异常详情</Label>
-                  <Textarea className="min-h-[80px]" value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
+                  <Textarea className="min-h-[80px]" placeholder="请详细描述临床发现的异常体征或实验室指标..." value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                   <Label>处置意见</Label>
-                  <Textarea className="min-h-[80px]" value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
+                  <Textarea className="min-h-[80px]" placeholder="记录医生的建议，如：立即住院、门诊复查、急诊干预等..." value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -276,7 +302,20 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
                     <TableCell>{res.OCCURDATE || '-'}</TableCell>
-                    <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>{res.ZYYCJGFL}类</Badge></TableCell>
+                    <TableCell>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="cursor-help">
+                              {res.ZYYCJGFL}类
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {res.ZYYCJGFL === 'A' ? '危急值：需立即进行临床干预' : '重要异常：需要临床进一步检查或治疗'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
                     <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell>{res.IS_NOTIFIED ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>
                     <TableCell>{res.IS_HEALTH_EDU ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}</TableCell>

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2 } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, Info } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Link from 'next/link'
 import { DataService } from '@/services/data-service'
-import { AbnormalResult, FollowUp } from '@/lib/types'
+import { AbnormalResult } from '@/lib/types'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function FollowUpNotifier() {
   const [tasks, setTasks] = React.useState<AbnormalResult[]>([])
@@ -56,10 +57,22 @@ export function FollowUpNotifier() {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="p-4 border-b bg-muted/30">
-          <h3 className="font-semibold flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            危急值随访提醒
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              危急值随访提醒
+            </h3>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-[200px] text-xs">
+                  A类危急值定义：需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             {loading ? "正在同步数据库..." : `当前有 ${count} 例 A 类危急值尚未完成随访结案。`}
           </p>
