@@ -56,7 +56,7 @@ export default function AbnormalResultsPage() {
       const data = await DataService.getAbnormalResults()
       setResults(data)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据同步失败", description: "无法从中心数据库拉取记录。" })
+      toast({ variant: "destructive", title: "数据同步失败", description: "无法从中心数据库拉取记录" })
     } finally {
       setLoading(false)
     }
@@ -111,7 +111,7 @@ export default function AbnormalResultsPage() {
 
   const handleSubmit = async () => {
     if (!formData.PERSONID) {
-      toast({ variant: "destructive", title: "校验失败", description: "档案编号不可为空。" })
+      toast({ variant: "destructive", title: "校验失败", description: "档案编号不可为空" })
       return
     }
     setSubmitting(true)
@@ -138,14 +138,14 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">闭环管理业务异常结果。</p>
+          <p className="text-muted-foreground mt-1">闭环管理业务异常结果</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExport}><FileDown className="mr-2 h-4 w-4" /> 导出报表</Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
             <DialogContent className="max-w-4xl">
-              <DialogHeader><DialogTitle>重要异常结果登记入库</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>重要异常结果登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
@@ -238,7 +238,7 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
                     <TableCell className="font-mono">{res.OCCURDATE || '-'}</TableCell>
-                    <TableCell><Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 border-blue-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
                     <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600 border-green-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
@@ -252,7 +252,7 @@ export default function AbnormalResultsPage() {
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未检索到记录。</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未检索到记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

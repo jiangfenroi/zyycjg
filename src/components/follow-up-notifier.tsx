@@ -26,7 +26,7 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // 逻辑优化：A类和B类重要异常结果均提示，只要尚未随访结案
+      // A类和B类重要异常结果均视为同等重要，只要尚未随访结案即提示
       const pending = results.filter(r => 
         !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )
@@ -71,13 +71,13 @@ export function FollowUpNotifier() {
                   <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  通知中心展示所有尚未完成随访结案的重要异常记录。
+                  展示所有尚未完成随访结案的重要异常记录
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {loading ? "正在同步中心数据库..." : `当前有 ${count} 例结果尚未完成随访结案。`}
+            {loading ? "正在同步中心数据库" : `当前有 ${count} 例结果尚未完成随访结案`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -92,7 +92,7 @@ export function FollowUpNotifier() {
               >
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant={task.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px] h-4 px-1.5">{task.ZYYCJGFL}类</Badge>
+                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{task.ZYYCJGFL}类</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground mt-1 line-clamp-1">{task.ZYYCJGXQ}</span>
                 <span className="text-[10px] text-muted-foreground mt-1 bg-muted w-fit px-1.5 py-0.5 rounded">通知日期: {task.ZYYCJGTZRQ}</span>

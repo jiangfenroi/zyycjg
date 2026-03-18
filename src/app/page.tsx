@@ -95,15 +95,15 @@ export default function Dashboard() {
     : 0
 
   const categoryData = [
-    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需立即临床干预的异常结果。" },
-    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需进一步检查确认的重要异常结果。" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--primary))", description: "重要的异常结果" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--secondary))", description: "重要的异常结果" },
   ]
 
   if (!isClient || loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 font-medium">同步中心数据库...</span>
+        <span className="ml-2 font-medium">同步中心数据库</span>
       </div>
     )
   }
@@ -113,7 +113,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">数据实时概览。</p>
+          <p className="text-muted-foreground mt-1">数据实时概览</p>
         </div>
         <div className="flex items-center gap-3">
           <FollowUpNotifier />
@@ -222,10 +222,8 @@ export default function Dashboard() {
                     <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p className="font-bold text-destructive">A类</p>
-                    <p className="text-xs mb-2">危及生命，需立即临床干预。</p>
-                    <p className="font-bold text-primary">B类</p>
-                    <p className="text-xs">重要异常，需定期复查或治疗。</p>
+                    <p className="font-bold text-primary">重要异常结果</p>
+                    <p className="text-xs">系统记录的所有需要闭环跟踪的异常条目</p>
                   </TooltipContent>
                 </UITooltip>
               </TooltipProvider>
@@ -284,7 +282,7 @@ export default function Dashboard() {
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-primary/5 hover:border-primary transition-all group" asChild>
             <Link href="/abnormal-results">
               <AlertCircle className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
-              <span className="font-bold">登记 A/B 类结果</span>
+              <span className="font-bold">登记重要异常结果</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-secondary/5 hover:border-secondary transition-all group" asChild>

@@ -25,7 +25,7 @@ export default function SetupPage() {
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!config.host) {
-      toast({ variant: "destructive", title: "配置不完整", description: "请输入中心服务器 IP 地址。" })
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入中心服务器 IP 地址" })
       return
     }
 
@@ -34,20 +34,20 @@ export default function SetupPage() {
       if (typeof window !== 'undefined' && window.electronAPI) {
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
-          toast({ title: "服务器连接成功", description: "客户端已成功接入中心网络。" })
+          toast({ title: "服务器连接成功", description: "客户端已成功接入中心网络" })
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
             variant: "destructive", 
             title: "连接失败", 
-            description: result.error || "无法连接至指定的中心服务器。" 
+            description: result.error || "无法连接至指定的中心服务器" 
           })
         }
       } else {
-        toast({ title: "环境提示", description: "当前处于浏览器演示模式。" })
+        toast({ title: "环境提示", description: "当前处于浏览器演示模式" })
       }
     } catch (err) {
-      toast({ variant: "destructive", title: "系统错误", description: "无法调用客户端配置模块。" })
+      toast({ variant: "destructive", title: "系统错误", description: "无法调用客户端配置模块" })
     } finally {
       setLoading(false)
     }
@@ -73,7 +73,7 @@ export default function SetupPage() {
               中心数据库配置
             </CardTitle>
             <CardDescription>
-              配置成功后将实现全院数据实时共享。
+              配置成功后将实现全院数据实时共享
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSetup}>

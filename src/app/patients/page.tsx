@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react'
@@ -81,7 +82,7 @@ export default function PatientsPage() {
 
   const handleAddPatient = async () => {
     if (!formData.PERSONNAME || !formData.PHONE) {
-      toast({ variant: "destructive", title: "校验失败", description: "姓名和联系电话为必填项。" })
+      toast({ variant: "destructive", title: "校验失败", description: "姓名和联系电话为必填项" })
       return
     }
 
@@ -94,7 +95,7 @@ export default function PatientsPage() {
       const success = await DataService.addPatient(newPerson);
       
       if (success) {
-        toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至中心数据库。` });
+        toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至中心数据库` });
         setIsAddDialogOpen(false);
         await fetchData(); // 强制刷新
         
@@ -121,10 +122,10 @@ export default function PatientsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">患者档案管理</h1>
-          <p className="text-muted-foreground mt-1">全局档案检索，确保患者信息在全流程中的准确性。</p>
+          <p className="text-muted-foreground mt-1">全局档案检索，确保患者信息在全流程中的准确性</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast({ title: "批量导入", description: "请准备符合标准模板的 Excel 档案文件。" })}>
+          <Button variant="outline" onClick={() => toast({ title: "批量导入", description: "请准备符合标准模板的 Excel 档案文件" })}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
           
@@ -224,7 +225,7 @@ export default function PatientsPage() {
                   </TableCell>
                 </TableRow>
               )) : (
-                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground">未检索到相关档案，请尝试其他关键词。</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground">未检索到相关档案，请尝试其他关键词</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

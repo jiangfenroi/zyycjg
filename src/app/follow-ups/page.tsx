@@ -95,7 +95,7 @@ export default function FollowUpsPage() {
 
   const handleCompleteTask = async () => {
     if (!selectedResult || !followUpForm.HFresult) {
-      toast({ variant: "destructive", title: "校验失败", description: "请填写回访详细结果。" })
+      toast({ variant: "destructive", title: "校验失败", description: "请填写回访详细结果" })
       return
     }
     setSubmitting(true)
@@ -138,7 +138,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访管理</h1>
-          <p className="text-muted-foreground mt-1">闭环业务流程监控。</p>
+          <p className="text-muted-foreground mt-1">闭环业务流程监控</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -253,6 +253,7 @@ export default function FollowUpsPage() {
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5 text-primary" />
               随访结果登记
+              <span className="text-xs font-normal text-muted-foreground ml-2">档案号: {selectedResult?.PERSONID}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
