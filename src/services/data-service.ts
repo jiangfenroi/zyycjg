@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';

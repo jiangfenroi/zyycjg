@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -40,7 +41,7 @@ export default function FollowUpsPage() {
     SFTIME: '',
     SFGZRY: '',
     jcsf: false,
-    XCSFTIME: '' // 下次随访日期
+    XCSFTIME: '' 
   })
 
   const loadData = React.useCallback(async () => {
@@ -65,7 +66,6 @@ export default function FollowUpsPage() {
 
   React.useEffect(() => {
     loadData()
-    // 初始化当前登录人员
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('currentUser');
       const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
@@ -78,9 +78,6 @@ export default function FollowUpsPage() {
     }
   }, [loadData])
 
-  // 待处理任务逻辑：
-  // 1. 重要异常结果但尚未有随访记录的 (初始任务)
-  // 2. 计划随访任务中，日期小于等于今天的 (定时任务)
   const today = new Date().toISOString().split('T')[0]
   
   const initialPending = abnormalResults.filter(res => 
@@ -91,7 +88,6 @@ export default function FollowUpsPage() {
     task.XCSFTIME <= today
   )
 
-  // 合并唯一待办
   const pendingPersonIds = Array.from(new Set([
     ...initialPending.map(p => p.PERSONID),
     ...activeScheduled.map(p => p.PERSONID)
@@ -120,13 +116,9 @@ export default function FollowUpsPage() {
     }
 
     try {
-      // 1. 记录当次随访
       await DataService.addFollowUp(newFollowUp)
-      
-      // 2. 如果有计划随访任务，将其标记为已完成
       await DataService.updateFollowUpTaskStatus(selectedPersonId, 'completed')
 
-      // 3. 如果设置了下一次随访日期，创建新任务
       if (followUpForm.XCSFTIME) {
         await DataService.addFollowUpTask({
           PERSONID: selectedPersonId,

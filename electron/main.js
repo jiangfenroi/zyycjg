@@ -11,7 +11,8 @@ let dbPool;
 let mainWindow;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// 在应用启动前注册自定义协议以支持 Windows 8.1 环境下的 Electron 22
+// 注册自定义协议以支持 Windows 8.1 
+// 注意：Electron 22 必须在 app.whenReady 前调用 registerSchemesAsPrivileged
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
@@ -289,11 +290,12 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 });
 
 app.whenReady().then(async () => {
-  // Electron 22 环境下需要使用 registerFileProtocol 而非 protocol.handle
+  // Win 8.1 兼容的协议注册
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     if (process.platform === 'win32') {
+      // 处理 UNC 共享路径与普通绝对路径
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }
