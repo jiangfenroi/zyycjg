@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -185,15 +185,16 @@ export default function FollowUpsPage() {
                       <TableHead className="w-[120px]">档案编号</TableHead>
                       <TableHead className="w-[120px]">患者姓名</TableHead>
                       <TableHead className="w-[120px]">体检编号</TableHead>
+                      <TableHead className="w-[120px]">联系电话</TableHead>
+                      <TableHead className="w-[100px]">异常分类</TableHead>
                       <TableHead className="min-w-[250px]">异常结果详情</TableHead>
-                      <TableHead className="w-[100px]">分类</TableHead>
                       <TableHead className="w-[120px]">任务类型</TableHead>
                       <TableHead className="text-right sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-20"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredPending.length > 0 ? filteredPending.map((pid) => {
                       const person = persons.find(p => p.PERSONID === pid)
                       const isScheduled = scheduledTasks.find(t => t.PERSONID === pid && t.XCSFTIME <= today)
@@ -208,13 +209,14 @@ export default function FollowUpsPage() {
                             </Link>
                           </TableCell>
                           <TableCell className="font-mono">{latestResult?.TJBHID || '-'}</TableCell>
-                          <TableCell className="max-w-[300px] truncate" title={latestResult?.ZYYCJGXQ}>
-                            {latestResult?.ZYYCJGXQ || '无详细描述'}
-                          </TableCell>
+                          <TableCell>{person?.PHONE || '-'}</TableCell>
                           <TableCell>
                             <Badge variant={latestResult?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
                               {latestResult?.ZYYCJGFL || '-'}类
                             </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-[300px] truncate" title={latestResult?.ZYYCJGXQ}>
+                            {latestResult?.ZYYCJGXQ || '无详细描述'}
                           </TableCell>
                           <TableCell>
                             {isScheduled ? (
@@ -229,7 +231,7 @@ export default function FollowUpsPage() {
                         </TableRow>
                       )
                     }) : (
-                       <TableRow><TableCell colSpan={7} className="text-center py-24 text-muted-foreground italic">当前暂无待处理随访任务。</TableCell></TableRow>
+                       <TableRow><TableCell colSpan={8} className="text-center py-24 text-muted-foreground italic">当前暂无待处理随访任务。</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -250,13 +252,15 @@ export default function FollowUpsPage() {
                     <TableHeader>
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-[120px]">档案编号</TableHead>
-                        <TableHead className="w-[120px]">患者姓名</TableHead>
+                        <TableHead className="w-[120px]">姓名</TableHead>
                         <TableHead className="w-[120px]">体检编号</TableHead>
+                        <TableHead className="w-[120px]">联系电话</TableHead>
+                        <TableHead className="w-[100px]">异常分类</TableHead>
                         <TableHead className="min-w-[200px]">异常详情</TableHead>
-                        <TableHead className="min-w-[250px]">随访结果/结论</TableHead>
+                        <TableHead className="min-w-[250px]">随访结果</TableHead>
                         <TableHead className="w-[120px]">回访日期</TableHead>
                         <TableHead className="w-[100px]">回访医生</TableHead>
-                        <TableHead className="w-[100px]">是否复查</TableHead>
+                        <TableHead className="w-[150px]">复查/进一步检查</TableHead>
                         <TableHead className="text-right sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -269,15 +273,21 @@ export default function FollowUpsPage() {
                             <TableCell className="font-mono">{f.PERSONID}</TableCell>
                             <TableCell className="font-semibold">{person?.PERSONNAME || '未知'}</TableCell>
                             <TableCell className="font-mono">{relResult?.TJBHID || '-'}</TableCell>
+                            <TableCell>{person?.PHONE || '-'}</TableCell>
+                            <TableCell>
+                              <Badge variant={relResult?.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
+                                {relResult?.ZYYCJGFL || '-'}类
+                              </Badge>
+                            </TableCell>
                             <TableCell className="max-w-[200px] truncate" title={relResult?.ZYYCJGXQ}>{relResult?.ZYYCJGXQ}</TableCell>
                             <TableCell className="max-w-[300px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                             <TableCell className="font-mono text-muted-foreground">{f.SFTIME}</TableCell>
                             <TableCell>{f.SFGZRY}</TableCell>
                             <TableCell>
                               {f.jcsf ? (
-                                <Badge className="bg-green-100 text-green-700 border-green-200">已复查</Badge>
+                                <Badge className="bg-green-100 text-green-700 border-green-200">已执行</Badge>
                               ) : (
-                                <Badge variant="outline" className="text-muted-foreground">告知未复查</Badge>
+                                <Badge variant="outline" className="text-muted-foreground">未执行</Badge>
                               )}
                             </TableCell>
                             <TableCell className="text-right sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
@@ -288,7 +298,7 @@ export default function FollowUpsPage() {
                           </TableRow>
                         )
                       }) : (
-                        <TableRow><TableCell colSpan={9} className="text-center py-24 text-muted-foreground italic">暂无历史结案记录。</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={11} className="text-center py-24 text-muted-foreground italic">暂无历史结案记录。</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -339,7 +349,7 @@ export default function FollowUpsPage() {
             <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-5">
               <div className="flex items-center space-x-3">
                 <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} className="h-5 w-5" />
-                <Label htmlFor="jcsf" className="cursor-pointer font-bold text-sm text-primary">患者已执行复查 (标记闭环完成)</Label>
+                <Label htmlFor="jcsf" className="cursor-pointer font-bold text-sm text-primary">患者已执行复查/进一步检查 (标记闭环完成)</Label>
               </div>
               <div className="space-y-2.5 border-t border-primary/10 pt-4">
                 <Label className="text-primary text-xs flex items-center gap-2 font-bold">
