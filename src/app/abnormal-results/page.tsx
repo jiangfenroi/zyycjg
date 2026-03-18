@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2, HelpCircle } from 'lucide-react'
+import { Plus, Search, FileDown, FileUp, ExternalLink, Check, X, Loader2, HelpCircle, Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,7 @@ import { AbnormalResult } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import Link from 'next/link'
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
@@ -263,7 +264,7 @@ export default function AbnormalResultsPage() {
       <Card>
         <CardHeader className="pb-3 border-b">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">已登记异常结果数据库</CardTitle>
+            <CardTitle className="text-lg">已登记重要异常结果数据库</CardTitle>
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input placeholder="搜索姓名、档案号、体检号..." className="pl-8 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
@@ -289,7 +290,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[100px]">通知医生</TableHead>
                   <TableHead className="w-[100px]">被通知人</TableHead>
                   <TableHead className="min-w-[200px]">处置建议</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
+                  <TableHead className="w-[100px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -297,7 +298,11 @@ export default function AbnormalResultsPage() {
                   <TableRow><TableCell colSpan={15} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-xs">
-                    <TableCell className="font-medium">{res.PERSONNAME || '未知'}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/patients/${res.PERSONID}`} className="text-primary hover:underline flex items-center gap-1">
+                        {res.PERSONNAME || '未知'}
+                      </Link>
+                    </TableCell>
                     <TableCell>{res.SEX || '-'}</TableCell>
                     <TableCell>{res.AGE || '-'}</TableCell>
                     <TableCell>{res.PHONE || '-'}</TableCell>
@@ -325,9 +330,16 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.ZYYCJGBTZR}</TableCell>
                     <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="查看患者档案" asChild>
+                          <Link href={`/patients/${res.PERSONID}`}>
+                            <Eye className="h-3.5 w-3.5 text-primary" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="查看PACS影像" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )) : (
