@@ -58,9 +58,10 @@ async function initDB(config) {
       waitForConnections: true,
       connectionLimit: 50,
       queueLimit: 0,
-      connectTimeout: 15000
+      connectTimeout: 10000 // 缩短超时时间以快速反馈
     });
     
+    // 测试连接
     const connection = await dbPool.getConnection();
     connection.release();
 
@@ -99,7 +100,7 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ TIME,
         WORKER VARCHAR(50),
-        ZYYCJGBTZR (50),
+        ZYYCJGBTZR VARCHAR(50),
         IS_NOTIFIED TINYINT(1) DEFAULT 1,
         IS_HEALTH_EDU TINYINT(1) DEFAULT 1
       )`,
@@ -143,14 +144,9 @@ async function initDB(config) {
     }
 
     // 初始化默认配置
-    const defaultSettings = [
-      ['SYSTEM_NAME', 'MediTrack Connect'],
-      ['SYSTEM_LOGO_TEXT', 'M'],
-      ['SYSTEM_LOGO_URL', '']
-    ];
-    for (const [key, val] of defaultSettings) {
-      await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', [key, val]);
-    }
+    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
+    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
+    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
 
     // 默认管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
@@ -164,6 +160,15 @@ async function initDB(config) {
 }
 
 function createWindow(startPath = '/') {
+  if (mainWindow) {
+    if (isDev) {
+      mainWindow.loadURL(`http://localhost:9002${startPath}`);
+    } else {
+      mainWindow.loadURL(`app://./index.html#${startPath}`);
+    }
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -179,7 +184,6 @@ function createWindow(startPath = '/') {
   if (isDev) {
     mainWindow.loadURL(`http://localhost:9002${startPath}`);
   } else {
-    // 静态导出后使用 app 协议加载
     mainWindow.loadURL(`app://./index.html#${startPath}`);
   }
 }
@@ -196,20 +200,29 @@ ipcMain.handle('setup-db', async (event, config) => {
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) {
     const config = loadLocalConfig();
-    if (config) await initDB(config);
+    if (config) {
+      const initRes = await initDB(config);
+      if (!initRes.success) return { success: false, error: 'NO_CONNECTION' };
+    } else {
+      return { success: false, error: 'NO_CONFIG' };
+    }
   }
-  if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
   
   try {
     const [rows] = await dbPool.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
+    console.error("Query Error:", err);
+    // 捕获连接丢失类错误
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      return { success: false, error: 'NO_CONNECTION' };
+    }
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbPool) return { success: false, error: 'OFFLINE' };
+  if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
   try {
     const [rows] = await dbPool.execute(
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
@@ -234,7 +247,7 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
-    const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
+    const uploadBaseDir = path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) fs.mkdirSync(uploadBaseDir, { recursive: true });
 
@@ -256,26 +269,26 @@ app.whenReady().then(async () => {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     
-    // 移除 Windows 驱动器前缀或首部斜杠
+    // 移除路径中可能存在的非法绝对路径前缀 (针对 Windows 下 Next.js 导出引用问题)
+    if (url.includes(':')) {
+       url = url.split(':').pop(); 
+    }
     if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
-    // 如果路径指向 index.html#/... 截断哈希和参数
+    // 截断 Hash 和参数
     const cleanPath = url.split('#')[0].split('?')[0];
-    
-    // 强制映射到导出目录 out
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
-    if (fs.existsSync(filePath)) {
+    if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
       callback({ path: path.normalize(filePath) });
     } else {
-      // 容错处理：某些动态 JS 可能引用了根目录
-      const rootPath = path.join(app.getAppPath(), 'out', 'index.html');
-      callback({ path: path.normalize(rootPath) });
+      // 路由兜底：Next.js 单页应用刷新问题
+      callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
     }
   });
 
-  // 注册 app-file 协议以加载本地磁盘/UNC 共享文件
+  // 注册 app-file 协议以加载本地磁盘文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     let url = request.url.replace('app-file://', '');
     try {

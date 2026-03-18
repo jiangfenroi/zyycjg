@@ -4,7 +4,7 @@
 import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
-  interface window {
+  interface Window {
     electronAPI: {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
@@ -17,10 +17,21 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
+// 统一错误处理：如果检测到数据库未连接，强制刷新页面或跳转
+const handleConnectionError = () => {
+  if (typeof window !== 'undefined') {
+    window.location.hash = '#/setup';
+  }
+};
+
 export const DataService = {
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
+      if (!result.success && result.error === 'NO_CONNECTION') {
+        handleConnectionError();
+        return { SYSTEM_NAME: 'MediTrack', SYSTEM_LOGO_TEXT: 'M' };
+      }
       if (result.success && result.data) {
         const settings: any = {};
         result.data.forEach((row: any) => {
@@ -38,6 +49,10 @@ export const DataService = {
         window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
       const results = await Promise.all(promises);
+      if (results.some(r => !r.success && r.error === 'NO_CONNECTION')) {
+        handleConnectionError();
+        return false;
+      }
       const success = results.every(r => r.success);
       if (success) await this.addLog('管理员', '更新了系统品牌配置', 'system');
       return success;
@@ -49,6 +64,7 @@ export const DataService = {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
       const result = await window.electronAPI.query(sql, [operator, action, type]);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       return result.success;
     }
     return true;
@@ -57,6 +73,7 @@ export const DataService = {
   async getLogs(): Promise<SystemLog[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 200');
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -65,8 +82,11 @@ export const DataService = {
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
-      if (result.success) return result.data;
-      throw new Error(result.error || '数据库连接异常');
+      if (!result.success) {
+        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        throw new Error(result.error || '数据库连接异常');
+      }
+      return result.data;
     }
     return [];
   },
@@ -79,11 +99,12 @@ export const DataService = {
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
       ]);
-      if (result.success) {
-        await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
-        return true;
+      if (!result.success) {
+        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        throw new Error(result.error);
       }
-      throw new Error(result.error);
+      await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
+      return true;
     }
     return true;
   },
@@ -96,6 +117,7 @@ export const DataService = {
         LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
         ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
       const result = await window.electronAPI.query(sql);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       if (result.success) {
         return result.data.map((r: any) => ({
           ...r,
@@ -116,11 +138,12 @@ export const DataService = {
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR || '', res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
-      if (result.success) {
-        await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
-        return true;
+      if (!result.success) {
+        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        throw new Error(result.error);
       }
-      throw new Error(result.error);
+      await this.addLog(res.WORKER, `登记异常结果 (ID: ${res.PERSONID})`, 'alert');
+      return true;
     }
     return true;
   },
@@ -129,6 +152,7 @@ export const DataService = {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       if (result.success) {
         return result.data.map((f: any) => ({
           ...f,
@@ -146,11 +170,12 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
-      if (result.success) {
-        await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
-        return true;
+      if (!result.success) {
+        if (result.error === 'NO_CONNECTION') handleConnectionError();
+        throw new Error(result.error);
       }
-      throw new Error(result.error);
+      await this.addLog(followUp.SFGZRY, `随访结案 (ID: ${followUp.PERSONID})`, 'completed');
+      return true;
     }
     return true;
   },
@@ -159,6 +184,7 @@ export const DataService = {
     if (isElectron) {
       const sql = `INSERT INTO SP_SFRW (PERSONID, ZYYCJGTJBH, XCSFTIME, STATUS) VALUES (?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [task.PERSONID, task.ZYYCJGTJBH || '', task.XCSFTIME, task.STATUS]);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       return result.success;
     }
     return true;
@@ -168,6 +194,7 @@ export const DataService = {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ? ORDER BY UPLOAD_DATE DESC' : 'SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC';
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -181,6 +208,7 @@ export const DataService = {
         if (personId === 'SYSTEM') return fileUrl;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
+        if (!dbResult.success && dbResult.error === 'NO_CONNECTION') handleConnectionError();
         return dbResult.success;
       }
     }
@@ -198,6 +226,7 @@ export const DataService = {
   async getUsers(): Promise<User[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       if (result.success) return result.data;
     }
     return [];
@@ -209,6 +238,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]
       ]);
+      if (!result.success && result.error === 'NO_CONNECTION') handleConnectionError();
       return result;
     }
     return { success: false, error: 'OFFLINE' };
@@ -217,6 +247,10 @@ export const DataService = {
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
+      if (!result.success && result.error === 'NO_CONNECTION') {
+        handleConnectionError();
+        return false;
+      }
       if (result.success) await this.addLog('管理员', `注销用户: ${username}`, 'system');
       return result.success;
     }
@@ -226,6 +260,10 @@ export const DataService = {
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
+      if (!result.success && result.error === 'NO_CONNECTION') {
+        handleConnectionError();
+        return false;
+      }
       if (result.success) await this.addLog('管理员', `重置用户密码: ${username}`, 'system');
       return result.success;
     }
