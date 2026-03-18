@@ -9,7 +9,7 @@ require('dotenv').config();
 
 let dbPool;
 
-// 初始化数据库连接池并确保用户表存在
+// 初始化数据库连接池并确保所有业务表存在
 async function initDB() {
   try {
     dbPool = mysql.createPool({
@@ -23,7 +23,7 @@ async function initDB() {
       queueLimit: 0
     });
     
-    // 初始化用户表
+    // 1. 初始化用户表
     await dbPool.execute(`
       CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,7 +35,67 @@ async function initDB() {
       )
     `);
 
-    // 检查是否已有管理员，若无则创建默认
+    // 2. 初始化患者档案表
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS SP_PERSON (
+        PERSONID VARCHAR(50) PRIMARY KEY,
+        PERSONNAME VARCHAR(50) NOT NULL,
+        SEX ENUM('男', '女') NOT NULL,
+        AGE INT,
+        PHONE VARCHAR(20),
+        UNITNAME VARCHAR(100),
+        OCCURDATE DATE,
+        OPTNAME VARCHAR(50)
+      )
+    `);
+
+    // 3. 初始化重要异常结果表
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS SP_ZYJG (
+        ID VARCHAR(50) PRIMARY KEY,
+        PERSONID VARCHAR(50),
+        TJBHID VARCHAR(50),
+        ZYYCJGXQ TEXT,
+        ZYYCJGFL ENUM('A', 'B'),
+        ZYYCJGCZYJ TEXT,
+        ZYYCJGFKJG TEXT,
+        ZYYCJGTZRQ DATE,
+        ZYYCJGTZSJ TIME,
+        WORKER VARCHAR(50),
+        ZYYCJGBTZR VARCHAR(50),
+        IS_NOTIFIED BOOLEAN DEFAULT TRUE,
+        IS_HEALTH_EDU BOOLEAN DEFAULT TRUE,
+        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+      )
+    `);
+
+    // 4. 初始化随访记录表
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS SP_FOLLOWUPS (
+        ID VARCHAR(50) PRIMARY KEY,
+        PERSONID VARCHAR(50),
+        HFresult TEXT,
+        SFTIME DATE,
+        SFGZRY VARCHAR(50),
+        jcsf BOOLEAN DEFAULT FALSE,
+        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+      )
+    `);
+
+    // 5. 初始化附件文档表
+    await dbPool.execute(`
+      CREATE TABLE IF NOT EXISTS SP_DOCUMENTS (
+        ID INT AUTO_INCREMENT PRIMARY KEY,
+        PERSONID VARCHAR(50),
+        TYPE VARCHAR(20),
+        FILENAME VARCHAR(255),
+        UPLOAD_DATE DATE,
+        FILE_URL TEXT,
+        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+      )
+    `);
+
+    // 检查并创建默认管理员
     const [rows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (rows.length === 0) {
       await dbPool.execute(
@@ -44,22 +104,22 @@ async function initDB() {
       );
     }
 
-    console.log('MySQL Pool & Tables Initialized');
+    console.log('MySQL Service Initialized Successfully');
   } catch (err) {
-    console.error('Failed to init MySQL:', err);
+    console.error('Database Connection Error:', err);
   }
 }
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1280,
+    height: 850,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
     },
-    title: "MediTrack Connect"
+    title: "MediTrack Connect - 医疗数据安全保护系统"
   });
 
   if (isDev) {
@@ -69,18 +129,17 @@ function createWindow() {
   }
 }
 
-// IPC 处理器：通用数据库查询
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbPool) await initDB();
   try {
     const [rows] = await dbPool.execute(sql, params);
     return { success: true, data: rows };
   } catch (err) {
+    console.error('SQL Error:', err.message);
     return { success: false, error: err.message };
   }
 });
 
-// IPC 处理器：身份验证
 ipcMain.handle('auth-login', async (event, { username, password }) => {
   if (!dbPool) await initDB();
   try {
@@ -91,18 +150,18 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
     if (rows.length > 0) {
       return { success: true, user: rows[0] };
     }
-    return { success: false, error: '用户名或密码错误' };
+    return { success: false, error: '用户名或密码不正确' };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
-// IPC 处理器：文件上传
 ipcMain.handle('file-upload', async (event, { personId, type }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: '选择病历 PDF 文件',
       properties: ['openFile'],
-      filters: [{ name: 'PDF Documents', extensions: ['pdf'] }]
+      filters: [{ name: 'PDF 报告', extensions: ['pdf'] }]
     });
 
     if (canceled || filePaths.length === 0) return { success: false, error: 'User canceled' };
@@ -135,16 +194,8 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
 app.whenReady().then(async () => {
   await initDB();
   createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });

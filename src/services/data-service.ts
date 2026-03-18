@@ -1,10 +1,9 @@
-
 /**
  * 数据服务抽象层
- * 统一处理前端的数据请求，支持 MySQL 与 PDF 文件上传
+ * 统一处理前端的数据请求，支持 MySQL 持久化
  */
-import { MOCK_PERSONS, MOCK_RESULTS, MOCK_TASKS, MOCK_DOCS } from '@/lib/mock-store';
-import { Person, AbnormalResult, FollowUpTask, PatientDocument } from '@/lib/types';
+import { Person, AbnormalResult, FollowUp, PatientDocument } from '@/lib/types';
+import { MOCK_PERSONS, MOCK_RESULTS, MOCK_DOCS, MOCK_FOLLOW_UPS } from '@/lib/mock-store';
 
 declare global {
   interface Window {
@@ -18,7 +17,7 @@ declare global {
 
 export const DataService = {
   /**
-   * 获取所有患者档案
+   * 患者档案操作
    */
   async getPatients(): Promise<Person[]> {
     if (typeof window !== 'undefined' && window.electronAPI) {
@@ -28,8 +27,21 @@ export const DataService = {
     return MOCK_PERSONS;
   },
 
+  async addPatient(person: Person): Promise<boolean> {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const result = await window.electronAPI.query(sql, [
+        person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE, 
+        person.UNITNAME, person.OCCURDATE, person.OPTNAME
+      ]);
+      return result.success;
+    }
+    return true;
+  },
+
   /**
-   * 获取重要异常结果
+   * 重要异常结果操作
    */
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (typeof window !== 'undefined' && window.electronAPI) {
@@ -39,33 +51,64 @@ export const DataService = {
     return MOCK_RESULTS;
   },
 
-  /**
-   * 获取报告文档
-   */
-  async getDocuments(): Promise<PatientDocument[]> {
+  async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (typeof window !== 'undefined' && window.electronAPI) {
-      const result = await window.electronAPI.query('SELECT * FROM SP_DOCUMENTS ORDER BY UPLOAD_DATE DESC');
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const result = await window.electronAPI.query(sql, [
+        res.ID, res.PERSONID, res.TJBHID, res.ZYYCJGXQ, res.ZYYCJGFL, 
+        res.ZYYCJGCZYJ, res.ZYYCJGFKJG, res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
+        res.WORKER, res.ZYYCJGBTZR
+      ]);
+      return result.success;
+    }
+    return true;
+  },
+
+  /**
+   * 随访记录操作
+   */
+  async getFollowUps(personId?: string): Promise<FollowUp[]> {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const sql = personId ? 'SELECT * FROM SP_FOLLOWUPS WHERE PERSONID = ?' : 'SELECT * FROM SP_FOLLOWUPS';
+      const result = await window.electronAPI.query(sql, personId ? [personId] : []);
+      if (result.success) return result.data;
+    }
+    return MOCK_FOLLOW_UPS;
+  },
+
+  async addFollowUp(followUp: FollowUp): Promise<boolean> {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const sql = `INSERT INTO SP_FOLLOWUPS (ID, PERSONID, HFresult, SFTIME, SFGZRY, jcsf) 
+                   VALUES (?, ?, ?, ?, ?, ?)`;
+      const result = await window.electronAPI.query(sql, [
+        followUp.ID, followUp.PERSONID, followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf
+      ]);
+      return result.success;
+    }
+    return true;
+  },
+
+  /**
+   * 附件管理
+   */
+  async getDocuments(personId?: string): Promise<PatientDocument[]> {
+    if (typeof window !== 'undefined' && window.electronAPI) {
+      const sql = personId ? 'SELECT * FROM SP_DOCUMENTS WHERE PERSONID = ?' : 'SELECT * FROM SP_DOCUMENTS';
+      const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
     return MOCK_DOCS;
   },
 
-  /**
-   * 触发 PDF 文件上传并保存数据库记录
-   */
   async uploadDocument(personId: string, type: string): Promise<boolean> {
     if (typeof window !== 'undefined' && window.electronAPI) {
-      // 1. 调用 Electron 原生对话框选择并保存文件
       const uploadResult = await window.electronAPI.uploadFile(personId, type);
-      
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
-        
-        // 2. 将元数据存入 MySQL
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) 
                      VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
-        
         return dbResult.success;
       }
     }

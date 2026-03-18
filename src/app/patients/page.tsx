@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Plus, Filter, FileUp, MoreVertical, Eye, Edit } from 'lucide-react'
+import { Search, Plus, FileUp, MoreVertical, Eye, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +40,7 @@ export default function PatientsPage() {
   const [persons, setPersons] = React.useState<Person[]>([])
   const [loading, setLoading] = React.useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
 
   const [formData, setFormData] = React.useState<Partial<Person>>({
     PERSONID: `D${Date.now().toString().slice(-8)}`,
@@ -48,19 +49,19 @@ export default function PatientsPage() {
     AGE: 0,
     PHONE: '',
     UNITNAME: '',
-    IDNO: '',
     OCCURDATE: new Date().toISOString().split('T')[0],
   })
 
-  // 页面加载时获取数据
+  const fetchData = async () => {
+    setLoading(true)
+    const data = await DataService.getPatients()
+    setPersons(data)
+    setLoading(false)
+  }
+
   React.useEffect(() => {
-    const fetchData = async () => {
-      const data = await DataService.getPatients();
-      setPersons(data);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
 
   const filteredPersons = persons.filter(p => 
     p.PERSONNAME.includes(searchTerm) || 
@@ -68,19 +69,31 @@ export default function PatientsPage() {
     p.PHONE.includes(searchTerm)
   )
 
-  const handleImport = () => {
-    toast({ title: "批量导入", description: "正在连接后端数据库接口..." })
-  }
-
-  const handleAddPatient = () => {
+  const handleAddPatient = async () => {
     if (!formData.PERSONNAME || !formData.PHONE) {
-      toast({ variant: "destructive", title: "校验失败", description: "请填写必填字段。" })
+      toast({ variant: "destructive", title: "校验失败", description: "姓名和联系电话为必填项。" })
       return
     }
-    const newPerson: Person = { ...formData as Person, OPTNAME: '管理员' };
-    setPersons([newPerson, ...persons]);
-    setIsAddDialogOpen(false);
-    toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至系统。` });
+
+    setSubmitting(true)
+    const newPerson: Person = { ...formData as Person, OPTNAME: '管理员' }
+    const success = await DataService.addPatient(newPerson)
+    
+    if (success) {
+      toast({ title: "建档成功", description: `患者 ${formData.PERSONNAME} 档案已同步至数据库。` })
+      setIsAddDialogOpen(false)
+      fetchData()
+      setFormData({
+        PERSONID: `D${Date.now().toString().slice(-8)}`,
+        PERSONNAME: '',
+        SEX: '男',
+        AGE: 0,
+        PHONE: '',
+        UNITNAME: '',
+        OCCURDATE: new Date().toISOString().split('T')[0],
+      })
+    }
+    setSubmitting(false)
   }
 
   return (
@@ -88,28 +101,24 @@ export default function PatientsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">患者档案管理</h1>
-          <p className="text-muted-foreground mt-1">全局档案检索与管理系统。</p>
+          <p className="text-muted-foreground mt-1">全局档案检索，确保患者信息在全流程中的准确性。</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleImport}>
+          <Button variant="outline" onClick={() => toast({ title: "批量导入", description: "请准备符合标准模板的 Excel 档案文件。" })}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
           
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> 新增建档
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> 新增建档</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>新增患者档案信息</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>新增患者档案信息</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>档案编号</Label>
-                    <Input value={formData.PERSONID} readOnly className="bg-muted" />
+                    <Input value={formData.PERSONID} readOnly className="bg-muted font-mono" />
                   </div>
                   <div className="space-y-2">
                     <Label>患者姓名</Label>
@@ -136,10 +145,16 @@ export default function PatientsPage() {
                     <Input value={formData.PHONE} onChange={e => setFormData({...formData, PHONE: e.target.value})} />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>所属单位</Label>
+                  <Input value={formData.UNITNAME} onChange={e => setFormData({...formData, UNITNAME: e.target.value})} />
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>取消</Button>
-                <Button onClick={handleAddPatient}>确认建档</Button>
+                <Button onClick={handleAddPatient} disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "确认建档"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -148,11 +163,9 @@ export default function PatientsPage() {
 
       <Card>
         <CardHeader className="pb-3 border-b">
-          <div className="flex flex-col md:flex-row md:items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="搜索姓名、档案编号、手机号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="通过姓名、档案编号或手机号检索..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -169,10 +182,10 @@ export default function PatientsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8">正在连接数据库...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
               ) : filteredPersons.length > 0 ? filteredPersons.map((person) => (
                 <TableRow key={person.PERSONID}>
-                  <TableCell className="font-mono text-sm">{person.PERSONID}</TableCell>
+                  <TableCell className="font-mono text-xs">{person.PERSONID}</TableCell>
                   <TableCell className="font-medium">{person.PERSONNAME}</TableCell>
                   <TableCell>{person.SEX}</TableCell>
                   <TableCell>{person.AGE}</TableCell>
@@ -184,14 +197,14 @@ export default function PatientsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/patients/${person.PERSONID}`}><Eye className="mr-2 h-4 w-4" /> 查看病历</Link>
+                          <Link href={`/patients/${person.PERSONID}`}><Eye className="mr-2 h-4 w-4" /> 查看详情</Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               )) : (
-                <TableRow><TableCell colSpan={6} className="text-center py-12">未检索到档案。</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-20 text-muted-foreground">未检索到相关档案，请尝试其他关键词。</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

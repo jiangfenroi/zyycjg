@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -31,6 +30,7 @@ export default function AbnormalResultsPage() {
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
   
   const [formData, setFormData] = React.useState({
     PERSONID: '',
@@ -55,7 +55,7 @@ export default function AbnormalResultsPage() {
       setResults(r)
       setPersons(p)
     } catch (err) {
-      toast({ variant: "destructive", title: "数据加载失败", description: "无法连接到数据库。" })
+      toast({ variant: "destructive", title: "数据加载失败", description: "无法连接到 MySQL 数据库。" })
     } finally {
       setLoading(false)
     }
@@ -75,13 +75,6 @@ export default function AbnormalResultsPage() {
     );
   })
 
-  const handleImport = () => {
-    toast({
-      title: "批量导入",
-      description: "正在连接后端数据库 Excel 导入接口，请稍候...",
-    })
-  }
-
   const handleExport = () => {
     if (results.length === 0) {
       toast({ title: "导出提示", description: "当前没有记录可供导出。" })
@@ -99,7 +92,7 @@ export default function AbnormalResultsPage() {
         person?.PHONE || '-',
         person?.OCCURDATE || '-',
         `${res.ZYYCJGFL}类`,
-        `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, // 处理 CSV 中的引号
+        `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`,
         res.IS_NOTIFIED ? '是' : '否',
         res.IS_HEALTH_EDU ? '是' : '否',
         res.ZYYCJGTZRQ,
@@ -110,31 +103,27 @@ export default function AbnormalResultsPage() {
       ];
     });
     
-    // 添加 UTF-8 BOM (\uFEFF) 确保 Excel 打开中文不乱码
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `重要异常结果登记报表_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `重要异常结果报表_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    toast({ 
-      title: "导出成功", 
-      description: "Excel 兼容报表已生成并开始下载。" 
-    })
+    toast({ title: "导出成功", description: "Excel 报表已生成并开始下载。" })
   }
 
   const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.TJBHID) {
-      toast({ variant: "destructive", title: "登记失败", description: "档案编号和体检编号为必填字段。" })
+      toast({ variant: "destructive", title: "登记失败", description: "档案编号和体检编号为必填项。" })
       return
     }
 
-    // 实际项目中这里应调用 window.electronAPI.query 执行 INSERT
+    setSubmitting(true)
     const newResult: AbnormalResult = {
       ...formData,
       ID: `R${Date.now()}`,
@@ -142,32 +131,28 @@ export default function AbnormalResultsPage() {
       IS_HEALTH_EDU: true,
     } as AbnormalResult
 
-    setResults([newResult, ...results])
-    setIsDialogOpen(false)
+    const success = await DataService.addAbnormalResult(newResult)
     
-    toast({ 
-      title: "登记成功", 
-      description: `体检编号 ${formData.TJBHID} 的异常结果已入库并同步至数据库。` 
-    })
-
-    setFormData({
-      PERSONID: '',
-      TJBHID: '',
-      ZYYCJGXQ: '',
-      ZYYCJGFL: 'A',
-      ZYYCJGCZYJ: '',
-      ZYYCJGFKJG: '',
-      ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
-      ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-      WORKER: '',
-      ZYYCJGBTZR: '',
-    })
-  }
-
-  const openPACS = (id: string) => {
-    if (typeof window !== 'undefined') {
-      window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')
+    if (success) {
+      toast({ title: "登记成功", description: `体检编号 ${formData.TJBHID} 的结果已同步至数据库。` })
+      setIsDialogOpen(false)
+      loadData()
+      setFormData({
+        PERSONID: '',
+        TJBHID: '',
+        ZYYCJGXQ: '',
+        ZYYCJGFL: 'A',
+        ZYYCJGCZYJ: '',
+        ZYYCJGFKJG: '',
+        ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
+        ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+        WORKER: '',
+        ZYYCJGBTZR: '',
+      })
+    } else {
+      toast({ variant: "destructive", title: "数据库写入失败" })
     }
+    setSubmitting(false)
   }
 
   return (
@@ -175,10 +160,10 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">管理数据库记录，确保危急值与重要异常结果的闭环管理。</p>
+          <p className="text-muted-foreground mt-1">确保危急值与重要异常结果的闭环管理与数据库同步。</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleImport}>
+          <Button variant="outline" size="sm" onClick={() => toast({ title: "批量导入", description: "请将 Excel 文件放置于系统指定共享目录。" })}>
             <FileUp className="mr-2 h-4 w-4" /> 批量导入
           </Button>
           <Button variant="outline" size="sm" onClick={handleExport}>
@@ -232,7 +217,7 @@ export default function AbnormalResultsPage() {
                       </SelectItem>
                       <SelectItem value="B">
                         <span className="font-semibold text-primary">B类：</span>
-                        需要进一步检查或治疗的重要异常
+                        需要进一步检查的重要异常
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -272,17 +257,19 @@ export default function AbnormalResultsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>通知医生</Label>
-                    <Input placeholder="执行通知的医生姓名" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
+                    <Input placeholder="医生姓名" value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <Label>被通知人</Label>
-                    <Input placeholder="家属或本人姓名" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
+                    <Input placeholder="本人或家属" value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} />
                   </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>取消</Button>
-                <Button onClick={handleSubmit}>确认提交</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "确认提交"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -296,7 +283,7 @@ export default function AbnormalResultsPage() {
             <div className="relative w-80">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="搜索姓名、档案号、体检号..." 
+                placeholder="搜索姓名、体检号..." 
                 className="pl-8 h-9" 
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -317,7 +304,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[80px]">分类</TableHead>
                   <TableHead className="min-w-[200px]">结果</TableHead>
                   <TableHead className="w-[80px]">通知</TableHead>
-                  <TableHead className="w-[100px]">健康宣教</TableHead>
+                  <TableHead className="w-[100px]">宣教</TableHead>
                   <TableHead className="w-[120px]">通知日期</TableHead>
                   <TableHead className="w-[100px]">通知时间</TableHead>
                   <TableHead className="w-[100px]">通知医生</TableHead>
@@ -332,7 +319,7 @@ export default function AbnormalResultsPage() {
                     <TableCell colSpan={15} className="text-center py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span>同步数据库记录中...</span>
+                        <span>同步 MySQL 记录中...</span>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -346,36 +333,24 @@ export default function AbnormalResultsPage() {
                       <TableCell>{person?.PHONE || '-'}</TableCell>
                       <TableCell>{person?.OCCURDATE || '-'}</TableCell>
                       <TableCell>
-                        <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="px-1.5 py-0">
+                        <Badge variant={res.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'}>
                           {res.ZYYCJGFL}类
                         </Badge>
                       </TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>
-                        {res.ZYYCJGXQ}
+                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                      <TableCell>
+                        {res.IS_NOTIFIED ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}
                       </TableCell>
                       <TableCell>
-                        {res.IS_NOTIFIED ? (
-                          <div className="flex items-center text-green-600"><Check className="h-3 w-3 mr-1" />是</div>
-                        ) : (
-                          <div className="flex items-center text-muted-foreground"><X className="h-3 w-3 mr-1" />否</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {res.IS_HEALTH_EDU ? (
-                          <div className="flex items-center text-green-600"><Check className="h-3 w-3 mr-1" />已完成</div>
-                        ) : (
-                          <div className="flex items-center text-muted-foreground"><X className="h-3 w-3 mr-1" />未完成</div>
-                        )}
+                        {res.IS_HEALTH_EDU ? <Check className="h-4 w-4 text-green-600" /> : <X className="h-4 w-4 text-muted-foreground" />}
                       </TableCell>
                       <TableCell>{res.ZYYCJGTZRQ}</TableCell>
                       <TableCell>{res.ZYYCJGTZSJ}</TableCell>
                       <TableCell>{res.WORKER}</TableCell>
                       <TableCell>{res.ZYYCJGBTZR}</TableCell>
-                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>
-                        {res.ZYYCJGCZYJ}
-                      </TableCell>
+                      <TableCell className="max-w-[300px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                       <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
-                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openPACS(res.PERSONID)}>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${res.PERSONID}`, '_blank')}>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
                       </TableCell>
@@ -383,9 +358,7 @@ export default function AbnormalResultsPage() {
                   )
                 }) : (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">
-                      未找到符合条件的数据库记录。
-                    </TableCell>
+                    <TableCell colSpan={15} className="text-center py-12 text-muted-foreground">未检索到任何登记结果。</TableCell>
                   </TableRow>
                 )}
               </TableBody>
