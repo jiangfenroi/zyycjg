@@ -65,9 +65,11 @@ async function initDB(config) {
       connectTimeout: 15000
     });
     
+    // 测试连接
     const connection = await dbPool.getConnection();
     connection.release();
 
+    // 自动建表逻辑
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -142,6 +144,7 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
+    // 初始化默认管理员
     const [userRows] = await dbPool.execute('SELECT * FROM SP_USERS WHERE USERNAME = ?', ['admin']);
     if (userRows.length === 0) {
       await dbPool.execute(
@@ -150,6 +153,7 @@ async function initDB(config) {
       );
     }
 
+    // 初始化系统设置
     const defaultConfig = [
       ['SYSTEM_NAME', 'MediTrack Connect'],
       ['SYSTEM_LOGO_TEXT', 'M'],
@@ -177,7 +181,7 @@ function createWindow(startPath = '/') {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false, // 允许跨域加载局域网 PDF
+      webSecurity: false, // 允许跨域加载局域网资源
     },
     title: "MediTrack Connect"
   });
@@ -247,6 +251,8 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
 
     const sourcePath = filePaths[0];
     const fileName = path.basename(sourcePath);
+    
+    // Windows 环境下优先读取环境变量配置的 UPLOAD_PATH
     const uploadBaseDir = process.env.UPLOAD_PATH || path.join(app.getPath('documents'), 'meditrack_storage');
     
     if (!fs.existsSync(uploadBaseDir)) {
@@ -293,11 +299,9 @@ app.whenReady().then(async () => {
   // Windows 7 适配：使用 Electron 22 兼容的 registerFileProtocol
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const urlStr = request.url;
-    // 解码协议路径，处理空格和中文字符
     let filePath = decodeURIComponent(urlStr.slice('app-file://'.length));
     
     if (process.platform === 'win32') {
-      // 规范化路径，处理 UNC 路径
       if (filePath.startsWith('/') && filePath[2] === ':') {
         filePath = filePath.slice(1);
       }

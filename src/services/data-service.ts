@@ -22,7 +22,7 @@ export const DataService = {
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
-      if (result.success) {
+      if (result.success && result.data) {
         const settings: any = {};
         result.data.forEach((row: any) => {
           settings[row.CONF_KEY] = row.CONF_VALUE;
@@ -114,10 +114,10 @@ export const DataService = {
       ]);
       if (result.success) {
         await this.addLog(person.OPTNAME || '系统管理员', `为患者 ${person.PERSONNAME} 建立了新档案`, 'update');
+        return true;
       } else {
         throw new Error(result.error || '数据库写入失败');
       }
-      return result.success;
     }
     return true;
   },
@@ -148,10 +148,10 @@ export const DataService = {
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `录入了一项 ${res.ZYYCJGFL}类 重要异常结果 (ID: ${res.ID})`, 'update');
+        return true;
       } else {
         throw new Error(result.error || '结果写入数据库失败');
       }
-      return result.success;
     }
     return true;
   },
@@ -175,10 +175,10 @@ export const DataService = {
       ]);
       if (result.success) {
         await this.addLog(followUp.SFGZRY, `完成了患者 ID ${followUp.PERSONID} 的重要异常结果随访结案`, 'completed');
+        return true;
       } else {
         throw new Error(result.error || '随访记录写入失败');
       }
-      return result.success;
     }
     return true;
   },
@@ -237,7 +237,7 @@ export const DataService = {
         } else {
           throw new Error(dbResult.error || '文档记录写入数据库失败');
         }
-        return dbResult.success;
+        return true;
       }
     }
     return false;
