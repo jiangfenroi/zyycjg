@@ -53,3 +53,12 @@ export interface PatientDocument {
   UPLOAD_DATE: string;
   FILE_URL: string;
 }
+
+export interface User {
+  ID: number;
+  USERNAME: string;
+  PASSWORD?: string;
+  REAL_NAME: string;
+  ROLE: 'admin' | 'operator';
+  CREATE_DATE: string;
+}

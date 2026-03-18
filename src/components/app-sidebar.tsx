@@ -8,10 +8,11 @@ import {
   History,
   Settings,
   Bell,
-  Search,
-  FileText
+  FileText,
+  UserCog,
+  LogOut
 } from "lucide-react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 
 import {
@@ -26,6 +27,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
+import { useToast } from "@/hooks/use-toast"
 
 const navigation = [
   { name: "工作台", href: "/", icon: LayoutDashboard },
@@ -37,12 +39,28 @@ const navigation = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { toast } = useToast()
+  const [user, setUser] = React.useState<any>(null)
+
+  React.useEffect(() => {
+    const storedUser = localStorage.getItem('currentUser')
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
+  }, [pathname])
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser')
+    router.push('/login')
+    toast({ title: "已退出登录", description: "您的会话已结束。" })
+  }
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl">
+          <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner">
             M
           </div>
           <span className="font-bold text-lg tracking-tight group-data-[collapsible=icon]:hidden">MediTrack</span>
@@ -71,16 +89,48 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.ROLE === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">系统管理</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === '/settings/users'}
+                    tooltip="用户权限管理"
+                    className="h-11 px-4 text-blue-400 hover:text-blue-300"
+                  >
+                    <Link href="/settings/users">
+                      <UserCog className="size-5" />
+                      <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border/50">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
-            <span className="text-xs font-medium">AD</span>
+        <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center border border-white/20">
+              <span className="text-xs font-medium">{user?.REAL_NAME?.charAt(0) || 'U'}</span>
+            </div>
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden w-24">
+              <span className="text-sm font-medium truncate">{user?.REAL_NAME || '未登录'}</span>
+              <span className="text-[10px] opacity-70 uppercase">{user?.ROLE || 'visitor'}</span>
+            </div>
           </div>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-medium">管理员</span>
-            <span className="text-xs opacity-70">yamfanroi</span>
-          </div>
+          <button 
+            onClick={handleLogout}
+            className="p-1.5 hover:bg-destructive/20 rounded-md text-destructive-foreground transition-colors"
+            title="退出登录"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>
