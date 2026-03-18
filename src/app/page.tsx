@@ -2,11 +2,10 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, Clock, BarChart3, PieChart, Loader2 } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { MOCK_PERSONS, MOCK_TASKS, MOCK_RESULTS } from "@/lib/mock-store"
 import { 
   Bar, 
   BarChart, 
@@ -19,17 +18,53 @@ import {
   PieChart as RePieChart,
   CartesianGrid
 } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { DataService } from "@/services/data-service"
 
 export default function Dashboard() {
-  // 基础统计数据
-  const totalPatients = MOCK_PERSONS.length;
-  const pendingTasks = MOCK_TASKS.filter(t => t.STATUS === 'pending').length;
-  const completedTasks = MOCK_TASKS.filter(t => t.STATUS === 'completed').length;
-  const totalTasks = MOCK_TASKS.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  const aClassCount = MOCK_RESULTS.filter(r => r.ZYYCJGFL === 'A').length;
-  const bClassCount = MOCK_RESULTS.filter(r => r.ZYYCJGFL === 'B').length;
+  const [loading, setLoading] = React.useState(true)
+  const [stats, setStats] = React.useState({
+    totalPatients: 0,
+    pendingFollowUps: 0,
+    completedFollowUps: 0,
+    aClassResults: 0,
+    bClassResults: 0,
+    totalResults: 0,
+  })
+
+  React.useEffect(() => {
+    async function loadStats() {
+      setLoading(true)
+      try {
+        const [patients, results, followUps] = await Promise.all([
+          DataService.getPatients(),
+          DataService.getAbnormalResults(),
+          DataService.getFollowUps()
+        ])
+
+        const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
+        const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
+        
+        // 简单计算待随访：有异常结果但没有随访记录的
+        const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID)).length
+
+        setStats({
+          totalPatients: patients.length,
+          pendingFollowUps: pending,
+          completedFollowUps: followUps.length,
+          aClassResults: aClass,
+          bClassResults: bClass,
+          totalResults: results.length
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadStats()
+  }, [])
+
+  const completionRate = (stats.pendingFollowUps + stats.completedFollowUps) > 0 
+    ? Math.round((stats.completedFollowUps / (stats.pendingFollowUps + stats.completedFollowUps)) * 100) 
+    : 0
 
   // 柱状图数据：模拟近6个月的随访量
   const trendData = [
@@ -37,15 +72,24 @@ export default function Dashboard() {
     { month: "2月", count: 18 },
     { month: "3月", count: 15 },
     { month: "4月", count: 22 },
-    { month: "5月", count: pendingTasks + completedTasks }, // 当前月
+    { month: "5月", count: stats.completedFollowUps }, 
     { month: "6月", count: 0 },
-  ];
+  ]
 
   // 饼图数据：异常分类比例
   const categoryData = [
-    { name: "A类危急值", value: aClassCount, color: "hsl(var(--destructive))" },
-    { name: "B类重要异常", value: bClassCount, color: "hsl(var(--primary))" },
-  ];
+    { name: "A类危急值", value: stats.aClassResults, color: "hsl(var(--destructive))" },
+    { name: "B类重要异常", value: stats.bClassResults, color: "hsl(var(--primary))" },
+  ]
+
+  if (loading) {
+    return (
+      <div className="h-full w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2">统计数据加载中...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -70,7 +114,7 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalPatients.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">系统内所有患者记录</p>
           </CardContent>
         </Card>
@@ -81,8 +125,8 @@ export default function Dashboard() {
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">含 {aClassCount} 例 A 类危急预警</p>
+            <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
+            <p className="text-xs text-muted-foreground mt-1">含 {stats.aClassResults} 例 A 类危急预警</p>
           </CardContent>
         </Card>
 
@@ -93,18 +137,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">已完成 {completedTasks} / 总计 {totalTasks}</p>
+            <p className="text-xs text-muted-foreground mt-1">已完成 {stats.completedFollowUps} / 总计 {stats.pendingFollowUps + stats.completedFollowUps}</p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">本月异常检出</CardTitle>
+            <CardTitle className="text-sm font-medium">累计异常检出</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{MOCK_RESULTS.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">较上月同期增长 8.5%</p>
+            <div className="text-2xl font-bold">{stats.totalResults}</div>
+            <p className="text-xs text-muted-foreground mt-1">较系统上线初期显著提升</p>
           </CardContent>
         </Card>
       </div>

@@ -39,13 +39,13 @@ export default function AbnormalResultsPage() {
     ZYYCJGFL: 'A' as 'A' | 'B',
     ZYYCJGCZYJ: '',
     ZYYCJGFKJG: '',
-    ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
-    ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+    ZYYCJGTZRQ: '',
+    ZYYCJGTZSJ: '',
     WORKER: '',
     ZYYCJGBTZR: '',
   })
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
       const [r, p] = await Promise.all([
@@ -59,11 +59,17 @@ export default function AbnormalResultsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   React.useEffect(() => {
     loadData()
-  }, [])
+    // 初始化日期时间以避免水合错误
+    setFormData(prev => ({
+      ...prev,
+      ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
+      ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+    }))
+  }, [loadData])
 
   const filteredResults = results.filter(res => {
     const person = persons.find(p => p.PERSONID === res.PERSONID);
@@ -71,7 +77,7 @@ export default function AbnormalResultsPage() {
     return (
       res.PERSONID.toLowerCase().includes(searchLower) || 
       res.TJBHID.toLowerCase().includes(searchLower) ||
-      person?.PERSONNAME.includes(searchTerm)
+      (person?.PERSONNAME || '').includes(searchTerm)
     );
   })
 
