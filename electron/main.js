@@ -4,25 +4,64 @@ const fs = require('fs');
 const mysql = require('mysql2/promise');
 const isDev = process.env.NODE_ENV === 'development';
 
-// 动态读取 .env 配置
+// 动态读取 .env 配置（仅作为默认值）
 require('dotenv').config();
 
 let dbPool;
+let mainWindow;
+const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
-// 初始化数据库连接池并确保所有业务表存在
-async function initDB() {
+/**
+ * 从本地存储读取数据库配置
+ */
+function loadLocalConfig() {
+  if (fs.existsSync(configPath)) {
+    try {
+      const content = fs.readFileSync(configPath, 'utf8');
+      return JSON.parse(content);
+    } catch (e) {
+      console.error('Read config error:', e);
+    }
+  }
+  return null;
+}
+
+/**
+ * 保存数据库配置到本地
+ */
+function saveLocalConfig(config) {
   try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('Save config error:', e);
+    return false;
+  }
+}
+
+/**
+ * 初始化数据库连接池并确保所有业务表存在
+ */
+async function initDB(config) {
+  try {
+    const dbConfig = config || loadLocalConfig();
+    if (!dbConfig) return { success: false, error: 'NO_CONFIG' };
+
     dbPool = mysql.createPool({
-      host: process.env.DB_HOST || '127.0.0.1',
-      port: parseInt(process.env.DB_PORT || '3306'),
-      user: process.env.DB_USER || 'root',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'meditrack_db',
+      host: dbConfig.host,
+      port: parseInt(dbConfig.port),
+      user: dbConfig.user,
+      password: dbConfig.password,
+      database: dbConfig.database,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
     });
     
+    // 测试连接
+    const connection = await dbPool.getConnection();
+    connection.release();
+
     // 1. 初始化用户表
     await dbPool.execute(`
       CREATE TABLE IF NOT EXISTS SP_USERS (
@@ -64,8 +103,7 @@ async function initDB() {
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
         IS_NOTIFIED BOOLEAN DEFAULT TRUE,
-        IS_HEALTH_EDU BOOLEAN DEFAULT TRUE,
-        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+        IS_HEALTH_EDU BOOLEAN DEFAULT TRUE
       )
     `);
 
@@ -77,8 +115,7 @@ async function initDB() {
         HFresult TEXT,
         SFTIME DATE,
         SFGZRY VARCHAR(50),
-        jcsf BOOLEAN DEFAULT FALSE,
-        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+        jcsf BOOLEAN DEFAULT FALSE
       )
     `);
 
@@ -90,8 +127,7 @@ async function initDB() {
         TYPE VARCHAR(20),
         FILENAME VARCHAR(255),
         UPLOAD_DATE DATE,
-        FILE_URL TEXT,
-        FOREIGN KEY (PERSONID) REFERENCES SP_PERSON(PERSONID)
+        FILE_URL TEXT
       )
     `);
 
@@ -105,13 +141,15 @@ async function initDB() {
     }
 
     console.log('MySQL Service Initialized Successfully');
+    return { success: true };
   } catch (err) {
     console.error('Database Connection Error:', err);
+    return { success: false, error: err.message };
   }
 }
 
-function createWindow() {
-  const win = new BrowserWindow({
+function createWindow(startPath = '/') {
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 850,
     webPreferences: {
@@ -122,15 +160,35 @@ function createWindow() {
     title: "MediTrack Connect - 医疗数据安全保护系统"
   });
 
+  const url = isDev 
+    ? `http://localhost:9002${startPath}` 
+    : `file://${path.join(__dirname, '../out/index.html')}#${startPath}`;
+
   if (isDev) {
-    win.loadURL('http://localhost:9002');
+    mainWindow.loadURL(url);
   } else {
-    win.loadFile(path.join(__dirname, '../out/index.html'));
+    // 静态导出模式下使用 Hash 路由或直接加载文件
+    mainWindow.loadFile(path.join(__dirname, '../out/index.html'), { hash: startPath });
   }
 }
 
+// IPC 处理器：测试并保存配置
+ipcMain.handle('setup-db', async (event, config) => {
+  const result = await initDB(config);
+  if (result.success) {
+    saveLocalConfig(config);
+    return { success: true };
+  }
+  return { success: false, error: result.error };
+});
+
 ipcMain.handle('db-query', async (event, { sql, params }) => {
-  if (!dbPool) await initDB();
+  if (!dbPool) {
+    const config = loadLocalConfig();
+    if (config) await initDB(config);
+  }
+  if (!dbPool) return { success: false, error: '数据库未连接' };
+  
   try {
     const [rows] = await dbPool.execute(sql, params);
     return { success: true, data: rows };
@@ -141,7 +199,7 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
 });
 
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbPool) await initDB();
+  if (!dbPool) return { success: false, error: '数据库未初始化' };
   try {
     const [rows] = await dbPool.execute(
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
@@ -192,8 +250,13 @@ ipcMain.handle('file-upload', async (event, { personId, type }) => {
 });
 
 app.whenReady().then(async () => {
-  await initDB();
-  createWindow();
+  const result = await initDB();
+  if (result.success) {
+    createWindow('/login');
+  } else {
+    // 如果没有配置或连接失败，进入设置页面
+    createWindow('/setup');
+  }
 });
 
 app.on('window-all-closed', () => {
