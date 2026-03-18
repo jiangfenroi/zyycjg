@@ -25,11 +25,13 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      // 逻辑：所有 A 类且尚未进行过随访登记的
+      // 逻辑：所有 A 类且尚未进行过随访结案的
       const pending = results.filter(r => 
         r.ZYYCJGFL === 'A' && !followUps.some(f => f.PERSONID === r.PERSONID)
       )
       setTasks(pending)
+    } catch (err) {
+      console.error("Failed to load notification tasks", err)
     } finally {
       setLoading(false)
     }
@@ -49,18 +51,18 @@ export function FollowUpNotifier() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className={`h-6 w-6 text-primary ${count > 0 ? 'animate-pulse-red' : ''}`} />
           {count > 0 && (
-            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 rounded-full border-2 border-white">
+            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 rounded-full border-2 border-white shadow-sm">
               {count}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
         <div className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              A类结果随访提醒
+              A类重要结果随访提醒
             </h3>
             <TooltipProvider>
               <Tooltip>
@@ -74,13 +76,13 @@ export function FollowUpNotifier() {
             </TooltipProvider>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {loading ? "正在同步数据库..." : `当前有 ${count} 例 A 类结果尚未完成随访结案。`}
+            {loading ? "正在同步中心数据库..." : `当前有 ${count} 例 A 类结果尚未完成随访结案。`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
           <div className="p-2 space-y-1">
             {loading ? (
-              <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
+              <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" /></div>
             ) : tasks.length > 0 ? tasks.map((task) => (
               <Link
                 key={task.ID}
@@ -89,18 +91,18 @@ export function FollowUpNotifier() {
               >
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="destructive" className="text-[10px]">A类</Badge>
+                  <Badge variant="destructive" className="text-[10px] h-4 px-1.5">A类</Badge>
                 </div>
                 <span className="text-xs text-muted-foreground mt-1 line-clamp-1">{task.ZYYCJGXQ}</span>
-                <span className="text-[10px] text-muted-foreground mt-1">登记日期: {task.ZYYCJGTZRQ}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 bg-muted w-fit px-1.5 py-0.5 rounded">通知日期: {task.ZYYCJGTZRQ}</span>
               </Link>
             )) : (
-              <div className="py-8 text-center text-xs text-muted-foreground">暂无未处理的 A 类任务</div>
+              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无未处理的 A 类任务</div>
             )}
           </div>
         </ScrollArea>
-        <div className="p-2 border-t text-center">
-          <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
+        <div className="p-2 border-t text-center bg-muted/10">
+          <Button variant="ghost" size="sm" className="w-full text-xs font-semibold text-primary" asChild>
             <Link href="/follow-ups">进入随访工作台</Link>
           </Button>
         </div>

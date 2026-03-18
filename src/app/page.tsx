@@ -31,6 +31,7 @@ export default function Dashboard() {
     bClassResults: 0,
     totalResults: 0,
   })
+  const [trendData, setTrendData] = React.useState<any[]>([])
 
   React.useEffect(() => {
     async function loadStats() {
@@ -45,6 +46,7 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
+        // 待随访：在结果库中但未在随访库中的
         const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID)).length
 
         setStats({
@@ -55,6 +57,34 @@ export default function Dashboard() {
           bClassResults: bClass,
           totalResults: results.length
         })
+
+        // 处理趋势数据：以通知日期 (ZYYCJGTZRQ) 为准
+        const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+        const currentYear = new Date().getFullYear().toString()
+        
+        const monthlyStats = months.map(m => {
+          const monthLabel = `${parseInt(m)}月`
+          // 筛选出通知日期在该月的记录
+          const resultsInMonth = results.filter(r => {
+            const date = r.ZYYCJGTZRQ || ""
+            return date.includes(`-${m}-`) || date.startsWith(`${currentYear}/${m}/`) || date.includes(`/${m}/`)
+          })
+          
+          // 在这些记录中，已经完成随访的数量
+          const completedInMonth = resultsInMonth.filter(r => 
+            followUps.some(f => f.PERSONID === r.PERSONID)
+          ).length
+
+          return {
+            month: monthLabel,
+            count: completedInMonth,
+            total: resultsInMonth.length
+          }
+        })
+
+        // 仅展示最近6个月或当前上半年的数据
+        setTrendData(monthlyStats.slice(0, 6))
+
       } finally {
         setLoading(false)
       }
@@ -66,25 +96,16 @@ export default function Dashboard() {
     ? Math.round((stats.completedFollowUps / (stats.pendingFollowUps + stats.completedFollowUps)) * 100) 
     : 0
 
-  const trendData = [
-    { month: "1月", count: 12 },
-    { month: "2月", count: 18 },
-    { month: "3月", count: 15 },
-    { month: "4月", count: 22 },
-    { month: "5月", count: stats.completedFollowUps }, 
-    { month: "6月", count: 0 },
-  ]
-
   const categoryData = [
-    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果。" },
-    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗。" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--destructive))", description: "需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--primary))", description: "需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。" },
   ]
 
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">统计数据加载中...</span>
+        <span className="ml-2">统计数据同步中...</span>
       </div>
     )
   }
@@ -94,7 +115,7 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">工作台仪表盘</h1>
-          <p className="text-muted-foreground mt-1">系统概览与业务实时动态数据统计。</p>
+          <p className="text-muted-foreground mt-1">系统概览与重要异常结果随访动态统计。</p>
         </div>
         <div className="flex items-center gap-4">
           <FollowUpNotifier />
@@ -112,13 +133,13 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">系统内所有患者记录</p>
+            <p className="text-xs text-muted-foreground mt-1">中心数据库所有患者记录</p>
           </CardContent>
         </Card>
         
         <Card className="border-l-4 border-l-destructive shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">待处理随访</CardTitle>
+            <CardTitle className="text-sm font-medium">待处理随访任务</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
@@ -129,23 +150,23 @@ export default function Dashboard() {
 
         <Card className="border-l-4 border-l-secondary shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">任务闭环完成率</CardTitle>
+            <CardTitle className="text-sm font-medium">业务闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">已完成 {stats.completedFollowUps} / 总计 {stats.pendingFollowUps + stats.completedFollowUps}</p>
+            <p className="text-xs text-muted-foreground mt-1">已结案 {stats.completedFollowUps} 例</p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">累计异常检出</CardTitle>
+            <CardTitle className="text-sm font-medium">累计异常登记</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalResults}</div>
-            <p className="text-xs text-muted-foreground mt-1">较系统上线初期显著提升</p>
+            <p className="text-xs text-muted-foreground mt-1">历史录入中心数据库总量</p>
           </CardContent>
         </Card>
       </div>
@@ -153,10 +174,13 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="md:col-span-4">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              随访业务量趋势 (近半年)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                重要异常结果随访趋势 (按通知日期)
+              </CardTitle>
+              <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded">统计标准：以通知日期为准</span>
+            </div>
           </CardHeader>
           <CardContent className="h-[300px] mt-4">
             <ResponsiveContainer width="100%" height="100%">
@@ -168,10 +192,14 @@ export default function Dashboard() {
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      const rate = data.total > 0 ? Math.round((data.count / data.total) * 100) : 0;
                       return (
-                        <div className="bg-background border p-2 rounded-lg shadow-sm text-xs">
-                          <p className="font-bold">{payload[0].payload.month}</p>
-                          <p className="text-primary">随访量: {payload[0].value}</p>
+                        <div className="bg-background border p-3 rounded-lg shadow-xl text-xs space-y-1">
+                          <p className="font-bold border-b pb-1 mb-1">{data.month}</p>
+                          <p className="text-primary flex justify-between gap-4"><span>已随访:</span> <span>{data.count} 例</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-4"><span>异常总数:</span> <span>{data.total} 例</span></p>
+                          <p className="font-bold text-secondary flex justify-between gap-4 pt-1 border-t"><span>当月随访率:</span> <span>{rate}%</span></p>
                         </div>
                       );
                     }
@@ -198,9 +226,9 @@ export default function Dashboard() {
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p className="font-bold text-destructive">A类</p>
-                    <p className="text-xs mb-2">需要立即进行临床干预，否则将危及生命或导致严重不良后果。</p>
+                    <p className="text-xs mb-2">需要立即进行临床干预，否则将危及生命或导致严重不良反应后果的异常结果。</p>
                     <p className="font-bold text-primary">B类</p>
-                    <p className="text-xs">需要临床进一步检查以确认诊断或医学治疗。</p>
+                    <p className="text-xs">需要临床进一步检查以确认诊断和（或）需要医学治疗的重要异常结果。</p>
                   </TooltipContent>
                 </UITooltip>
               </TooltipProvider>
@@ -254,7 +282,7 @@ export default function Dashboard() {
         <Card className="md:col-span-4">
           <CardHeader>
             <CardTitle>核心业务操作</CardTitle>
-            <CardDescription>常用功能快捷访问</CardDescription>
+            <CardDescription>快捷访问常用功能模块</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <Button variant="outline" className="h-24 flex-col gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary" asChild>
@@ -291,10 +319,10 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-6">
               {[
-                { name: '管理员', action: '新增了 1 条 A 类结果登记', time: '2分钟前', type: 'alert' },
-                { name: '系统', action: '自动生成了 3 条随访任务', time: '12分钟前', type: 'update' },
-                { name: '王医生', action: '完成了张伟的电话随访', time: '45分钟前', type: 'completed' },
-                { name: '李护士', action: '上传了 2 份 PDF 检查报告', time: '1小时前', type: 'update' },
+                { name: '中心管理员', action: '同步了 1 条 A 类重要异常记录', time: '2分钟前', type: 'alert' },
+                { name: '系统', action: '基于通知日期更新了月度统计', time: '12分钟前', type: 'update' },
+                { name: '王医生', action: '完成了张伟的随访结案', time: '45分钟前', type: 'completed' },
+                { name: '李护士', action: '上传了 2 份病历 PDF 附件', time: '1小时前', type: 'update' },
               ].map((item, idx) => (
                 <div key={idx} className="flex items-center gap-4">
                   <div className={`w-2 h-2 rounded-full ${item.type === 'alert' ? 'bg-destructive' : item.type === 'completed' ? 'bg-secondary' : 'bg-primary'}`} />
@@ -309,7 +337,7 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
-            <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground">查看更多系统日志...</Button>
+            <Button variant="ghost" className="w-full mt-6 text-xs text-muted-foreground">查看完整系统日志...</Button>
           </CardContent>
         </Card>
       </div>

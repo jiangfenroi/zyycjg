@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast"
 const navigation = [
   { name: "工作台", href: "/", icon: LayoutDashboard },
   { name: "重要异常结果登记", href: "/abnormal-results", icon: AlertCircle },
-  { name: "异常结果随访", href: "/follow-ups", icon: History },
+  { name: "重要异常结果随访", href: "/follow-ups", icon: History },
   { name: "患者档案管理", href: "/patients", icon: Users },
   { name: "报告查询", href: "/reports", icon: FileText },
 ]
@@ -53,7 +53,7 @@ export function AppSidebar() {
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
     router.push('/login')
-    toast({ title: "已退出登录", description: "您的会话已结束。" })
+    toast({ title: "已退出登录", description: "您的会话已安全结束。" })
   }
 
   return (
@@ -68,7 +68,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="pt-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">主要功能</SidebarGroupLabel>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">主要业务模块</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -116,17 +116,17 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 border-t border-sidebar-border/50">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center border border-white/20">
+            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center border border-white/20 shadow-sm">
               <span className="text-xs font-medium">{user?.REAL_NAME?.charAt(0) || 'U'}</span>
             </div>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden w-24">
               <span className="text-sm font-medium truncate">{user?.REAL_NAME || '未登录'}</span>
-              <span className="text-[10px] opacity-70 uppercase">{user?.ROLE || 'visitor'}</span>
+              <span className="text-[10px] opacity-70 uppercase tracking-wider">{user?.ROLE || 'visitor'}</span>
             </div>
           </div>
           <button 
             onClick={handleLogout}
-            className="p-1.5 hover:bg-destructive/20 rounded-md text-destructive-foreground transition-colors"
+            className="p-1.5 hover:bg-destructive/20 rounded-md text-destructive transition-colors"
             title="退出登录"
           >
             <LogOut className="h-4 w-4" />

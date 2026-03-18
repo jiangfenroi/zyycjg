@@ -41,7 +41,7 @@ export default function FollowUpsPage() {
     jcsf: false
   })
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
       const [p, r, f] = await Promise.all([
@@ -55,15 +55,16 @@ export default function FollowUpsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   React.useEffect(() => {
     loadData()
+    // 客户端挂载后再设置默认日期，避免水合错误
     setFollowUpForm(prev => ({
       ...prev,
       SFTIME: new Date().toISOString().split('T')[0]
     }))
-  }, [])
+  }, [loadData])
 
   // 待随访 = 有异常结果但没有随访记录的患者
   const pendingTasks = abnormalResults.filter(res => 
@@ -72,7 +73,8 @@ export default function FollowUpsPage() {
 
   const filteredPending = pendingTasks.filter(task => {
     const person = persons.find(p => p.PERSONID === task.PERSONID)
-    return person?.PERSONNAME.includes(searchTerm) || task.PERSONID.includes(searchTerm)
+    const personName = person?.PERSONNAME || '';
+    return personName.includes(searchTerm) || task.PERSONID.includes(searchTerm)
   })
 
   const handleCompleteTask = async () => {
@@ -90,10 +92,12 @@ export default function FollowUpsPage() {
 
     const success = await DataService.addFollowUp(newFollowUp)
     if (success) {
-      toast({ title: "随访已记录", description: "该案例已正式进入已完成库。" })
+      toast({ title: "随访已记录", description: "该案例已正式进入已结案库。" })
       setSelectedPersonId(null)
       loadData()
       setFollowUpForm({ HFresult: '', SFTIME: new Date().toISOString().split('T')[0], SFGZRY: '', jcsf: false })
+    } else {
+      toast({ variant: "destructive", title: "数据库写入失败" })
     }
     setSubmitting(false)
   }
@@ -101,8 +105,8 @@ export default function FollowUpsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">异常结果随访</h1>
-        <p className="text-muted-foreground mt-1">闭环管理异常随访任务，确保医疗质量安全。</p>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果随访</h1>
+        <p className="text-muted-foreground mt-1">闭环管理重要异常随访任务，确保医疗质量安全。</p>
       </div>
 
       <Tabs defaultValue="pending" className="space-y-4">
@@ -126,7 +130,7 @@ export default function FollowUpsPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">待随访列表</CardTitle>
-              <CardDescription>系统实时匹配的尚未进行随访闭环的异常案例。</CardDescription>
+              <CardDescription>系统实时匹配的尚未进行随访闭环的重要异常案例。</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -140,7 +144,7 @@ export default function FollowUpsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                    <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                   ) : filteredPending.length > 0 ? filteredPending.map((task) => {
                     const person = persons.find(p => p.PERSONID === task.PERSONID)
                     return (
@@ -148,10 +152,10 @@ export default function FollowUpsPage() {
                         <TableCell>
                           <div className="space-y-1">
                             <Link href={`/patients/${task.PERSONID}`} className="font-bold text-primary hover:underline flex items-center gap-1">
-                              {person?.PERSONNAME} <ExternalLink className="h-3 w-3" />
+                              {person?.PERSONNAME || '未知'} <ExternalLink className="h-3 w-3" />
                             </Link>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Phone className="h-3 w-3" /> {person?.PHONE}
+                              <Phone className="h-3 w-3" /> {person?.PHONE || '-'}
                             </div>
                             <Badge variant={task.ZYYCJGFL === 'A' ? 'destructive' : 'secondary'} className="text-[10px]">
                               {task.ZYYCJGFL}类
@@ -174,7 +178,7 @@ export default function FollowUpsPage() {
                       </TableRow>
                     )
                   }) : (
-                     <TableRow><TableCell colSpan={4} className="text-center py-12 opacity-50">暂无待执行的随访任务。</TableCell></TableRow>
+                     <TableRow><TableCell colSpan={4} className="text-center py-12 opacity-50 text-muted-foreground">暂无待执行的随访任务。</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -184,14 +188,14 @@ export default function FollowUpsPage() {
 
         <TabsContent value="completed">
           <Card>
-             <CardHeader className="pb-3"><CardTitle className="text-lg">已完成记录库</CardTitle></CardHeader>
+             <CardHeader className="pb-3"><CardTitle className="text-lg">已完成随访库</CardTitle></CardHeader>
              <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>完成日期</TableHead>
                       <TableHead>患者姓名</TableHead>
-                      <TableHead>随访摘要</TableHead>
+                      <TableHead>随访结果摘要</TableHead>
                       <TableHead>状态</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -204,10 +208,10 @@ export default function FollowUpsPage() {
                            <TableCell className="text-xs">{f.SFTIME}</TableCell>
                            <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
                            <TableCell className="max-w-[300px] truncate text-xs">{f.HFresult}</TableCell>
-                           <TableCell><div className="flex items-center gap-1 text-green-600"><CheckCircle2 className="h-4 w-4" /> 已结案</div></TableCell>
+                           <TableCell><div className="flex items-center gap-1 text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" /> 已结案</div></TableCell>
                            <TableCell className="text-right">
                               <Button variant="ghost" size="sm" asChild>
-                                 <Link href={`/patients/${f.PERSONID}?tab=followup`}>查看病历</Link>
+                                 <Link href={`/patients/${f.PERSONID}?tab=followup`}>查看详情</Link>
                               </Button>
                            </TableCell>
                         </TableRow>
@@ -227,7 +231,7 @@ export default function FollowUpsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>回访详细结果</Label>
+              <Label>随访详细结果</Label>
               <Textarea 
                 className="min-h-[120px]" 
                 placeholder="记录随访沟通内容、患者康复情况或复查结果..." 
@@ -253,7 +257,7 @@ export default function FollowUpsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedPersonId(null)}>取消</Button>
             <Button onClick={handleCompleteTask} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "提交并结案"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "确认提交并结案"}
             </Button>
           </DialogFooter>
         </DialogContent>
