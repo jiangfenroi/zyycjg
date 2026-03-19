@@ -3,12 +3,13 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Server, User, Lock, Globe, Loader2, Link as LinkIcon } from "lucide-react"
+import { Server, User, Lock, Globe, Loader2, Link as LinkIcon } from "lucide-center"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
+import { DataService } from "@/services/data-service"
 
 export default function SetupPage() {
   const router = useRouter()
@@ -33,9 +34,11 @@ export default function SetupPage() {
     setLoading(true)
     try {
       if (typeof window !== 'undefined' && window.electronAPI) {
+        await DataService.logToFile('INFO', `尝试接入数据库: ${config.host}`);
         const result = await window.electronAPI.setupDB(config)
         if (result.success) {
           toast({ title: "网络接入成功", description: "数据库已同步" })
+          await DataService.logToFile('INFO', '数据库接入向导配置成功');
           setTimeout(() => router.push('/login'), 1500)
         } else {
           toast({ 
@@ -43,12 +46,14 @@ export default function SetupPage() {
             title: "连接失败", 
             description: result.error || "请检查网络或参数" 
           })
+          await DataService.logToFile('ERROR', '接入向导连接失败: ' + result.error);
         }
       } else {
         toast({ title: "演示环境", description: "不支持物理连接" })
       }
-    } catch (err) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "系统错误", description: "模块加载异常" })
+      await DataService.logToFile('ERROR', '接入向导系统级异常: ' + err.message);
     } finally {
       setLoading(false)
     }
@@ -106,7 +111,7 @@ export default function SetupPage() {
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-10"
-                    placeholder="例如: meditrack_db" 
+                    placeholder="例如 meditrack_db" 
                     value={config.database}
                     onChange={e => setConfig({...config, database: e.target.value})}
                   />

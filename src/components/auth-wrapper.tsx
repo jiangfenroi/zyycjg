@@ -23,9 +23,9 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   }, [pathname, router])
 
   /**
-   * 终极水合修复逻辑：
-   * 在客户端挂载前渲染完全确定的、无文本的占位符。
-   * 这彻底消除了服务器与客户端因文本差异导致的水合报错。
+   * 彻底解决水合冲突：
+   * 在组件挂载（Mounted）之前，不再渲染任何带有业务文本的内容。
+   * 服务器端和客户端首屏渲染将输出完全一致的静态动画容器。
    */
   if (!mounted) {
     return (
