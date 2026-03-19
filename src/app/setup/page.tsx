@@ -17,16 +17,16 @@ export default function SetupPage() {
   
   const [config, setConfig] = React.useState({
     host: '',
-    port: '1521',
+    port: '10699',
     user: 'medi_admin',
     password: 'AdminPassword123',
-    serviceName: 'orcl'
+    database: 'meditrack_db'
   })
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!config.host || !config.serviceName) {
-      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址和服务名" })
+    if (!config.host || !config.database) {
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址和数据库名称" })
       return
     }
 
@@ -71,7 +71,7 @@ export default function SetupPage() {
           <CardHeader className="bg-slate-50/50 border-b pb-6">
             <CardTitle className="flex items-center gap-2 text-primary text-lg">
               <Server className="h-5 w-5" />
-              Oracle 接入参数
+              MySQL 接入参数
             </CardTitle>
             <CardDescription>
               成功接入后系统将自动完成中心端初始化
@@ -92,7 +92,7 @@ export default function SetupPage() {
                 <div className="space-y-2">
                   <Label>端口</Label>
                   <Input 
-                    placeholder="1521" 
+                    placeholder="10699" 
                     value={config.port}
                     onChange={e => setConfig({...config, port: e.target.value})}
                     required
@@ -101,14 +101,14 @@ export default function SetupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>服务名</Label>
+                <Label>数据库名称</Label>
                 <div className="relative">
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-10"
-                    placeholder="例如: orcl" 
-                    value={config.serviceName}
-                    onChange={e => setConfig({...config, serviceName: e.target.value})}
+                    placeholder="例如: meditrack_db" 
+                    value={config.database}
+                    onChange={e => setConfig({...config, database: e.target.value})}
                   />
                 </div>
               </div>
