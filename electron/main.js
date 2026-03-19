@@ -52,9 +52,10 @@ async function initDB(config) {
 
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
+    // 先尝试连接到实例，确保权限正确并创建数据库
     const connection = await mysql.createConnection({
       host: dbConfig.host,
-      port: parseInt(dbConfig.port || '3306'),
+      port: parseInt(dbConfig.port || '10699'),
       user: dbConfig.user,
       password: dbConfig.password,
       connectTimeout: 10000
@@ -69,7 +70,7 @@ async function initDB(config) {
 
     dbPool = mysql.createPool({
       host: dbConfig.host,
-      port: parseInt(dbConfig.port || '3306'),
+      port: parseInt(dbConfig.port || '10699'),
       user: dbConfig.user,
       password: dbConfig.password,
       database: targetDatabase,
@@ -157,11 +158,13 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
+    // 初始化默认配置
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
+    // 创建初始管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
@@ -225,6 +228,7 @@ function createTray() {
   tray.setContextMenu(contextMenu);
 }
 
+// 后台定期检查待随访任务并通知
 async function checkPendingTasksInBackground() {
   if (!dbPool) {
     const config = loadLocalConfig();
@@ -316,22 +320,26 @@ ipcMain.handle('set-flash', (event, flag) => {
 });
 
 app.whenReady().then(async () => {
+  // 注册 app:// 协议用于访问 out 目录下的静态资源
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) { url = url.split(':').pop(); }
     if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
+    // 处理 Windows 绝对路径转换错误
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
     if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
       callback({ path: path.normalize(filePath) });
     } else {
+      // 找不到文件时返回 index.html 以支持 SPA 路由
       callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
     }
   });
 
+  // 注册 app-file:// 协议用于访问本地文件系统资源
   protocol.registerFileProtocol('app-file', (request, callback) => {
     let url = request.url.replace('app-file://', '');
     try {
@@ -361,6 +369,7 @@ app.whenReady().then(async () => {
     createWindow('/setup');
   }
 
+  // 启动后台扫描任务
   setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
   setTimeout(checkPendingTasksInBackground, 10000);
 });

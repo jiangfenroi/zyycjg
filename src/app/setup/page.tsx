@@ -15,11 +15,12 @@ export default function SetupPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(false)
   
+  // 预设服务器参数
   const [config, setConfig] = React.useState({
     host: '',
-    port: '3306',
-    user: 'root',
-    password: '',
+    port: '10699',
+    user: 'medi_admin',
+    password: 'AdminPassword123',
     database: 'meditrack_db'
   })
 
@@ -92,7 +93,7 @@ export default function SetupPage() {
                 <div className="space-y-2">
                   <Label>端口</Label>
                   <Input 
-                    placeholder="3306" 
+                    placeholder="10699" 
                     value={config.port}
                     onChange={e => setConfig({...config, port: e.target.value})}
                     required
@@ -120,7 +121,6 @@ export default function SetupPage() {
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
                       className="pl-10"
-                      placeholder="root" 
                       value={config.user}
                       onChange={e => setConfig({...config, user: e.target.value})}
                       required
@@ -134,7 +134,6 @@ export default function SetupPage() {
                     <Input 
                       type="password"
                       className="pl-10"
-                      placeholder="密码" 
                       value={config.password}
                       onChange={e => setConfig({...config, password: e.target.value})}
                     />

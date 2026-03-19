@@ -11,16 +11,10 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [mounted, setMounted] = React.useState(false)
   const [checking, setChecking] = React.useState(true)
-  const [timeoutReached, setTimeoutReached] = React.useState(false)
 
   React.useEffect(() => {
     setMounted(true)
     
-    const safetyTimer = setTimeout(() => {
-      setTimeoutReached(true);
-      setChecking(false);
-    }, 3000);
-
     const checkAuth = () => {
       if (typeof window === 'undefined') return;
 
@@ -41,15 +35,12 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
       setChecking(false);
     }
 
+    // 增加延迟以确保路由初始化完成，避免水合冲突
     const timer = setTimeout(checkAuth, 300);
-    
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(safetyTimer);
-    };
+    return () => clearTimeout(timer);
   }, [pathname, router])
 
-  // SSR 及初次渲染阶段：只渲染一个没有任何文本的背景占位符，彻底解决 Hydration 冲突
+  // SSR 阶段：渲染一个完全确定的空白占位符，防止 Hydration 报错
   if (!mounted) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
@@ -58,8 +49,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // 挂载后的加载状态（仅客户端可见）
-  if (checking && !timeoutReached) {
+  // 挂载后的加载状态
+  if (checking) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">
         <div className="flex flex-col items-center gap-6">
