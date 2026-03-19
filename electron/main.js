@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
 
-// 解决 Windows 8.1/7 硬件加速导致的启动无反应问题
+// 强制禁用硬件加速，解决 Windows 8.1/7 启动无反应或黑屏问题
 if (process.platform === 'win32') {
   app.disableHardwareAcceleration();
 }
@@ -182,7 +182,7 @@ function createWindow(startPath = '/') {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    show: false, // 优化：先隐藏，准备好后再显示
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -245,7 +245,7 @@ async function checkPendingTasksInBackground() {
         if (mainWindow) mainWindow.flashFrame(true);
         if (Notification.isSupported()) {
           new Notification({
-            title: '待随访工作提醒',
+            title: '待随访任务提醒',
             body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访。`,
             silent: false
           }).show();
@@ -315,35 +315,6 @@ ipcMain.handle('set-flash', (event, flag) => {
   }
 });
 
-ipcMain.handle('file-upload', async (event, { personId, type, customDate }) => {
-  try {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: '选择病历附件',
-      properties: ['openFile'],
-      filters: [{ name: '病历文件', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
-    });
-
-    if (canceled || filePaths.length === 0) return { success: false };
-
-    const sourcePath = filePaths[0];
-    const fileName = path.basename(sourcePath);
-    const uploadBaseDir = path.join(app.getPath('documents'), 'meditrack_storage');
-    
-    if (!fs.existsSync(uploadBaseDir)) fs.mkdirSync(uploadBaseDir, { recursive: true });
-
-    const targetFileName = `${personId}_${Date.now()}_${fileName}`;
-    const targetPath = path.join(uploadBaseDir, targetFileName);
-    fs.copyFileSync(sourcePath, targetPath);
-
-    return { 
-      success: true, 
-      data: { fileName, fileUrl: targetPath, uploadDate: customDate || new Date().toISOString().split('T')[0] }
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-});
-
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
@@ -392,14 +363,4 @@ app.whenReady().then(async () => {
 
   setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
   setTimeout(checkPendingTasksInBackground, 10000);
-}).catch(err => {
-  console.error("App Ready Error:", err);
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
-
-app.on('before-quit', () => {
-  app.isQuitting = true;
 });

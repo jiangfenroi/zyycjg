@@ -14,10 +14,8 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [timeoutReached, setTimeoutReached] = React.useState(false)
 
   React.useEffect(() => {
-    // 客户端挂载标记
     setMounted(true)
     
-    // 安全超时保护
     const safetyTimer = setTimeout(() => {
       setTimeoutReached(true);
       setChecking(false);

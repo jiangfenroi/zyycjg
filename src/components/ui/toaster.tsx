@@ -12,9 +12,6 @@ import {
   ToastViewport,
 } from "@/components/ui/toast"
 
-/**
- * 修复水合错误：Toaster 仅在客户端挂载后渲染
- */
 export function Toaster() {
   const { toasts } = useToast()
   const [mounted, setMounted] = React.useState(false)
