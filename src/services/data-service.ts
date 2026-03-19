@@ -11,17 +11,12 @@ declare global {
       uploadFile: (personId: string, type: string, customDate?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
-      setAutoStart: (flag: boolean) => Promise<boolean>;
-      setTaskbarFlash: (flag: boolean) => Promise<void>;
     };
   }
 }
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-/**
- * 全局错误处理：连接丢失或配置错误时重定向到接入向导
- */
 const handleConnectionError = () => {
   if (typeof window !== 'undefined') {
     window.location.hash = '#/setup';
@@ -44,7 +39,7 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '', AUTO_START: '0' };
+    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '' };
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
@@ -53,10 +48,6 @@ export const DataService = {
         window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
       
-      if (settings.AUTO_START !== undefined) {
-        await window.electronAPI.setAutoStart(settings.AUTO_START === '1');
-      }
-
       const results = await Promise.all(promises);
       if (results.some(r => !r.success && (r.error === 'NO_CONNECTION' || r.error === 'NO_CONFIG'))) {
         handleConnectionError();
@@ -185,16 +176,6 @@ export const DataService = {
       }
       await this.addLog(followUp.SFGZRY, `随访结案 ID: ${followUp.PERSONID}`, 'completed');
       return true;
-    }
-    return true;
-  },
-
-  async addFollowUpTask(task: FollowUpTask): Promise<boolean> {
-    if (isElectron) {
-      const sql = `INSERT INTO SP_SFRW (PERSONID, ZYYCJGTJBH, XCSFTIME, STATUS) VALUES (?, ?, ?, ?)`;
-      const result = await window.electronAPI.query(sql, [task.PERSONID, task.ZYYCJGTJBH || '', task.XCSFTIME, task.STATUS]);
-      if (!result.success && (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG')) handleConnectionError();
-      return result.success;
     }
     return true;
   },

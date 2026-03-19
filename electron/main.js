@@ -1,5 +1,5 @@
 
-const { app, BrowserWindow, ipcMain, dialog, protocol, Tray, Menu, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -10,16 +10,13 @@ if (process.platform === 'win32') {
 }
 
 const isDev = process.env.NODE_ENV === 'development';
-const isAutoStart = process.argv.includes('--hidden');
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
-  { scheme: 'app-file', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
 
 let dbPool;
 let mainWindow;
-let tray;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
 function loadLocalConfig() {
@@ -52,7 +49,6 @@ async function initDB(config) {
 
     const targetDatabase = dbConfig.database || 'meditrack_db';
 
-    // 先尝试连接到实例，确保权限正确并创建数据库
     const connection = await mysql.createConnection({
       host: dbConfig.host,
       port: parseInt(dbConfig.port || '10699'),
@@ -129,22 +125,6 @@ async function initDB(config) {
         jcsf TINYINT(1) DEFAULT 0,
         XCSFTIME DATE
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_SFRW (
-        ID INT AUTO_INCREMENT PRIMARY KEY,
-        PERSONID VARCHAR(50),
-        ZYYCJGTJBH VARCHAR(50),
-        XCSFTIME DATE,
-        STATUS ENUM('pending', 'completed') DEFAULT 'pending',
-        CREATE_TIME TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`,
-      `CREATE TABLE IF NOT EXISTS SP_DOCUMENTS (
-        ID INT AUTO_INCREMENT PRIMARY KEY,
-        PERSONID VARCHAR(50),
-        TYPE VARCHAR(20),
-        FILENAME VARCHAR(255),
-        UPLOAD_DATE DATE,
-        FILE_URL TEXT
-      )`,
       `CREATE TABLE IF NOT EXISTS SP_LOGS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
         OPERATOR VARCHAR(50),
@@ -158,13 +138,10 @@ async function initDB(config) {
       await dbPool.execute(sql);
     }
 
-    // 初始化默认配置
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
     await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
-    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['AUTO_START', '0']);
 
-    // 创建初始管理员
     await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
       ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
 
@@ -175,13 +152,6 @@ async function initDB(config) {
 }
 
 function createWindow(startPath = '/') {
-  if (mainWindow) {
-    const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
-    mainWindow.loadURL(url);
-    mainWindow.show();
-    return;
-  }
-
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -199,64 +169,12 @@ function createWindow(startPath = '/') {
   mainWindow.loadURL(url);
 
   mainWindow.once('ready-to-show', () => {
-    if (!isAutoStart) {
-      mainWindow.show();
-    }
+    mainWindow.show();
   });
 
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-    }
-    return false;
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
-}
-
-function createTray() {
-  const iconPath = path.join(app.getAppPath(), 'public', 'favicon.ico');
-  tray = new Tray(fs.existsSync(iconPath) ? iconPath : path.join(__dirname, 'icon_placeholder.png'));
-  const contextMenu = Menu.buildFromTemplate([
-    { label: '打开系统主界面', click: () => mainWindow.show() },
-    { type: 'separator' },
-    { label: '彻底退出系统', click: () => {
-      app.isQuitting = true;
-      app.quit();
-    }}
-  ]);
-  tray.setToolTip('MediTrack Connect 医疗闭环管理');
-  tray.setContextMenu(contextMenu);
-}
-
-// 后台定期检查待随访任务并通知
-async function checkPendingTasksInBackground() {
-  if (!dbPool) {
-    const config = loadLocalConfig();
-    if (config) await initDB(config);
-  }
-  
-  if (dbPool) {
-    try {
-      const sql = `
-        SELECT COUNT(*) as count 
-        FROM SP_ZYJG r 
-        LEFT JOIN SP_SF f ON r.PERSONID = f.PERSONID AND r.TJBHID = f.ZYYCJGTJBH 
-        WHERE f.ID IS NULL`;
-      const [rows] = await dbPool.execute(sql);
-      const pendingCount = rows[0].count;
-      
-      if (pendingCount > 0) {
-        if (mainWindow) mainWindow.flashFrame(true);
-        if (Notification.isSupported()) {
-          new Notification({
-            title: '待随访任务提醒',
-            body: `当前有 ${pendingCount} 例重要异常结果尚未完成随访。`,
-            silent: false
-          }).show();
-        }
-      }
-    } catch (err) {}
-  }
 }
 
 ipcMain.handle('setup-db', async (event, config) => {
@@ -290,15 +208,6 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
   }
 });
 
-ipcMain.handle('set-autostart', (event, flag) => {
-  app.setLoginItemSettings({
-    openAtLogin: flag,
-    path: app.getPath('exe'),
-    args: ['--hidden']
-  });
-  return true;
-});
-
 ipcMain.handle('auth-login', async (event, { username, password }) => {
   if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
   try {
@@ -313,63 +222,34 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
   }
 });
 
-ipcMain.handle('set-flash', (event, flag) => {
-  if (mainWindow) {
-    mainWindow.flashFrame(flag);
-  }
-});
-
 app.whenReady().then(async () => {
-  // 注册 app:// 协议用于访问 out 目录下的静态资源
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) { url = url.split(':').pop(); }
     if (url.startsWith('/')) url = url.slice(1);
     if (url.startsWith('./')) url = url.slice(2);
     
-    // 处理 Windows 绝对路径转换错误
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
     if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
       callback({ path: path.normalize(filePath) });
     } else {
-      // 找不到文件时返回 index.html 以支持 SPA 路由
       callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
     }
   });
 
-  // 注册 app-file:// 协议用于访问本地文件系统资源
-  protocol.registerFileProtocol('app-file', (request, callback) => {
-    let url = request.url.replace('app-file://', '');
-    try {
-      url = decodeURIComponent(url);
-      if (process.platform === 'win32') {
-        if (url.startsWith('/') && url[2] === ':') url = url.slice(1);
-        if (!url.includes(':') && !url.startsWith('\\\\')) url = '\\\\' + url.replace(/\//g, '\\');
-        url = path.normalize(url);
-      }
-      callback({ path: url });
-    } catch (e) {
-      callback({ error: -6 });
-    }
-  });
-
-  createTray();
-
   const config = loadLocalConfig();
   if (config) {
     const dbResult = await initDB(config);
-    if (dbResult.success) {
-      createWindow('/login');
-    } else {
-      createWindow('/setup');
-    }
+    createWindow(dbResult.success ? '/login' : '/setup');
   } else {
     createWindow('/setup');
   }
+});
 
-  // 启动后台扫描任务
-  setInterval(checkPendingTasksInBackground, 5 * 60 * 1000);
-  setTimeout(checkPendingTasksInBackground, 10000);
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });

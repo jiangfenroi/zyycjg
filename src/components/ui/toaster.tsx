@@ -20,7 +20,6 @@ export function Toaster() {
     setMounted(true)
   }, [])
 
-  // 仅在客户端挂载后渲染，彻底解决 Radix UI 的属性水合冲突
   if (!mounted) return null
 
   return (

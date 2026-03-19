@@ -30,10 +30,6 @@ export function FollowUpNotifier() {
         !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       )
       setTasks(pending)
-      
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        window.electronAPI.setTaskbarFlash(pending.length > 0)
-      }
     } catch (err) {
       console.error("Failed to load notification tasks", err)
     } finally {
@@ -44,24 +40,13 @@ export function FollowUpNotifier() {
   React.useEffect(() => {
     loadTasks()
     const timer = setInterval(loadTasks, 60000)
-    return () => {
-      clearInterval(timer)
-      if (typeof window !== 'undefined' && window.electronAPI) {
-        window.electronAPI.setTaskbarFlash(false)
-      }
-    }
+    return () => clearInterval(timer)
   }, [loadTasks])
 
   const count = tasks.length
 
-  const handleOpenChange = (open: boolean) => {
-    if (open && typeof window !== 'undefined' && window.electronAPI) {
-      window.electronAPI.setTaskbarFlash(false)
-    }
-  }
-
   return (
-    <Popover onOpenChange={handleOpenChange}>
+    <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className={`h-6 w-6 text-primary ${count > 0 ? 'animate-pulse-red' : ''}`} />

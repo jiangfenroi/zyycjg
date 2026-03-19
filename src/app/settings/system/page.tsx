@@ -2,12 +2,11 @@
 "use client"
 
 import * as React from 'react'
-import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X, Monitor } from 'lucide-react'
+import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { SystemSettings } from '@/lib/types'
@@ -21,7 +20,6 @@ export default function SystemSettingsPage() {
     SYSTEM_NAME: '',
     SYSTEM_LOGO_TEXT: '',
     SYSTEM_LOGO_URL: '',
-    AUTO_START: '0'
   })
 
   React.useEffect(() => {
@@ -40,7 +38,7 @@ export default function SystemSettingsPage() {
     setSubmitting(true)
     const success = await DataService.updateSystemSettings(settings)
     if (success) {
-      toast({ title: "设置已同步", description: "系统配置已更新，所有联网终端将同步生效。" })
+      toast({ title: "设置已同步", description: "系统配置已更新。" })
     } else {
       toast({ variant: "destructive", title: "更新失败", description: "请检查数据库连接" })
     }
@@ -77,7 +75,7 @@ export default function SystemSettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">系统身份设置</h1>
-        <p className="text-muted-foreground mt-1">自定义网络版客户端的展示名称与品牌标识。</p>
+        <p className="text-muted-foreground mt-1">自定义客户端的展示名称与品牌标识。</p>
       </div>
 
       <Card>
@@ -94,7 +92,7 @@ export default function SystemSettingsPage() {
             <Input 
               value={settings.SYSTEM_NAME} 
               onChange={e => setSettings({...settings, SYSTEM_NAME: e.target.value})}
-              placeholder="例如: 某某医院体检中心管理系统"
+              placeholder="请输入系统名称"
             />
           </div>
           
@@ -125,11 +123,11 @@ export default function SystemSettingsPage() {
               </div>
               <div className="flex-1 space-y-3">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  建议上传 128x128 像素的透明背景图片。设置后将替换侧边栏上方的文字 Logo。
+                  建议上传正方形透明背景图片。设置后将替换侧边栏上方的文字 Logo。
                 </p>
                 <Button variant="outline" size="sm" onClick={handleLogoUpload} disabled={uploading}>
                   {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  选择 Logo 图片
+                  选择图片
                 </Button>
               </div>
             </div>
@@ -151,26 +149,10 @@ export default function SystemSettingsPage() {
             </div>
           </div>
 
-          <div className="pt-4 border-t space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <Monitor className="h-4 w-4 text-primary" />
-                  <Label className="text-base">开机自动启动</Label>
-                </div>
-                <p className="text-xs text-muted-foreground">电脑启动后自动运行程序并进入托盘静默预警</p>
-              </div>
-              <Switch 
-                checked={settings.AUTO_START === '1'} 
-                onCheckedChange={(checked) => setSettings({...settings, AUTO_START: checked ? '1' : '0'})} 
-              />
-            </div>
-          </div>
-
           <div className="bg-blue-50 border border-blue-100 p-4 rounded-md flex gap-3">
             <Info className="h-5 w-5 text-blue-500 shrink-0" />
             <p className="text-xs text-blue-700 leading-relaxed">
-              <b>管理员提示：</b> 修改完成后，所有接入中心服务器的终端均会同步应用。开启自启动后，程序将在开机时静默启动，仅在有待随访任务时提醒。
+              管理员提示：修改完成后，所有接入中心服务器的终端均会同步应用。
             </p>
           </div>
 
