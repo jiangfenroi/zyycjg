@@ -15,19 +15,18 @@ export default function SetupPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(false)
   
-  // 预设服务器参数
   const [config, setConfig] = React.useState({
     host: '',
-    port: '10699',
+    port: '1521',
     user: 'medi_admin',
     password: 'AdminPassword123',
-    database: 'meditrack_db'
+    serviceName: 'orcl'
   })
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!config.host) {
-      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址" })
+    if (!config.host || !config.serviceName) {
+      toast({ variant: "destructive", title: "配置不完整", description: "请输入服务器地址和服务名" })
       return
     }
 
@@ -72,7 +71,7 @@ export default function SetupPage() {
           <CardHeader className="bg-slate-50/50 border-b pb-6">
             <CardTitle className="flex items-center gap-2 text-primary text-lg">
               <Server className="h-5 w-5" />
-              数据库接入参数
+              Oracle 接入参数
             </CardTitle>
             <CardDescription>
               成功接入后系统将自动完成中心端初始化
@@ -93,7 +92,7 @@ export default function SetupPage() {
                 <div className="space-y-2">
                   <Label>端口</Label>
                   <Input 
-                    placeholder="10699" 
+                    placeholder="1521" 
                     value={config.port}
                     onChange={e => setConfig({...config, port: e.target.value})}
                     required
@@ -102,14 +101,14 @@ export default function SetupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>数据库名称</Label>
+                <Label>服务名</Label>
                 <div className="relative">
                   <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input 
                     className="pl-10"
-                    placeholder="留空则使用默认库名" 
-                    value={config.database}
-                    onChange={e => setConfig({...config, database: e.target.value})}
+                    placeholder="例如: orcl" 
+                    value={config.serviceName}
+                    onChange={e => setConfig({...config, serviceName: e.target.value})}
                   />
                 </div>
               </div>

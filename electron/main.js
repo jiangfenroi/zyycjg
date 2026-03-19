@@ -2,12 +2,18 @@
 const { app, BrowserWindow, ipcMain, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const mysql = require('mysql2/promise');
+const oracledb = require('oracledb');
 
-// 强制禁用硬件加速，解决 Windows 8.1/7 启动无反应或黑屏问题
-if (process.platform === 'win32') {
-  app.disableHardwareAcceleration();
-}
+/**
+ * 终极兼容性加固：彻底禁用所有 GPU 相关硬件加速
+ * 解决 Windows 7 / 8.1 启动无反应或黑屏的核心手段
+ */
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('disable-gpu-compositing');
+app.commandLine.appendSwitch('ignore-gpu-blacklist');
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -15,8 +21,7 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
 ]);
 
-let dbPool;
-let mainWindow;
+let dbConnection;
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 
 function loadLocalConfig() {
@@ -47,103 +52,93 @@ async function initDB(config) {
     const dbConfig = config || loadLocalConfig();
     if (!dbConfig || !dbConfig.host) return { success: false, error: 'NO_CONFIG' };
 
-    const targetDatabase = dbConfig.database || 'meditrack_db';
-
-    const connection = await mysql.createConnection({
-      host: dbConfig.host,
-      port: parseInt(dbConfig.port || '10699'),
-      user: dbConfig.user,
-      password: dbConfig.password,
-      connectTimeout: 10000
-    });
-
-    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${targetDatabase}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
-    await connection.end();
-
-    if (dbPool) {
-      try { await dbPool.end(); } catch (e) {}
+    // 关闭现有连接
+    if (dbConnection) {
+      try { await dbConnection.close(); } catch (e) {}
     }
 
-    dbPool = mysql.createPool({
-      host: dbConfig.host,
-      port: parseInt(dbConfig.port || '10699'),
+    // Oracle 连接字符串构造
+    const connectString = `${dbConfig.host}:${dbConfig.port || '1521'}/${dbConfig.serviceName || 'orcl'}`;
+
+    dbConnection = await oracledb.getConnection({
       user: dbConfig.user,
       password: dbConfig.password,
-      database: targetDatabase,
-      waitForConnections: true,
-      connectionLimit: 50,
-      queueLimit: 0,
-      connectTimeout: 15000
+      connectString: connectString
     });
 
+    // 自动建表逻辑
     const tables = [
-      `CREATE TABLE IF NOT EXISTS SP_USERS (
-        ID INT AUTO_INCREMENT PRIMARY KEY,
-        USERNAME VARCHAR(50) UNIQUE NOT NULL,
-        PASSWORD VARCHAR(255) NOT NULL,
-        REAL_NAME VARCHAR(50),
-        ROLE ENUM('admin', 'operator') DEFAULT 'operator',
+      `CREATE TABLE SP_USERS (
+        ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        USERNAME VARCHAR2(50) UNIQUE NOT NULL,
+        PASSWORD VARCHAR2(255) NOT NULL,
+        REAL_NAME VARCHAR2(50),
+        ROLE VARCHAR2(20) DEFAULT 'operator',
         CREATE_DATE DATE
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_SETTINGS (
-        CONF_KEY VARCHAR(50) PRIMARY KEY,
-        CONF_VALUE TEXT
+      `CREATE TABLE SP_SETTINGS (
+        CONF_KEY VARCHAR2(50) PRIMARY KEY,
+        CONF_VALUE CLOB
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_PERSON (
-        PERSONID VARCHAR(50) PRIMARY KEY,
-        PERSONNAME VARCHAR(50) NOT NULL,
-        SEX ENUM('男', '女') NOT NULL,
-        AGE INT,
-        PHONE VARCHAR(20),
-        IDNO VARCHAR(18),
-        UNITNAME VARCHAR(200),
+      `CREATE TABLE SP_PERSON (
+        PERSONID VARCHAR2(50) PRIMARY KEY,
+        PERSONNAME VARCHAR2(50) NOT NULL,
+        SEX VARCHAR2(10) NOT NULL,
+        AGE NUMBER,
+        PHONE VARCHAR2(20),
+        IDNO VARCHAR2(18),
+        UNITNAME VARCHAR2(200),
         OCCURDATE DATE,
-        OPTNAME VARCHAR(50)
+        OPTNAME VARCHAR2(50)
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_ZYJG (
-        ID VARCHAR(50) PRIMARY KEY,
-        PERSONID VARCHAR(50),
-        TJBHID VARCHAR(50),
-        ZYYCJGXQ TEXT,
-        ZYYCJGFL ENUM('A', 'B'),
-        ZYYCJGCZYJ TEXT,
-        ZYYCJGFKJG TEXT,
+      `CREATE TABLE SP_ZYJG (
+        ID VARCHAR2(50) PRIMARY KEY,
+        PERSONID VARCHAR2(50),
+        TJBHID VARCHAR2(50),
+        ZYYCJGXQ CLOB,
+        ZYYCJGFL VARCHAR2(10),
+        ZYYCJGCZYJ CLOB,
+        ZYYCJGFKJG CLOB,
         ZYYCJGTZRQ DATE,
-        ZYYCJGTZSJ TIME,
-        WORKER VARCHAR(50),
-        ZYYCJGBTZR VARCHAR(50),
-        IS_NOTIFIED TINYINT(1) DEFAULT 1,
-        IS_HEALTH_EDU TINYINT(1) DEFAULT 1
+        ZYYCJGTZSJ VARCHAR2(20),
+        WORKER VARCHAR2(50),
+        ZYYCJGBTZR VARCHAR2(50),
+        IS_NOTIFIED NUMBER(1) DEFAULT 1,
+        IS_HEALTH_EDU NUMBER(1) DEFAULT 1
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_SF (
-        ID VARCHAR(50) PRIMARY KEY,
-        PERSONID VARCHAR(50),
-        ZYYCJGTJBH VARCHAR(50),
-        HFresult TEXT,
+      `CREATE TABLE SP_SF (
+        ID VARCHAR2(50) PRIMARY KEY,
+        PERSONID VARCHAR2(50),
+        ZYYCJGTJBH VARCHAR2(50),
+        HFRESULT CLOB,
         SFTIME DATE,
-        SFGZRY VARCHAR(50),
-        jcsf TINYINT(1) DEFAULT 0,
+        SFGZRY VARCHAR2(50),
+        JCSF NUMBER(1) DEFAULT 0,
         XCSFTIME DATE
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_LOGS (
-        ID INT AUTO_INCREMENT PRIMARY KEY,
-        OPERATOR VARCHAR(50),
-        ACTION TEXT,
-        TYPE VARCHAR(20),
+      `CREATE TABLE SP_LOGS (
+        ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        OPERATOR VARCHAR2(50),
+        ACTION CLOB,
+        TYPE VARCHAR2(20),
         LOG_TIME TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`
     ];
 
     for (const sql of tables) {
-      await dbPool.execute(sql);
+      try {
+        await dbConnection.execute(sql);
+      } catch (e) {
+        // 表已存在报错忽略
+        if (e.errorNum !== 955) console.warn(e.message);
+      }
     }
 
-    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_NAME', 'MediTrack Connect']);
-    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_TEXT', 'M']);
-    await dbPool.execute('INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES (?, ?)', ['SYSTEM_LOGO_URL', '']);
-
-    await dbPool.execute('INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)', 
-      ['admin', '123456', '系统管理员', 'admin', new Date().toISOString().split('T')[0]]);
+    // 初始化基础数据
+    await dbConnection.execute(`MERGE INTO SP_SETTINGS t USING (SELECT 'SYSTEM_NAME' k, 'MediTrack Connect' v FROM dual) s ON (t.CONF_KEY = s.k) WHEN NOT MATCHED THEN INSERT (CONF_KEY, CONF_VALUE) VALUES (s.k, s.v)`);
+    await dbConnection.execute(`MERGE INTO SP_USERS t USING (SELECT 'admin' u, '123456' p, '系统管理员' r, 'admin' role FROM dual) s ON (t.USERNAME = s.u) WHEN NOT MATCHED THEN INSERT (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (s.u, s.p, s.r, s.role, SYSDATE)`);
+    
+    await dbConnection.commit();
 
     return { success: true };
   } catch (err) {
@@ -152,29 +147,26 @@ async function initDB(config) {
 }
 
 function createWindow(startPath = '/') {
-  mainWindow = new BrowserWindow({
+  const win = new BrowserWindow({
     width: 1440,
     height: 900,
     show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'), 
-      webSecurity: false,
-    },
-    title: "MediTrack Connect"
+      preload: path.join(__dirname, 'preload.js'),
+      sandbox: false // 禁用沙盒以增加兼容性
+    }
   });
 
   const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
-  mainWindow.loadURL(url);
+  win.loadURL(url);
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  win.once('ready-to-show', () => {
+    win.show();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  return win;
 }
 
 ipcMain.handle('setup-db', async (event, config) => {
@@ -187,7 +179,7 @@ ipcMain.handle('setup-db', async (event, config) => {
 });
 
 ipcMain.handle('db-query', async (event, { sql, params }) => {
-  if (!dbPool) {
+  if (!dbConnection) {
     const config = loadLocalConfig();
     if (config) {
       const initRes = await initDB(config);
@@ -198,24 +190,22 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
   }
   
   try {
-    const [rows] = await dbPool.execute(sql, params || []);
-    return { success: true, data: rows };
+    const result = await dbConnection.execute(sql, params || [], { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    return { success: true, data: result.rows };
   } catch (err) {
-    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
-      return { success: false, error: 'NO_CONNECTION' };
-    }
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbPool) return { success: false, error: 'NO_CONNECTION' };
+  if (!dbConnection) return { success: false, error: 'NO_CONNECTION' };
   try {
-    const [rows] = await dbPool.execute(
-      'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
-      [username, password]
+    const result = await dbConnection.execute(
+      'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = :u AND PASSWORD = :p',
+      { u: username, p: password },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    if (rows.length > 0) return { success: true, user: rows[0] };
+    if (result.rows.length > 0) return { success: true, user: result.rows[0] };
     return { success: false, error: '认证失败' };
   } catch (err) {
     return { success: false, error: err.message };
@@ -227,7 +217,6 @@ app.whenReady().then(async () => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) { url = url.split(':').pop(); }
     if (url.startsWith('/')) url = url.slice(1);
-    if (url.startsWith('./')) url = url.slice(2);
     
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
@@ -249,7 +238,5 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
