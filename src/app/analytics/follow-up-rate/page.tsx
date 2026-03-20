@@ -61,19 +61,21 @@ export default function FollowUpRateAnalytics() {
         const currentYear = new Date().getFullYear()
         
         const monthlyData = months.map(m => {
-          const registered = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(`${currentYear}-${m}`))
-          const completed = registered.filter(r => 
+          // 统计基准：以通知日期所在的月份为准
+          const registeredInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(`${currentYear}-${m}`))
+          // 检查在该通知月中，有多少记录最终完成了随访（随访日期可以在任意时间）
+          const completedInMonth = registeredInMonth.filter(r => 
             followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
           )
           
-          const rate = registered.length > 0 
-            ? Math.round((completed.length / registered.length) * 100) 
+          const rate = registeredInMonth.length > 0 
+            ? Math.round((completedInMonth.length / registeredInMonth.length) * 100) 
             : 0
 
           return {
             month: `${parseInt(m)}月`,
-            registered: registered.length,
-            completed: completed.length,
+            registered: registeredInMonth.length,
+            completed: completedInMonth.length,
             rate: rate
           }
         })
@@ -106,7 +108,7 @@ export default function FollowUpRateAnalytics() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-primary">随访闭环率年度分析</h1>
-          <p className="text-sm text-muted-foreground">统计维度：本年度各月登记流水 vs 最终结案流水</p>
+          <p className="text-sm text-muted-foreground">统计维度：按重要异常结果的【通知月份】归集随访完成情况</p>
         </div>
       </div>
 
@@ -136,23 +138,21 @@ export default function FollowUpRateAnalytics() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
-              随访对比趋势图
+              随访率趋势图 (%)
             </CardTitle>
-            <CardDescription>展示每月新增异常与完成随访的数量对比</CardDescription>
+            <CardDescription>展示每月发现的异常结果最终完成随访的百分比</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analyticsData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                 <XAxis dataKey="month" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
                 <Tooltip 
                    cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                 />
-                <Legend iconType="circle" />
-                <Bar name="新增异常" dataKey="registered" fill="hsl(var(--muted-foreground))" opacity={0.5} radius={[2, 2, 0, 0]} />
-                <Bar name="已完结" dataKey="completed" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+                <Bar name="随访闭环率" dataKey="rate" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -164,16 +164,16 @@ export default function FollowUpRateAnalytics() {
               <CalendarDays className="h-4 w-4 text-primary" />
               年度月度分析矩阵
             </CardTitle>
-            <CardDescription>各月精细化随访率统计列表</CardDescription>
+            <CardDescription>按通知月计算的精细化随访率列表</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead>月份</TableHead>
-                  <TableHead>新增流水</TableHead>
-                  <TableHead>结案流水</TableHead>
-                  <TableHead className="text-right">当月闭环率</TableHead>
+                  <TableHead>异常发现</TableHead>
+                  <TableHead>已闭环数</TableHead>
+                  <TableHead className="text-right">当月最终闭环率</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

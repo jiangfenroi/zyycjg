@@ -62,21 +62,30 @@ export default function Dashboard() {
         })
 
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+        const currentYear = new Date().getFullYear()
+        
         const monthlyStats = months.map(m => {
           const monthLabel = `${parseInt(m)}月`
-          const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").includes(`-${m}-`))
-          const completedInMonth = resultsInMonth.filter(r => 
+          // 以通知月份为基准进行过滤
+          const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(`${currentYear}-${m}`))
+          // 检查该通知月的所有记录中，有多少已完成随访
+          const completedForMonth = resultsInMonth.filter(r => 
             followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
           ).length
 
+          const rate = resultsInMonth.length > 0 
+            ? Math.round((completedForMonth / resultsInMonth.length) * 100) 
+            : 0
+
           return {
             month: monthLabel,
-            count: completedInMonth,
+            rate: rate,
+            count: completedForMonth,
             total: resultsInMonth.length
           }
         })
 
-        setTrendData(monthlyStats.slice(-6))
+        setTrendData(monthlyStats)
 
       } catch (err) {
         console.error("Dashboard analytics error:", err)
@@ -176,15 +185,16 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <BarChart3 className="h-4 w-4" />
-              随访结案月度趋势
+              随访结案月度趋势 (按通知月统计随访率)
             </CardTitle>
+            <CardDescription>趋势表示该月发现的异常中最终完成闭环的比例</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
                 <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
                 <Tooltip 
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
                   content={({ active, payload }) => {
@@ -192,16 +202,17 @@ export default function Dashboard() {
                       const data = payload[0].payload;
                       return (
                         <div className="bg-background border p-3 rounded-lg shadow-xl text-xs space-y-1">
-                          <p className="font-bold border-b pb-1 mb-1">{data.month}</p>
-                          <p className="text-primary flex justify-between gap-4"><span>已随访:</span> <span>{data.count} 例</span></p>
-                          <p className="text-muted-foreground flex justify-between gap-4"><span>异常发现:</span> <span>{data.total} 例</span></p>
+                          <p className="font-bold border-b pb-1 mb-1 text-primary">{data.month} 指标</p>
+                          <p className="text-foreground flex justify-between gap-6"><span>随访率:</span> <span className="font-bold">{data.rate}%</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-6"><span>异常通知:</span> <span>{data.total} 例</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-6"><span>已结案:</span> <span>{data.count} 例</span></p>
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
