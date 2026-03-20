@@ -157,6 +157,26 @@ async function initDB(config) {
   }
 }
 
+/**
+ * 智能连接检查：静默尝试从本地缓存加载凭据
+ */
+async function ensureConnection() {
+  if (dbConnection) return { success: true };
+  if (fs.existsSync(configPath)) {
+    try {
+      const encryptedData = fs.readFileSync(configPath, 'utf8');
+      const configStr = decrypt(encryptedData);
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        return await initDB(config);
+      }
+    } catch (e) {
+      return { success: false, error: '加载缓存凭据失败' };
+    }
+  }
+  return { success: false, error: 'NO_CONFIG' };
+}
+
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -168,24 +188,9 @@ ipcMain.handle('setup-db', async (event, config) => {
 });
 
 ipcMain.handle('db-query', async (event, { sql, params }) => {
-  if (!dbConnection) {
-    if (fs.existsSync(configPath)) {
-      try {
-        const encryptedData = fs.readFileSync(configPath, 'utf8');
-        const configStr = decrypt(encryptedData);
-        if (configStr) {
-          const config = JSON.parse(configStr);
-          await initDB(config);
-        } else {
-          return { success: false, error: '解密凭据失败' };
-        }
-      } catch (e) {
-        return { success: false, error: '加载数据库配置失败' };
-      }
-    } else {
-      return { success: false, error: 'NO_CONFIG' };
-    }
-  }
+  const connStatus = await ensureConnection();
+  if (!connStatus.success) return { success: false, error: connStatus.error };
+  
   try {
     const [rows] = await dbConnection.execute(sql, params || []);
     return { success: true, data: rows };
@@ -196,7 +201,9 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
 });
 
 ipcMain.handle('auth-login', async (event, { username, password }) => {
-  if (!dbConnection) return { success: false, error: 'NO_CONNECTION' };
+  const connStatus = await ensureConnection();
+  if (!connStatus.success) return { success: false, error: connStatus.error };
+
   try {
     const [rows] = await dbConnection.execute(
       'SELECT ID, USERNAME, REAL_NAME, ROLE FROM SP_USERS WHERE USERNAME = ? AND PASSWORD = ?',
@@ -280,7 +287,9 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
 ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 app.whenReady().then(() => {
-  // 注册协议处理，增强 SPA 路由兼容性
+  /**
+   * 离线 SPA 协议：支持物理路径解析，处理 Next.js 客户端路由刷新
+   */
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
@@ -289,7 +298,6 @@ app.whenReady().then(() => {
     const cleanPath = url.split('#')[0].split('?')[0];
     let filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
-    // 如果文件不存在或请求的是目录，则重定向到 index.html 以处理 Next.js 客户端路由
     if (!fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory()) {
       filePath = path.join(app.getAppPath(), 'out', 'index.html');
     }

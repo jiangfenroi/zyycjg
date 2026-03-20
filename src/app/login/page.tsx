@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, User, Lock, Loader2, Server, AlertCircle, Hash } from "lucide-react"
+import { ShieldCheck, User, Lock, Loader2, Server, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,12 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DataService } from "@/services/data-service"
-import { Alert, AlertDescription } from "@/components/alert"
 
+/**
+ * 登录页面：极致响应加固
+ * 1. 物理移除加载阻塞，进入程序时立即显示登录表单。
+ * 2. 数据库配置作为背景异步载入，不影响操作员输入工号。
+ */
 export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -24,7 +28,6 @@ export default function LoginPage() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isElectron, setIsElectron] = React.useState(false)
 
-  // 零缓存策略：每次重置为空
   const [dbConfig, setDbConfig] = React.useState({
     host: '',
     port: '',
@@ -35,13 +38,13 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     setIsElectron(typeof window !== 'undefined' && !!window.electronAPI)
-    DataService.getSystemSettings().then(setSettings)
+    // 异步加载品牌资产，不阻塞主线程渲染
+    DataService.getSystemSettings().then(setSettings).catch(() => {});
   }, [])
 
   const handleOpenSettings = (open: boolean) => {
     setIsSettingsOpen(open);
     if (open) {
-      // 物理清空内存状态，不显性回显
       setDbConfig({ host: '', port: '', user: '', password: '', database: '' });
     }
   };
@@ -56,22 +59,29 @@ export default function LoginPage() {
     setLoading(true)
     try {
       if (isElectron && window.electronAPI) {
+        // electronAPI.login 会智能尝试静默重连本地缓存的凭据
         const result = await window.electronAPI.login(username, password)
         if (result.success) {
           localStorage.setItem('currentUser', JSON.stringify(result.user))
           router.push('/')
           toast({ title: "登录成功", description: `欢迎回来，${result.user.REAL_NAME}` })
         } else {
-          toast({ variant: "destructive", title: "登录失败", description: result.error })
+          // 如果连接失败且是因为没配置过数据库
+          if (result.error === 'NO_CONFIG') {
+            toast({ variant: "destructive", title: "未接入服务器", description: "请先配置中心服务器接入参数" })
+            setIsSettingsOpen(true)
+          } else {
+            toast({ variant: "destructive", title: "登录失败", description: result.error })
+          }
         }
       } else {
+        // Web 预览模式
         if (username === 'admin' && password === '123456') {
           const mockUser = { ID: 0, USERNAME: 'admin', REAL_NAME: '演示管理员', ROLE: 'admin' }
           localStorage.setItem('currentUser', JSON.stringify(mockUser))
           router.push('/')
-          toast({ title: "预览模式登录", description: "已进入演示环境" })
         } else {
-          toast({ variant: "destructive", title: "环境限制", description: "请使用 admin / 123456 或在桌面端运行。" })
+          toast({ variant: "destructive", title: "环境限制", description: "请在桌面端运行或使用 admin/123456" })
         }
       }
     } finally {
@@ -80,14 +90,9 @@ export default function LoginPage() {
   }
 
   const handleDbSetup = async () => {
-    if (!isElectron) {
-      toast({ variant: "destructive", title: "操作受限", description: "Web 预览模式不支持物理连接" })
-      return
-    }
-    if (!dbConfig.host || !dbConfig.database || !dbConfig.user || !dbConfig.password || dbLoading) {
-      toast({ variant: "destructive", title: "校验失败", description: "请完整填写数据库接入参数" })
-      return
-    }
+    if (!isElectron) return;
+    if (!dbConfig.host || !dbConfig.database || dbLoading) return;
+    
     setDbLoading(true)
     try {
       if (window.electronAPI) {
@@ -95,7 +100,7 @@ export default function LoginPage() {
         if (result.success) {
           toast({ title: "接入成功", description: "中心服务器连接已同步" })
           setIsSettingsOpen(false)
-          setDbConfig({ host: '', port: '', user: '', password: '', database: '' })
+          // 重新载入品牌设置
           const newSettings = await DataService.getSystemSettings(true)
           setSettings(newSettings)
         } else {
@@ -115,7 +120,7 @@ export default function LoginPage() {
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background" style={bgStyle}>
       <div className="absolute inset-0 bg-background/20 backdrop-blur-md z-0"></div>
       
-      <div className="w-full max-w-md space-y-8 relative z-10 p-6 animate-in fade-in zoom-in duration-300">
+      <div className="w-full max-w-md space-y-8 relative z-10 p-6 animate-in fade-in duration-300">
         <div className="flex flex-col items-center text-center space-y-4">
           <div className="w-20 h-20 bg-card p-1 rounded-2xl shadow-xl flex items-center justify-center border">
             {settings?.SYSTEM_LOGO_URL ? (
@@ -175,10 +180,7 @@ export default function LoginPage() {
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
                         <Label className="text-xs">服务器地址</Label>
-                        <div className="relative">
-                           <Server className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                           <Input placeholder="127.0.0.1" className="pl-8 text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
-                        </div>
+                        <Input placeholder="127.0.0.1" className="text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
@@ -187,26 +189,17 @@ export default function LoginPage() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">端口</Label>
-                          <div className="relative">
-                            <Hash className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                            <Input placeholder="10699" className="pl-8 text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
-                          </div>
+                          <Input placeholder="10699" className="text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <Label className="text-xs">访问账号</Label>
-                          <div className="relative">
-                            <User className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                            <Input placeholder="root" className="pl-8 text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
-                          </div>
+                          <Label className="text-xs">账号</Label>
+                          <Input placeholder="medi_admin" className="text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">访问密码</Label>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                            <Input type="password" placeholder="请输入密码" className="pl-8 text-xs h-9" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
-                          </div>
+                          <Label className="text-xs">密码</Label>
+                          <Input type="password" placeholder="******" className="text-xs h-9" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
                         </div>
                       </div>
                     </div>
@@ -221,10 +214,6 @@ export default function LoginPage() {
             </CardFooter>
           </form>
         </Card>
-
-        <div className="text-center text-muted-foreground/40 text-[10px] tracking-widest font-mono">
-          &copy; 2024 重要异常结果管理系统
-        </div>
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -5,10 +6,8 @@ import {
   Palette, 
   Save, 
   Loader2, 
-  Image as ImageIcon, 
   Layout, 
   FolderOpen, 
-  Upload,
   BookOpen,
   Monitor,
   UserPlus,
