@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Calendar, 
-  Table as TableIcon,
   RefreshCw,
   SearchCheck,
   ListFilter,
@@ -84,44 +83,36 @@ export default function ExportPage() {
     }
   }, [])
 
-  // 物理读取并计算当前导出模式下的条数
   const refreshStats = React.useCallback(async () => {
+    if (!userRole || userRole !== 'admin') return;
     setLoadingData(true);
     try {
-      if (source === 'COMBINED') {
-        const results = await DataService.getAbnormalResults();
-        const filtered = results.filter(r => {
-          if (dateRange.start && r.ZYYCJGTZRQ < dateRange.start) return false;
-          if (dateRange.end && r.ZYYCJGTZRQ > dateRange.end) return false;
-          return true;
-        });
-        setRecordCount(filtered.length);
-      } else {
-        let data: any[] = [];
-        switch (source) {
-          case 'PATIENTS': data = await DataService.getPatients(); break;
-          case 'ABNORMAL_RESULTS': data = await DataService.getAbnormalResults(); break;
-          case 'FOLLOW_UPS': data = await DataService.getFollowUps(); break;
-        }
-        const filtered = data.filter(item => {
-          const itemDate = item.OCCURDATE || item.ZYYCJGTZRQ || item.SFTIME;
-          if (!itemDate) return true;
-          if (dateRange.start && itemDate < dateRange.start) return false;
-          if (dateRange.end && itemDate > dateRange.end) return false;
-          return true;
-        });
-        setRecordCount(filtered.length);
+      let data: any[] = [];
+      if (source === 'COMBINED' || source === 'ABNORMAL_RESULTS') {
+        data = await DataService.getAbnormalResults();
+      } else if (source === 'PATIENTS') {
+        data = await DataService.getPatients();
+      } else if (source === 'FOLLOW_UPS') {
+        data = await DataService.getFollowUps();
       }
+
+      const filtered = data.filter(item => {
+        const itemDate = item.ZYYCJGTZRQ || item.OCCURDATE || item.SFTIME;
+        if (!itemDate) return true;
+        if (dateRange.start && itemDate < dateRange.start) return false;
+        if (dateRange.end && itemDate > dateRange.end) return false;
+        return true;
+      });
+      setRecordCount(filtered.length);
     } catch (e) {
       toast({ variant: "destructive", title: "数据读取失败", description: "无法从中心库获取统计条数" });
     } finally {
       setLoadingData(false);
     }
-  }, [source, dateRange, toast]);
+  }, [source, dateRange, toast, userRole]);
 
   React.useEffect(() => {
     if (userRole === 'admin') {
-      // 默认选中当前模式下的所有可用列
       const available = ALL_COLUMNS.filter(c => {
         if (source === 'COMBINED') return true;
         if (source === 'PATIENTS') return c.category === 'PATIENT';
@@ -146,12 +137,6 @@ export default function ExportPage() {
       </div>
     )
   }
-
-  const handleToggleColumn = (key: string) => {
-    setSelectedColumns(prev => 
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
 
   const handleExport = async () => {
     if (selectedColumns.length === 0) {
@@ -178,10 +163,9 @@ export default function ExportPage() {
           })
           .map(res => {
             const patient = patients.find(p => p.PERSONID === res.PERSONID) || {};
-            // 获取该异常结果关联的最新的随访记录
             const latestSF = followUps
               .filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
-              .sort((a, b) => b.SFTIME.localeCompare(a.SFTIME))[0] || {};
+              .sort((a, b) => (b.SFTIME || '').localeCompare(a.SFTIME || ''))[0] || {};
             
             return { ...patient, ...res, ...latestSF };
           });
@@ -227,7 +211,7 @@ export default function ExportPage() {
 
       const worksheet = XLSX.utils.json_to_sheet(exportRows);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "全院临床业务报表");
+      XLSX.utils.book_append_sheet(workbook, worksheet, "全院业务报表");
       
       const fileName = `${source === 'COMBINED' ? '全院业务合表' : '单表导出'}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(workbook, fileName);
@@ -238,14 +222,6 @@ export default function ExportPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getFilteredColumns = () => {
-    if (source === 'COMBINED') return ALL_COLUMNS;
-    if (source === 'PATIENTS') return ALL_COLUMNS.filter(c => c.category === 'PATIENT');
-    if (source === 'ABNORMAL_RESULTS') return ALL_COLUMNS.filter(c => c.category === 'PATIENT' || c.category === 'RESULT');
-    if (source === 'FOLLOW_UPS') return ALL_COLUMNS.filter(c => c.category === 'FOLLOWUP');
-    return [];
   };
 
   return (
@@ -278,16 +254,16 @@ export default function ExportPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="COMBINED" className="font-bold">全院业务合表 (患者+异常+随访)</SelectItem>
-                    <SelectItem value="ABNORMAL_RESULTS">单表：重要异常结果流水</SelectItem>
-                    <SelectItem value="FOLLOW_UPS">单表：随访结案流水</SelectItem>
+                    <SelectItem value="COMBINED" className="font-bold">全院业务合表 (一案一闭环)</SelectItem>
+                    <SelectItem value="ABNORMAL_RESULTS">单表：异常结果流水</SelectItem>
+                    <SelectItem value="FOLLOW_UPS">单表：随访结案记录</SelectItem>
                     <SelectItem value="PATIENTS">单表：全院电子档案</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[10px] text-muted-foreground bg-primary/5 p-2 rounded leading-relaxed border border-primary/10">
                   {source === 'COMBINED' 
-                    ? "合表模式：以每一项『重要异常记录』为中心，自动物理关联其对应的『患者信息』及『随访结论』，合并为一行导出。"
-                    : "单表模式：直接物理导出所选数据库表的原始记录。"}
+                    ? "合表模式：以每一项『异常记录』为中心，自动物理关联『患者档案』及『随访结论』。"
+                    : "单表模式：直接导出所选数据库表的原始物理记录。"}
                 </p>
               </div>
 
@@ -306,13 +282,7 @@ export default function ExportPage() {
               </div>
 
               <div className="pt-4 border-t">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full h-9 text-xs font-bold" 
-                  onClick={refreshStats}
-                  disabled={loadingData}
-                >
+                <Button variant="outline" size="sm" className="w-full h-9 text-xs font-bold" onClick={refreshStats} disabled={loadingData}>
                   <RefreshCw className={`mr-2 h-3.5 w-3.5 ${loadingData ? 'animate-spin' : ''}`} />
                   重新计算导出规模
                 </Button>
@@ -320,12 +290,8 @@ export default function ExportPage() {
             </CardContent>
           </Card>
 
-          <Button 
-            className="w-full h-14 text-base font-bold shadow-lg group" 
-            onClick={handleExport}
-            disabled={submitting || recordCount === 0}
-          >
-            {submitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <FileSpreadsheet className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />}
+          <Button className="w-full h-14 text-base font-bold shadow-lg" onClick={handleExport} disabled={submitting || recordCount === 0}>
+            {submitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <FileSpreadsheet className="mr-2 h-5 w-5" />}
             执行 Excel 物理导出
           </Button>
         </div>
@@ -335,14 +301,11 @@ export default function ExportPage() {
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <ListFilter className="h-4 w-4 text-primary" />
-                自定义字段勾选 (跨表合并)
+                自定义字段勾选
               </CardTitle>
-              <CardDescription className="text-xs">
-                勾选需要合并在同一行导出的临床维度
-              </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setSelectedColumns(getFilteredColumns().map(c => c.key))} className="h-8 text-[11px] font-bold">全选字段</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedColumns(ALL_COLUMNS.map(c => c.key))} className="h-8 text-[11px] font-bold">全选字段</Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedColumns([])} className="h-8 text-[11px] font-bold">清空选择</Button>
             </div>
           </CardHeader>
@@ -361,18 +324,12 @@ export default function ExportPage() {
                       {ALL_COLUMNS.filter(c => c.category === cat).map((col) => (
                         <div 
                           key={col.key} 
-                          className={`flex items-center space-x-3 p-3 border rounded-lg transition-all cursor-pointer group hover:border-primary/50 ${selectedColumns.includes(col.key) ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20' : 'bg-background'}`} 
-                          onClick={() => handleToggleColumn(col.key)}
+                          className={`flex items-center space-x-3 p-3 border rounded-lg transition-all cursor-pointer hover:border-primary/50 ${selectedColumns.includes(col.key) ? 'bg-primary/5 border-primary/30' : 'bg-background'}`} 
+                          onClick={() => setSelectedColumns(prev => prev.includes(col.key) ? prev.filter(k => k !== col.key) : [...prev, col.key])}
                         >
-                          <Checkbox 
-                            id={`col-${col.key}`} 
-                            checked={selectedColumns.includes(col.key)}
-                            onCheckedChange={() => handleToggleColumn(col.key)}
-                          />
+                          <Checkbox checked={selectedColumns.includes(col.key)} />
                           <div className="space-y-0.5">
-                            <Label htmlFor={`col-${col.key}`} className="text-xs font-bold group-hover:text-primary transition-colors cursor-pointer leading-none">
-                              {col.label}
-                            </Label>
+                            <Label className="text-xs font-bold cursor-pointer">{col.label}</Label>
                             <p className="text-[9px] text-muted-foreground font-mono opacity-60">{col.key}</p>
                           </div>
                         </div>
@@ -382,20 +339,6 @@ export default function ExportPage() {
                 ))}
               </div>
             </Tabs>
-
-            <div className="mx-6 mb-6 p-8 bg-muted/30 rounded-xl border-2 border-dashed flex flex-col items-center text-center">
-               <div className="w-12 h-12 bg-background rounded-full flex items-center justify-center shadow-inner mb-3">
-                  <FileSpreadsheet className="h-6 w-6 text-primary opacity-40" />
-               </div>
-               <h4 className="text-sm font-bold text-foreground">物理合表引擎已就绪</h4>
-               <p className="text-[11px] text-muted-foreground mt-2 max-w-sm leading-relaxed">
-                 系统将以『档案编号/体检号』为唯一标识，为您选中的 <span className="text-primary font-bold">{selectedColumns.length}</span> 个跨表字段执行物理连接。
-               </p>
-               <div className="flex gap-4 mt-4">
-                  <Badge variant="secondary" className="text-[9px] px-2 py-0.5 font-mono">ID-BASED MERGE</Badge>
-                  <Badge variant="secondary" className="text-[9px] px-2 py-0.5 font-mono">ON DUPLICATE: LATEST</Badge>
-               </div>
-            </div>
           </CardContent>
         </Card>
       </div>
