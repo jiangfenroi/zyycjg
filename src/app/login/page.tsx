@@ -190,7 +190,7 @@ export default function LoginPage() {
                       <Server className="mr-1 h-3 w-3" /> 数据库配置
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[400px]">
+                  <DialogContent className="sm:max-w-[450px]">
                     <DialogHeader>
                       <DialogTitle>数据库接入配置</DialogTitle>
                     </DialogHeader>
@@ -207,6 +207,16 @@ export default function LoginPage() {
                         <div className="space-y-1">
                           <Label className="text-xs">数据库名</Label>
                           <Input value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <Label className="text-xs">访问账号</Label>
+                          <Input value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">访问密码</Label>
+                          <Input type="password" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
                         </div>
                       </div>
                     </div>
