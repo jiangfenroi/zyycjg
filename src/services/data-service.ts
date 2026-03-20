@@ -21,34 +21,10 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-// 浏览器模拟存储键名
-const STORAGE_KEYS = {
-  PATIENTS: 'mt_patients',
-  RESULTS: 'mt_results',
-  FOLLOW_UPS: 'mt_follow_ups',
-  DOCS: 'mt_docs',
-  LOGS: 'mt_logs',
-  SETTINGS: 'mt_settings',
-  USERS: 'mt_users'
-};
-
-// 辅助函数：初始化浏览器模拟数据
-const getLocal = <T>(key: string, initialData: T): T => {
-  if (typeof window === 'undefined') return initialData;
-  const stored = localStorage.getItem(key);
-  if (!stored) {
-    localStorage.setItem(key, JSON.stringify(initialData));
-    return initialData;
-  }
-  return JSON.parse(stored);
-};
-
-const setLocal = <T>(key: string, data: T) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(key, JSON.stringify(data));
-  }
-};
-
+/**
+ * 远程数据库管理工具核心服务
+ * 所有的业务逻辑均优先通过 Electron IPC 通道与远程 MySQL 交互
+ */
 export const DataService = {
   async logToFile(level: 'INFO' | 'ERROR', message: string) {
     if (isElectron) {
@@ -57,6 +33,8 @@ export const DataService = {
       console.log(`[MOCK LOG ${level}] ${message}`);
     }
   },
+
+  // --- 全院统一设置管理 ---
 
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
@@ -69,12 +47,12 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return getLocal(STORAGE_KEYS.SETTINGS, { 
+    return { 
       SYSTEM_NAME: 'MediTrack Connect', 
       SYSTEM_LOGO_TEXT: 'M', 
       SYSTEM_LOGO_URL: '', 
-      STORAGE_PATH: '/mock/storage' 
-    });
+      STORAGE_PATH: '' 
+    };
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
@@ -87,27 +65,17 @@ export const DataService = {
       if (success) await this.addLog('系统管理员', '同步更新全院全局配置', 'system');
       return success;
     }
-    setLocal(STORAGE_KEYS.SETTINGS, settings);
-    return true;
+    return false;
   },
 
-  async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
-    const newLog: SystemLog = {
-      ID: Date.now(),
-      OPERATOR: operator,
-      ACTION: action,
-      TYPE: type,
-      LOG_TIME: new Date().toISOString()
-    };
+  // --- 审计日志 ---
 
+  async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
       const result = await window.electronAPI.query(sql, [operator, action, type]);
       return result.success;
     }
-
-    const logs = getLocal<SystemLog[]>(STORAGE_KEYS.LOGS, []);
-    setLocal(STORAGE_KEYS.LOGS, [newLog, ...logs]);
     return true;
   },
 
@@ -116,8 +84,10 @@ export const DataService = {
       const result = await window.electronAPI.query('SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 200');
       if (result.success) return result.data;
     }
-    return getLocal(STORAGE_KEYS.LOGS, []);
+    return [];
   },
+
+  // --- 患者档案管理 (SP_PERSON) ---
 
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
@@ -125,7 +95,7 @@ export const DataService = {
       if (!result.success) throw new Error(result.error || '中心数据库同步异常');
       return result.data;
     }
-    return getLocal(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
+    return MOCK_PERSONS;
   },
 
   async addPatient(person: Person): Promise<boolean> {
@@ -136,15 +106,13 @@ export const DataService = {
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
       ]);
-      if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
+      if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建/更新档案: ${person.PERSONNAME}`, 'update');
       return result.success;
     }
-
-    const patients = getLocal<Person[]>(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
-    setLocal(STORAGE_KEYS.PATIENTS, [person, ...patients]);
-    await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
     return true;
   },
+
+  // --- 重要异常结果 (SP_ZYJG) ---
 
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
@@ -162,14 +130,7 @@ export const DataService = {
         }));
       }
     }
-    const results = getLocal<AbnormalResult[]>(STORAGE_KEYS.RESULTS, MOCK_RESULTS);
-    const patients = getLocal<Person[]>(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
-    
-    // 模拟 JOIN
-    return results.map(r => {
-      const p = patients.find(p => p.PERSONID === r.PERSONID);
-      return { ...r, PERSONNAME: p?.PERSONNAME, SEX: p?.SEX, AGE: p?.AGE, PHONE: p?.PHONE };
-    });
+    return MOCK_RESULTS;
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
@@ -181,15 +142,13 @@ export const DataService = {
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
-      if (result.success) await this.addLog(res.WORKER, `录入重要异常结果: ${res.PERSONID}`, 'alert');
+      if (result.success) await this.addLog(res.WORKER, `登记重要异常结果: ${res.PERSONID}`, 'alert');
       return result.success;
     }
-
-    const results = getLocal<AbnormalResult[]>(STORAGE_KEYS.RESULTS, MOCK_RESULTS);
-    setLocal(STORAGE_KEYS.RESULTS, [res, ...results]);
-    await this.addLog(res.WORKER, `录入重要异常结果: ${res.PERSONID}`, 'alert');
     return true;
   },
+
+  // --- 随访闭环管理 (SP_SF) ---
 
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
@@ -202,8 +161,7 @@ export const DataService = {
         }));
       }
     }
-    const followUps = getLocal<FollowUp[]>(STORAGE_KEYS.FOLLOW_UPS, MOCK_FOLLOW_UPS);
-    return personId ? followUps.filter(f => f.PERSONID === personId) : followUps;
+    return personId ? MOCK_FOLLOW_UPS.filter(f => f.PERSONID === personId) : MOCK_FOLLOW_UPS;
   },
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
@@ -216,12 +174,10 @@ export const DataService = {
       if (result.success) await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
       return result.success;
     }
-
-    const followUps = getLocal<FollowUp[]>(STORAGE_KEYS.FOLLOW_UPS, MOCK_FOLLOW_UPS);
-    setLocal(STORAGE_KEYS.FOLLOW_UPS, [followUp, ...followUps]);
-    await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
     return true;
   },
+
+  // --- PDF 附件管理 (SP_DOCUMENTS & 物理 IO) ---
 
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
     if (isElectron) {
@@ -229,8 +185,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
-    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
-    return personId ? docs.filter(d => d.PERSONID === personId) : docs;
+    return personId ? MOCK_DOCS.filter(d => d.PERSONID === personId) : MOCK_DOCS;
   },
 
   async selectLocalFile(): Promise<{ path: string; name: string } | null> {
@@ -240,8 +195,7 @@ export const DataService = {
         return { path: res.path, name: res.name || '' };
       }
     }
-    // 浏览器模拟选择
-    return { path: 'mock/path/file.pdf', name: '模拟体检报告.pdf' };
+    return null;
   },
 
   async uploadDocument(sourcePath: string, personId: string, type: string, customDate?: string): Promise<boolean> {
@@ -258,27 +212,13 @@ export const DataService = {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
-        if (dbResult.success) await this.addLog('操作员', `上传报告附件: ${fileName}`, 'update');
+        if (dbResult.success) await this.addLog('操作员', `物理同步报告附件: ${fileName}`, 'update');
         return dbResult.success;
       } else if (uploadResult.error) {
         throw new Error(uploadResult.error);
       }
     }
-
-    // 浏览器模拟上传
-    const fileName = sourcePath.split(/[\\/]/).pop() || 'report.pdf';
-    const newDoc: PatientDocument = {
-      ID: `DOC${Date.now()}`,
-      PERSONID: personId,
-      TYPE: type as any,
-      FILENAME: fileName,
-      UPLOAD_DATE: customDate || new Date().toISOString().split('T')[0],
-      FILE_URL: '#'
-    };
-    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
-    setLocal(STORAGE_KEYS.DOCS, [newDoc, ...docs]);
-    await this.addLog('操作员', `上传报告附件: ${fileName}`, 'update');
-    return true;
+    return false;
   },
 
   async downloadDocument(sourcePath: string, fileName: string): Promise<boolean> {
@@ -286,35 +226,28 @@ export const DataService = {
       const result = await window.electronAPI.downloadFile(sourcePath, fileName);
       return result.success;
     }
-    window.alert('浏览器环境：模拟下载文件 ' + fileName);
-    return true;
+    return false;
   },
 
   async deleteDocument(id: string, filePath: string): Promise<boolean> {
     if (isElectron) {
       const deleteResult = await window.electronAPI.deleteFile(filePath);
-      if (deleteResult.success) {
-        const dbResult = await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
-        if (dbResult.success) await this.addLog('管理员', `删除报告附件: ${filePath.split(/[\\/]/).pop()}`, 'system');
-        return dbResult.success;
-      } else if (deleteResult.error) {
-        await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
-        return true;
-      }
+      // 物理文件删除失败（可能已被移动）也允许清理数据库记录，确保存根一致
+      const dbResult = await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
+      if (dbResult.success) await this.addLog('管理员', `销毁报告附件索引: ${filePath.split(/[\\/]/).pop()}`, 'system');
+      return dbResult.success;
     }
-    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
-    setLocal(STORAGE_KEYS.DOCS, docs.filter(d => d.ID !== id));
     return true;
   },
+
+  // --- 人员权限与 Admin 安全中心 ---
 
   async getUsers(): Promise<User[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
       if (result.success) return result.data;
     }
-    return getLocal(STORAGE_KEYS.USERS, [
-      { ID: 1, USERNAME: 'admin', REAL_NAME: '系统管理员', ROLE: 'admin', CREATE_DATE: '2023-01-01' }
-    ]);
+    return [];
   },
 
   async addUser(user: Partial<User>): Promise<{ success: boolean; error?: string }> {
@@ -324,33 +257,24 @@ export const DataService = {
         user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]
       ]);
     }
-    const users = getLocal<User[]>(STORAGE_KEYS.USERS, []);
-    const newUser = { 
-      ...user, 
-      ID: Date.now(), 
-      CREATE_DATE: new Date().toISOString().split('T')[0] 
-    } as User;
-    setLocal(STORAGE_KEYS.USERS, [newUser, ...users]);
-    return { success: true };
+    return { success: false, error: '非原生环境无法操作人员库' };
   },
 
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
-      if (result.success) await this.addLog('系统管理员', `销号操作: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `注销账户: ${username}`, 'system');
       return result.success;
     }
-    const users = getLocal<User[]>(STORAGE_KEYS.USERS, []);
-    setLocal(STORAGE_KEYS.USERS, users.filter(u => u.ID !== id));
-    return true;
+    return false;
   },
 
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
-      if (result.success) await this.addLog('系统管理员', `强制重置密码: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `重置账户凭据: ${username}`, 'system');
       return result.success;
     }
-    return true;
+    return false;
   }
 };
