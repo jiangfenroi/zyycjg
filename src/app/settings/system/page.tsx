@@ -12,11 +12,7 @@ import {
   UserCog, 
   UserPlus, 
   Trash2, 
-  Key, 
   Upload,
-  Route,
-  Link as LinkIcon,
-  Plus,
   BookOpen
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -25,19 +21,18 @@ import { Input } from "@/components/ui/input"
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
-import { SystemSettings, User, FollowUpPath } from '@/lib/types'
+import { SystemSettings, User } from '@/lib/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 
 export default function GlobalManagementPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
-  const [settings, setSettings] = React.useState<SystemSettings>({
+  const [settings, setSettings] = React.setSettings<SystemSettings>({
     SYSTEM_NAME: '',
     SYSTEM_LOGO_TEXT: '',
     SYSTEM_LOGO_URL: '',
@@ -45,24 +40,19 @@ export default function GlobalManagementPage() {
     STORAGE_PATH: '',
   })
   const [users, setUsers] = React.useState<User[]>([])
-  const [paths, setPaths] = React.useState<FollowUpPath[]>([])
   const [isAddUserOpen, setIsAddUserOpen] = React.useState(false)
-  const [isAddPathOpen, setIsAddPathOpen] = React.useState(false)
   
   const [newUser, setNewUser] = React.useState({ USERNAME: '', PASSWORD: '', REAL_NAME: '', ROLE: 'operator' as any })
-  const [newPath, setNewPath] = React.useState({ NAME: '', URL: '', DESCRIPTION: '' })
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const [s, u, p] = await Promise.all([
+      const [s, u] = await Promise.all([
         DataService.getSystemSettings(), 
-        DataService.getUsers(),
-        DataService.getFollowUpPaths()
+        DataService.getUsers()
       ])
       setSettings(s)
       setUsers(u)
-      setPaths(p)
     } finally {
       setLoading(false)
     }
@@ -111,48 +101,20 @@ export default function GlobalManagementPage() {
     setSubmitting(false)
   }
 
-  const handleAddPath = async () => {
-    setSubmitting(true)
-    const success = await DataService.addFollowUpPath({
-      ID: `P${Date.now()}`,
-      NAME: newPath.NAME,
-      URL: newPath.URL,
-      DESCRIPTION: newPath.DESCRIPTION,
-      CREATE_DATE: new Date().toISOString().split('T')[0]
-    })
-    if (success) {
-      toast({ title: "随访路径已入库" })
-      setIsAddPathOpen(false)
-      loadData()
-      setNewPath({ NAME: '', URL: '', DESCRIPTION: '' })
-    }
-    setSubmitting(false)
-  }
-
-  const handleDeletePath = async (id: string, name: string) => {
-    if (!confirm(`确定要删除随访路径 ${name} 吗？`)) return
-    const success = await DataService.deleteFollowUpPath(id)
-    if (success) {
-      toast({ title: "删除成功" })
-      loadData()
-    }
-  }
-
   if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></div>
 
   return (
     <div className="space-y-6 fade-in">
       <div>
         <h1 className="text-3xl font-bold text-primary">全院管理中心</h1>
-        <p className="text-muted-foreground text-sm">品牌资产、人员权限与临床路径一站式中心化配置</p>
+        <p className="text-muted-foreground text-sm">品牌资产、人员权限与中心化存储配置</p>
       </div>
 
       <Tabs defaultValue="brand">
-        <TabsList className="grid w-full max-w-2xl grid-cols-4">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="brand">视觉与品牌</TabsTrigger>
           <TabsTrigger value="storage">中心存储</TabsTrigger>
           <TabsTrigger value="users">人员权限</TabsTrigger>
-          <TabsTrigger value="paths">随访路径</TabsTrigger>
         </TabsList>
 
         <TabsContent value="brand" className="space-y-6 pt-4">
@@ -253,38 +215,6 @@ export default function GlobalManagementPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="paths" className="pt-4">
-           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base">随访路径库</CardTitle>
-                <CardDescription className="text-xs">定义临床标准化随访逻辑，驱动提醒引擎</CardDescription>
-              </div>
-              <Button size="sm" onClick={() => setIsAddPathOpen(true)}><Plus className="h-4 w-4 mr-2" /> 定义新路径</Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow className="bg-muted/50"><TableHead>路径名称</TableHead><TableHead>指南链接</TableHead><TableHead>描述说明</TableHead><TableHead className="text-right">操作</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {paths.map(p => (
-                    <TableRow key={p.ID} className="text-xs">
-                      <TableCell className="font-bold">{p.NAME}</TableCell>
-                      <TableCell>
-                        {p.URL ? <a href={p.URL} target="_blank" className="flex items-center gap-1 text-blue-600 hover:underline"><LinkIcon className="h-3 w-3" /> 点击跳转</a> : '-'}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate text-muted-foreground" title={p.DESCRIPTION}>{p.DESCRIPTION}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeletePath(p.ID, p.NAME)}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {paths.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无路径定义数据</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* 新增用户弹窗 */}
@@ -304,19 +234,6 @@ export default function GlobalManagementPage() {
             </div>
           </div>
           <DialogFooter><Button onClick={handleAddUser} disabled={submitting}>确认同步账号库</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 新增路径弹窗 */}
-      <Dialog open={isAddPathOpen} onOpenChange={setIsAddPathOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>定义随访路径</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4 text-sm">
-            <div className="space-y-2"><Label>路径名称</Label><Input placeholder="如：肺结节标准化随访路径" value={newPath.NAME} onChange={e => setNewPath({...newPath, NAME: e.target.value})} /></div>
-            <div className="space-y-2"><Label>指南/文档参考链接</Label><Input placeholder="URL" value={newPath.URL} onChange={e => setNewPath({...newPath, URL: e.target.value})} /></div>
-            <div className="space-y-2"><Label>路径描述</Label><Textarea placeholder="简述随访周期等逻辑..." value={newPath.DESCRIPTION} onChange={e => setNewPath({...newPath, DESCRIPTION: e.target.value})} /></div>
-          </div>
-          <DialogFooter><Button onClick={handleAddPath} disabled={submitting}>保存至临床路径库</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

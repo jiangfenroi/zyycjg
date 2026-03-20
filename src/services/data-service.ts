@@ -48,7 +48,6 @@ export const DataService = {
       const occurDate = new Date(person.OCCURDATE);
       const yearDiff = today.getFullYear() - occurDate.getFullYear();
       
-      // 检查是否已过建档日的周年
       const anniversaryThisYear = new Date(today.getFullYear(), occurDate.getMonth(), occurDate.getDate());
       let ageIncrement = yearDiff;
       if (today < anniversaryThisYear) {
@@ -67,11 +66,10 @@ export const DataService = {
     const today = new Date();
     const monthKey = `${today.getFullYear()}-${today.getMonth() + 1}`;
     
-    // 仅在每月 1 号执行
     if (today.getDate() !== 1) return;
 
     const settings = await this.getSystemSettings(true);
-    if (settings.LAST_AGE_AUDIT === monthKey) return; // 本月已核查过
+    if (settings.LAST_AGE_AUDIT === monthKey) return; 
 
     console.log('启动全院中心化年龄自动核查流水...');
     const patients = await this.getPatients();
@@ -154,7 +152,6 @@ export const DataService = {
 
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
-      // 增加身份证关联逻辑：如果有关联，物理上展示为独立记录，但在逻辑上支持身份证聚合
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (result.success) return result.data;
     }
@@ -164,7 +161,6 @@ export const DataService = {
   async checkPatientExists(personId: string, idNo?: string): Promise<{ exists: boolean; existingData?: Person }> {
     if (!isElectron) return { exists: false };
     
-    // 优先级 1: 身份证
     if (idNo) {
       const idNoRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE IDNO = ? ORDER BY SOURCE = "import" DESC, LAST_UPDATE DESC LIMIT 1', [idNo]);
       if (idNoRes.success && idNoRes.data && idNoRes.data.length > 0) {
@@ -172,7 +168,6 @@ export const DataService = {
       }
     }
 
-    // 优先级 2: 档案编号
     const idRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE PERSONID = ?', [personId]);
     if (idRes.success && idRes.data && idRes.data.length > 0) {
       return { exists: true, existingData: idRes.data[0] };
@@ -185,14 +180,11 @@ export const DataService = {
     if (isElectron) {
       const check = await this.checkPatientExists(person.PERSONID, person.IDNO);
       
-      // 优先级逻辑：如果身份证已存在，且当前是手动录入，而数据库中是导入，则不覆盖导入数据
       if (check.exists && check.existingData) {
         if (check.existingData.SOURCE === 'import' && person.SOURCE === 'manual') {
-          // 只允许基于已有档案创建新流水，不更新档案基本信息
           return { success: true }; 
         }
         
-        // 如果当前是导入或已有档案是手动，则以最新修改为准（UPDATE）
         const sql = `UPDATE SP_PERSON SET PERSONNAME=?, SEX=?, AGE=?, PHONE=?, UNITNAME=?, OCCURDATE=?, OPTNAME=?, SOURCE=?, IDNO=? WHERE PERSONID=?`;
         const res = await window.electronAPI.query(sql, [
           person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
@@ -201,7 +193,6 @@ export const DataService = {
         return res;
       }
 
-      // 新增档案
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO, SOURCE) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
