@@ -177,10 +177,13 @@ export default function Dashboard() {
         <Card className="md:col-span-4 shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
-                <BarChart3 className="h-4 w-4" />
-                闭环率月度趋势 (%)
-              </CardTitle>
+              <div className="flex flex-col gap-1">
+                <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
+                  <BarChart3 className="h-4 w-4" />
+                  随访闭环率月度趋势 (%)
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground font-medium italic">基于发现日期计算登记与结案比例</p>
+              </div>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="w-[100px] h-8 text-xs">
                   <SelectValue />
@@ -202,9 +205,35 @@ export default function Dashboard() {
                   <YAxis fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
                   <Tooltip 
                     cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const d = payload[0].payload;
+                        return (
+                          <div className="bg-background border rounded-lg p-3 shadow-xl text-[10px] space-y-1.5 min-w-[120px]">
+                            <p className="font-bold border-b pb-1 mb-1 text-primary">{d.month} 指标摘要</p>
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">异常登记:</span>
+                              <span className="font-mono font-bold">{d.total} 例</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground">随访结案:</span>
+                              <span className="font-mono font-bold text-emerald-600">{d.count} 例</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-1 border-t border-dashed">
+                              <span className="font-bold">随访闭环率:</span>
+                              <span className="font-mono font-bold text-primary">{d.rate}%</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
                   />
-                  <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={24} />
+                  <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={24}>
+                    {trendData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.rate > 80 ? 'hsl(var(--primary))' : entry.rate > 50 ? 'hsl(var(--secondary))' : 'hsl(var(--muted-foreground) / 0.5)'} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}

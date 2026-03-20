@@ -149,7 +149,7 @@ export default function GlobalManagementPage() {
                     <BookOpen className="h-4 w-4 text-primary mt-0.5" />
                     <div className="text-[11px] text-muted-foreground leading-relaxed">
                       系统会自动将 <code>{"${id}"}</code> 替换为实际的患者 ID。<br />
-                      示例：<code>http://PACS_SERVER/view?id={"${id}"}</code><br />
+                      示例：<code>{"http://PACS_SERVER/view?id=${id}"}</code><br />
                       配置后，所有终端均会同步此调阅地址。
                     </div>
                   </div>
