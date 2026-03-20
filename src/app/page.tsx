@@ -2,8 +2,8 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, Activity } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, Activity, ArrowUpRight } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -48,7 +48,6 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
-        // 待随访逻辑优化：计算已登记异常但尚未在 SP_SF 中结案的流水
         const pending = results.filter(r => 
           !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
         ).length
@@ -62,7 +61,6 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
-        // 构建月度随访趋势图表
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const monthlyStats = months.map(m => {
           const monthLabel = `${parseInt(m)}月`
@@ -89,8 +87,8 @@ export default function Dashboard() {
     loadDashboardData()
   }, [])
 
-  const completionRate = (stats.pendingFollowUps + stats.completedFollowUps) > 0 
-    ? Math.round((stats.completedFollowUps / (stats.pendingFollowUps + stats.completedFollowUps)) * 100) 
+  const completionRate = stats.totalResults > 0 
+    ? Math.round((stats.completedFollowUps / stats.totalResults) * 100) 
     : 0
 
   const categoryData = [
@@ -145,14 +143,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-secondary shadow-sm">
+        <Card className="border-l-4 border-l-secondary shadow-sm relative">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">累计结案 {stats.completedFollowUps} 例</p>
+            <div className="flex justify-between items-end mt-1">
+              <p className="text-xs text-muted-foreground">累计结案 {stats.completedFollowUps} 例</p>
+              <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" asChild>
+                <Link href="/analytics/follow-up-rate">查看年度详情 <ArrowUpRight className="ml-0.5 h-2.5 w-2.5" /></Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
