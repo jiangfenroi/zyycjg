@@ -98,7 +98,7 @@ export default function AbnormalResultsPage() {
     }
     setSubmitting(true)
     try {
-      // 检查档案是否存在，不存在则自动创建
+      // 检查档案是否存在，不存在则自动创建，仅存储必要字段
       const patients = await DataService.getPatients()
       const exists = patients.some(p => p.PERSONID === formData.PERSONID)
       if (!exists) {
@@ -107,16 +107,21 @@ export default function AbnormalResultsPage() {
           PERSONNAME: '新登记患者',
           SEX: '男',
           AGE: 0,
-          PHONE: '待补充',
+          PHONE: '',
           OCCURDATE: new Date().toISOString().split('T')[0],
           OPTNAME: formData.WORKER
         } as Person)
-        toast({ title: "自动建档", description: "该编号不存在，系统已自动创建基础档案" })
+        toast({ title: "自动建档", description: "系统已为该编号创建基础档案" })
       }
 
-      const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
+      // 存储异常结果，仅包含 SP_ZYJG 表定义字段
+      const success = await DataService.addAbnormalResult({ 
+        ...formData, 
+        ID: `R${Date.now()}` 
+      } as AbnormalResult)
+      
       if (success) {
-        toast({ title: "登记成功", description: "数据已录入至中心远程库" })
+        toast({ title: "登记成功", description: "流水已同步至中心远程库" })
         setIsDialogOpen(false)
         loadData()
       }
@@ -168,7 +173,7 @@ export default function AbnormalResultsPage() {
               </div>
               <DialogFooter>
                 <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12">
-                   {submitting ? <Loader2 className="animate-spin" /> : "同步至远程数据库"}
+                   {submitting ? <Loader2 className="animate-spin" /> : "同步至中心库"}
                 </Button>
               </DialogFooter>
             </DialogContent>

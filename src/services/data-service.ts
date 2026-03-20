@@ -200,7 +200,6 @@ export const DataService = {
         if (dbResult.success) await this.addLog('管理员', `删除报告附件: ${filePath.split(/[\\/]/).pop()}`, 'system');
         return dbResult.success;
       } else if (deleteResult.error) {
-        // 如果文件已经不存在，依然尝试清理数据库
         await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
         return true;
       }

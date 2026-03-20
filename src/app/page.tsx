@@ -48,8 +48,10 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
-        // 待随访：登记了异常但未结案的流水
-        const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)).length
+        // 待随访逻辑优化：计算已登记异常但尚未在 SP_SF 中结案的流水
+        const pending = results.filter(r => 
+          !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
+        ).length
 
         setStats({
           totalPatients: patients.length,
@@ -60,10 +62,8 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
-        // 构建统计趋势
+        // 构建月度随访趋势图表
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-        const currentYear = new Date().getFullYear().toString()
-        
         const monthlyStats = months.map(m => {
           const monthLabel = `${parseInt(m)}月`
           const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").includes(`-${m}-`))
@@ -81,7 +81,7 @@ export default function Dashboard() {
         setTrendData(monthlyStats.slice(-6))
 
       } catch (err) {
-        console.error("Dashboard data load error:", err)
+        console.error("Dashboard analytics error:", err)
       } finally {
         setLoading(false)
       }
@@ -102,7 +102,7 @@ export default function Dashboard() {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 font-medium">正在读取远程 MySQL 统计数据</span>
+        <span className="ml-2 font-medium">中心数据库统计分析引擎初始化中</span>
       </div>
     )
   }
@@ -117,15 +117,15 @@ export default function Dashboard() {
         <div className="flex items-center gap-3">
           <FollowUpNotifier />
           <Button variant="outline" size="sm" asChild className="hidden sm:flex">
-            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 快速档案检索</Link>
+            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 档案管理</Link>
           </Button>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-primary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">累计档案总数</CardTitle>
+            <CardTitle className="text-sm font-medium">累计建档量</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -134,36 +134,36 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-destructive shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-destructive shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">待随访任务</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">未完成闭环</p>
+            <p className="text-xs text-muted-foreground mt-1">当前未结案</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-secondary shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-secondary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{completionRate}%</div>
-            <p className="text-xs text-muted-foreground mt-1">累计完成 {stats.completedFollowUps} 例</p>
+            <p className="text-xs text-muted-foreground mt-1">累计结案 {stats.completedFollowUps} 例</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-amber-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">重要异常登记</CardTitle>
+            <CardTitle className="text-sm font-medium">异常登记总数</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalResults}</div>
-            <p className="text-xs text-muted-foreground mt-1">录入总量</p>
+            <p className="text-xs text-muted-foreground mt-1">流水总量</p>
           </CardContent>
         </Card>
       </div>
@@ -173,7 +173,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <BarChart3 className="h-4 w-4" />
-              随访结案趋势 (近6个月)
+              随访结案月度趋势
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
@@ -191,7 +191,7 @@ export default function Dashboard() {
                         <div className="bg-background border p-3 rounded-lg shadow-xl text-xs space-y-1">
                           <p className="font-bold border-b pb-1 mb-1">{data.month}</p>
                           <p className="text-primary flex justify-between gap-4"><span>已随访:</span> <span>{data.count} 例</span></p>
-                          <p className="text-muted-foreground flex justify-between gap-4"><span>异常总数:</span> <span>{data.total} 例</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-4"><span>异常发现:</span> <span>{data.total} 例</span></p>
                         </div>
                       );
                     }
@@ -208,7 +208,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <PieChart className="h-4 w-4" />
-              异常结果分类分布
+              风险分类分布
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[320px] flex flex-col items-center justify-center pt-4">
@@ -262,26 +262,26 @@ export default function Dashboard() {
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-primary/5 hover:border-primary transition-all group" asChild>
             <Link href="/abnormal-results">
-              <AlertCircle className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+              <AlertCircle className="h-6 w-6 text-primary" />
               <span className="font-bold">登记异常结果</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-secondary/5 hover:border-secondary transition-all group" asChild>
             <Link href="/follow-ups">
-              <History className="h-6 w-6 text-secondary group-hover:scale-110 transition-transform" />
-              <span className="font-bold">异常随访</span>
+              <History className="h-6 w-6 text-secondary" />
+              <span className="font-bold">随访闭环</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
             <Link href="/reports">
-              <FileText className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
-              <span className="font-bold">报告附件管理</span>
+              <FileText className="h-6 w-6 text-muted-foreground" />
+              <span className="font-bold">报告附件</span>
             </Link>
           </Button>
           <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
             <Link href="/patients">
-              <Users className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
-              <span className="font-bold">患者档案</span>
+              <Users className="h-6 w-6 text-muted-foreground" />
+              <span className="font-bold">电子病历档案</span>
             </Link>
           </Button>
         </CardContent>
