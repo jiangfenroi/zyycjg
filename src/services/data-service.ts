@@ -2,6 +2,7 @@
 'use client';
 
 import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
+import { MOCK_PERSONS, MOCK_RESULTS, MOCK_FOLLOW_UPS, MOCK_DOCS } from '@/lib/mock-store';
 
 declare global {
   interface Window {
@@ -20,9 +21,41 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
+// 浏览器模拟存储键名
+const STORAGE_KEYS = {
+  PATIENTS: 'mt_patients',
+  RESULTS: 'mt_results',
+  FOLLOW_UPS: 'mt_follow_ups',
+  DOCS: 'mt_docs',
+  LOGS: 'mt_logs',
+  SETTINGS: 'mt_settings',
+  USERS: 'mt_users'
+};
+
+// 辅助函数：初始化浏览器模拟数据
+const getLocal = <T>(key: string, initialData: T): T => {
+  if (typeof window === 'undefined') return initialData;
+  const stored = localStorage.getItem(key);
+  if (!stored) {
+    localStorage.setItem(key, JSON.stringify(initialData));
+    return initialData;
+  }
+  return JSON.parse(stored);
+};
+
+const setLocal = <T>(key: string, data: T) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+};
+
 export const DataService = {
   async logToFile(level: 'INFO' | 'ERROR', message: string) {
-    if (isElectron) await window.electronAPI.log(level, message);
+    if (isElectron) {
+      await window.electronAPI.log(level, message);
+    } else {
+      console.log(`[MOCK LOG ${level}] ${message}`);
+    }
   },
 
   async getSystemSettings(): Promise<SystemSettings> {
@@ -36,7 +69,12 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '', STORAGE_PATH: '' };
+    return getLocal(STORAGE_KEYS.SETTINGS, { 
+      SYSTEM_NAME: 'MediTrack Connect', 
+      SYSTEM_LOGO_TEXT: 'M', 
+      SYSTEM_LOGO_URL: '', 
+      STORAGE_PATH: '/mock/storage' 
+    });
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
@@ -49,15 +87,27 @@ export const DataService = {
       if (success) await this.addLog('系统管理员', '同步更新全院全局配置', 'system');
       return success;
     }
+    setLocal(STORAGE_KEYS.SETTINGS, settings);
     return true;
   },
 
   async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
+    const newLog: SystemLog = {
+      ID: Date.now(),
+      OPERATOR: operator,
+      ACTION: action,
+      TYPE: type,
+      LOG_TIME: new Date().toISOString()
+    };
+
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
       const result = await window.electronAPI.query(sql, [operator, action, type]);
       return result.success;
     }
+
+    const logs = getLocal<SystemLog[]>(STORAGE_KEYS.LOGS, []);
+    setLocal(STORAGE_KEYS.LOGS, [newLog, ...logs]);
     return true;
   },
 
@@ -66,7 +116,7 @@ export const DataService = {
       const result = await window.electronAPI.query('SELECT * FROM SP_LOGS ORDER BY LOG_TIME DESC LIMIT 200');
       if (result.success) return result.data;
     }
-    return [];
+    return getLocal(STORAGE_KEYS.LOGS, []);
   },
 
   async getPatients(): Promise<Person[]> {
@@ -75,7 +125,7 @@ export const DataService = {
       if (!result.success) throw new Error(result.error || '中心数据库同步异常');
       return result.data;
     }
-    return [];
+    return getLocal(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
   },
 
   async addPatient(person: Person): Promise<boolean> {
@@ -89,6 +139,10 @@ export const DataService = {
       if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
       return result.success;
     }
+
+    const patients = getLocal<Person[]>(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
+    setLocal(STORAGE_KEYS.PATIENTS, [person, ...patients]);
+    await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
     return true;
   },
 
@@ -108,7 +162,14 @@ export const DataService = {
         }));
       }
     }
-    return [];
+    const results = getLocal<AbnormalResult[]>(STORAGE_KEYS.RESULTS, MOCK_RESULTS);
+    const patients = getLocal<Person[]>(STORAGE_KEYS.PATIENTS, MOCK_PERSONS);
+    
+    // 模拟 JOIN
+    return results.map(r => {
+      const p = patients.find(p => p.PERSONID === r.PERSONID);
+      return { ...r, PERSONNAME: p?.PERSONNAME, SEX: p?.SEX, AGE: p?.AGE, PHONE: p?.PHONE };
+    });
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
@@ -123,6 +184,10 @@ export const DataService = {
       if (result.success) await this.addLog(res.WORKER, `录入重要异常结果: ${res.PERSONID}`, 'alert');
       return result.success;
     }
+
+    const results = getLocal<AbnormalResult[]>(STORAGE_KEYS.RESULTS, MOCK_RESULTS);
+    setLocal(STORAGE_KEYS.RESULTS, [res, ...results]);
+    await this.addLog(res.WORKER, `录入重要异常结果: ${res.PERSONID}`, 'alert');
     return true;
   },
 
@@ -137,7 +202,8 @@ export const DataService = {
         }));
       }
     }
-    return [];
+    const followUps = getLocal<FollowUp[]>(STORAGE_KEYS.FOLLOW_UPS, MOCK_FOLLOW_UPS);
+    return personId ? followUps.filter(f => f.PERSONID === personId) : followUps;
   },
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
@@ -150,6 +216,10 @@ export const DataService = {
       if (result.success) await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
       return result.success;
     }
+
+    const followUps = getLocal<FollowUp[]>(STORAGE_KEYS.FOLLOW_UPS, MOCK_FOLLOW_UPS);
+    setLocal(STORAGE_KEYS.FOLLOW_UPS, [followUp, ...followUps]);
+    await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
     return true;
   },
 
@@ -159,7 +229,8 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
-    return [];
+    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
+    return personId ? docs.filter(d => d.PERSONID === personId) : docs;
   },
 
   async selectLocalFile(): Promise<{ path: string; name: string } | null> {
@@ -169,7 +240,8 @@ export const DataService = {
         return { path: res.path, name: res.name || '' };
       }
     }
-    return null;
+    // 浏览器模拟选择
+    return { path: 'mock/path/file.pdf', name: '模拟体检报告.pdf' };
   },
 
   async uploadDocument(sourcePath: string, personId: string, type: string, customDate?: string): Promise<boolean> {
@@ -192,7 +264,21 @@ export const DataService = {
         throw new Error(uploadResult.error);
       }
     }
-    return false;
+
+    // 浏览器模拟上传
+    const fileName = sourcePath.split(/[\\/]/).pop() || 'report.pdf';
+    const newDoc: PatientDocument = {
+      ID: `DOC${Date.now()}`,
+      PERSONID: personId,
+      TYPE: type as any,
+      FILENAME: fileName,
+      UPLOAD_DATE: customDate || new Date().toISOString().split('T')[0],
+      FILE_URL: '#'
+    };
+    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
+    setLocal(STORAGE_KEYS.DOCS, [newDoc, ...docs]);
+    await this.addLog('操作员', `上传报告附件: ${fileName}`, 'update');
+    return true;
   },
 
   async downloadDocument(sourcePath: string, fileName: string): Promise<boolean> {
@@ -200,7 +286,8 @@ export const DataService = {
       const result = await window.electronAPI.downloadFile(sourcePath, fileName);
       return result.success;
     }
-    return false;
+    window.alert('浏览器环境：模拟下载文件 ' + fileName);
+    return true;
   },
 
   async deleteDocument(id: string, filePath: string): Promise<boolean> {
@@ -215,7 +302,9 @@ export const DataService = {
         return true;
       }
     }
-    return false;
+    const docs = getLocal<PatientDocument[]>(STORAGE_KEYS.DOCS, MOCK_DOCS);
+    setLocal(STORAGE_KEYS.DOCS, docs.filter(d => d.ID !== id));
+    return true;
   },
 
   async getUsers(): Promise<User[]> {
@@ -223,7 +312,9 @@ export const DataService = {
       const result = await window.electronAPI.query('SELECT ID, USERNAME, REAL_NAME, ROLE, CREATE_DATE FROM SP_USERS ORDER BY ID DESC');
       if (result.success) return result.data;
     }
-    return [];
+    return getLocal(STORAGE_KEYS.USERS, [
+      { ID: 1, USERNAME: 'admin', REAL_NAME: '系统管理员', ROLE: 'admin', CREATE_DATE: '2023-01-01' }
+    ]);
   },
 
   async addUser(user: Partial<User>): Promise<{ success: boolean; error?: string }> {
@@ -233,7 +324,14 @@ export const DataService = {
         user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]
       ]);
     }
-    return { success: false, error: 'OFFLINE' };
+    const users = getLocal<User[]>(STORAGE_KEYS.USERS, []);
+    const newUser = { 
+      ...user, 
+      ID: Date.now(), 
+      CREATE_DATE: new Date().toISOString().split('T')[0] 
+    } as User;
+    setLocal(STORAGE_KEYS.USERS, [newUser, ...users]);
+    return { success: true };
   },
 
   async deleteUser(id: number, username: string): Promise<boolean> {
@@ -242,7 +340,9 @@ export const DataService = {
       if (result.success) await this.addLog('系统管理员', `销号操作: ${username}`, 'system');
       return result.success;
     }
-    return false;
+    const users = getLocal<User[]>(STORAGE_KEYS.USERS, []);
+    setLocal(STORAGE_KEYS.USERS, users.filter(u => u.ID !== id));
+    return true;
   },
 
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
@@ -251,6 +351,6 @@ export const DataService = {
       if (result.success) await this.addLog('系统管理员', `强制重置密码: ${username}`, 'system');
       return result.success;
     }
-    return false;
+    return true;
   }
 };
