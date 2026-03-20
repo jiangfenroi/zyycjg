@@ -265,13 +265,13 @@ export default function AbnormalResultsPage() {
                 <Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" disabled={!!editId} />
               </div>
               <div className="space-y-2">
-                <Label>体检编号 (解析年度复查基准日期)</Label>
+                <Label>体检编号</Label>
                 <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="如 202501020001" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>通知日期 (初次随访 T+7 基准)</Label>
+                <Label>通知日期</Label>
                 <Input 
                   type="date" 
                   value={formData.ZYYCJGTZRQ} 

@@ -214,6 +214,15 @@ export const DataService = {
     return false;
   },
 
+  async updateNextFollowUpDate(id: string, nextDate: string): Promise<boolean> {
+    if (isElectron) {
+      const sql = 'UPDATE SP_ZYJG SET NEXT_DATE = ? WHERE ID = ?';
+      const result = await window.electronAPI.query(sql, [nextDate, id]);
+      return result.success;
+    }
+    return false;
+  },
+
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
     if (isElectron) {
       const sql = personId ? 'SELECT * FROM SP_SF WHERE PERSONID = ? ORDER BY SFTIME DESC' : 'SELECT * FROM SP_SF ORDER BY SFTIME DESC';

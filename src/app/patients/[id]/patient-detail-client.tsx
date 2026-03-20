@@ -21,12 +21,13 @@ import {
   FileSearch,
   UserMinus,
   UserCheck,
-  Heart
+  Heart,
+  Calendar
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -34,9 +35,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { DataService } from '@/services/data-service'
 import { PatientDocument, AbnormalResult, FollowUp, Person } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
+
+const addYears = (dateStr: string, years: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString().split('T')[0];
+};
+
+const addMonths = (dateStr: string, months: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().split('T')[0];
+};
 
 export function PatientDetailClient({ id }: { id: string }) {
   const router = useRouter()
@@ -63,7 +81,9 @@ export function PatientDetailClient({ id }: { id: string }) {
     SFSJ: '',
     SFGZRY: '',
     jcsf: false,
-    ZYYCJGTJBH: ''
+    ZYYCJGTJBH: '',
+    XCSFTIME: '',
+    calculationBase: 'today' as 'today' | 'pedate'
   })
   
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
@@ -104,10 +124,30 @@ export function PatientDetailClient({ id }: { id: string }) {
         SFSJ: new Date().toTimeString().slice(0, 5),
         SFGZRY: realName,
         jcsf: false,
-        ZYYCJGTJBH: results[0]?.TJBHID || ''
+        ZYYCJGTJBH: results[0]?.TJBHID || '',
+        XCSFTIME: '',
+        calculationBase: 'today'
       })
     }
   }, [isFollowUpOpen, results])
+
+  const handleQuickDate = (months: number) => {
+    const selectedRes = results.find(r => r.TJBHID === followUpForm.ZYYCJGTJBH);
+    if (!selectedRes && followUpForm.calculationBase === 'pedate') return;
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const baseDate = followUpForm.calculationBase === 'today' 
+      ? todayStr 
+      : DataService.getPEDateFromID(selectedRes?.TJBHID || '', selectedRes?.ZYYCJGTZRQ || todayStr);
+    
+    let resultDate = '';
+    if (months === 12) {
+      resultDate = addYears(baseDate, 1);
+    } else {
+      resultDate = addMonths(baseDate, months);
+    }
+    setFollowUpForm(prev => ({ ...prev, XCSFTIME: resultDate }));
+  }
 
   const handleUpdateStatus = async (status: 'alive' | 'deceased' | 'lost') => {
     if (!person) return
@@ -167,6 +207,12 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
     setFollowUpSubmitting(true)
     try {
+      // 同步更新主表的 NEXT_DATE
+      const selectedRes = results.find(r => r.TJBHID === followUpForm.ZYYCJGTJBH);
+      if (selectedRes && followUpForm.XCSFTIME) {
+        await DataService.updateNextFollowUpDate(selectedRes.ID, followUpForm.XCSFTIME);
+      }
+
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: id,
@@ -399,7 +445,7 @@ export function PatientDetailClient({ id }: { id: string }) {
       </Dialog>
 
       <Dialog open={isFollowUpOpen} onOpenChange={setIsFollowUpOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>登记随访闭环 - {person.PERSONNAME}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4 text-sm">
             <div className="space-y-2">
@@ -414,10 +460,35 @@ export function PatientDetailClient({ id }: { id: string }) {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label>回访结论详情</Label>
-              <Textarea value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} placeholder="记录沟通结果..." />
+              <Textarea value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} placeholder="记录沟通结果..." className="min-h-[80px]" />
             </div>
+
+            <div className="grid grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
+               <div className="space-y-3">
+                 <Label className="font-bold text-xs flex items-center gap-2"><Calendar className="h-3.5 w-3.5" /> 下次随访预定</Label>
+                 <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
+                 <div className="flex flex-col gap-2">
+                    <Label className="text-[10px] text-muted-foreground font-bold">计算基准</Label>
+                    <RadioGroup value={followUpForm.calculationBase} onValueChange={v => setFollowUpForm({...followUpForm, calculationBase: v as any})} className="flex gap-4">
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="detail-base-today" /><Label htmlFor="detail-base-today" className="text-[10px]">当天</Label></div>
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="detail-base-pe" /><Label htmlFor="detail-base-pe" className="text-[10px]">体检日</Label></div>
+                    </RadioGroup>
+                 </div>
+               </div>
+               <div className="space-y-2">
+                 <Label className="text-[10px] text-muted-foreground">快速周期选择</Label>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(1)}>1月后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(3)}>3月后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(6)}>半年后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(12)}>1年后</Button>
+                 </div>
+               </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
               <div className="space-y-2"><Label>经办人</Label><Input value={followUpForm.SFGZRY} readOnly className="bg-muted" /></div>

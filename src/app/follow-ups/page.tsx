@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw, Calendar, Edit2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,11 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
@@ -35,6 +36,14 @@ const addYears = (dateStr: string, years: number) => {
   return date.toISOString().split('T')[0];
 };
 
+const addMonths = (dateStr: string, months: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setMonth(date.getMonth() + months);
+  return date.toISOString().split('T')[0];
+};
+
 export default function FollowUpsPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(true)
@@ -42,6 +51,7 @@ export default function FollowUpsPage() {
   const [abnormalResults, setAbnormalResults] = React.useState<AbnormalResult[]>([])
   const [followUps, setFollowUps] = React.useState<FollowUp[]>([])
   const [selectedResult, setSelectedResult] = React.useState<AbnormalResult | null>(null)
+  const [editDateResult, setEditDateResult] = React.useState<AbnormalResult | null>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
@@ -55,8 +65,11 @@ export default function FollowUpsPage() {
     SFSJ: '',
     SFGZRY: '',
     jcsf: false,
-    XCSFTIME: ''
+    XCSFTIME: '',
+    calculationBase: 'today' as 'today' | 'pedate'
   })
+
+  const [newNextDate, setNewNextDate] = React.useState('')
 
   const loadData = React.useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -85,9 +98,13 @@ export default function FollowUpsPage() {
       const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
       setFollowUpForm(prev => ({ 
         ...prev, 
+        HFresult: '',
         SFTIME: new Date().toISOString().split('T')[0],
         SFSJ: new Date().toTimeString().slice(0, 5),
-        SFGZRY: realName 
+        SFGZRY: realName,
+        XCSFTIME: '',
+        jcsf: false,
+        calculationBase: 'today'
       }))
       setSelectedFiles([])
       setUploadType('IMAGING')
@@ -96,16 +113,16 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 待处理随访逻辑：通知日期 + 7天 (初次) | 体检日期 + 365天 (年度)
   const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
     if (res.STATUS === 'deceased') return false;
 
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     
-    // 逻辑 1：初次随访 (T[通知日期] + 7)
-    const hasInitialFollowUp = recordFollowUps.length > 0;
-    const initialTargetDate = res.NEXT_DATE || addYears(res.ZYYCJGTZRQ, 0); // fallback to TZ date if no next_date
-    const isInitialPending = !hasInitialFollowUp && initialTargetDate <= today;
+    // 逻辑 1：初次随访或手动调整日期 (NEXT_DATE 优先)
+    // 如果已经有过随访，则初次 T+7 逻辑失效
+    const hasAnyFollowUp = recordFollowUps.length > 0;
+    const initialTargetDate = res.NEXT_DATE || addYears(res.ZYYCJGTZRQ, 0); 
+    const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
     // 逻辑 2：年度复查 (T[体检日期] + 365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
@@ -115,6 +132,36 @@ export default function FollowUpsPage() {
 
     return isInitialPending || isAnnualPending;
   }), [abnormalResults, followUps, today])
+
+  const handleQuickDate = (months: number) => {
+    if (!selectedResult) return;
+    const baseDate = followUpForm.calculationBase === 'today' 
+      ? today 
+      : DataService.getPEDateFromID(selectedResult.TJBHID || '', selectedResult.ZYYCJGTZRQ);
+    
+    let resultDate = '';
+    if (months === 12) {
+      resultDate = addYears(baseDate, 1);
+    } else {
+      resultDate = addMonths(baseDate, months);
+    }
+    setFollowUpForm(prev => ({ ...prev, XCSFTIME: resultDate }));
+  }
+
+  const handleUpdateNextDate = async () => {
+    if (!editDateResult || !newNextDate) return;
+    setSubmitting(true);
+    try {
+      const success = await DataService.updateNextFollowUpDate(editDateResult.ID, newNextDate);
+      if (success) {
+        toast({ title: "随访计划已更新" });
+        setEditDateResult(null);
+        loadData(true);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   const filteredPending = React.useMemo(() => pendingResults.filter(res => {
     const searchLower = searchTerm.toLowerCase();
@@ -147,6 +194,11 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
+      // 如果录入了下次随访时间，同步更新主表的 NEXT_DATE
+      if (followUpForm.XCSFTIME) {
+        await DataService.updateNextFollowUpDate(selectedResult.ID, followUpForm.XCSFTIME);
+      }
+
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -229,13 +281,14 @@ export default function FollowUpsPage() {
                           </TableCell>
                           <TableCell>
                             <Badge variant={isAnnual ? "destructive" : "secondary"} className="text-[10px]">
-                              {isAnnual ? "年度复查" : "初次随访"}
+                              {isAnnual ? "年度复查" : "随访提醒"}
                             </Badge>
                           </TableCell>
                           <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                          <TableCell className="text-right flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
-                            <Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
+                          <TableCell className="text-right flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="查看详情"><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整日期"><Edit2 className="h-4 w-4" /></Button>
+                            <Button size="sm" onClick={() => setSelectedResult(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
                           </TableCell>
                         </TableRow>
                       );
@@ -285,22 +338,65 @@ export default function FollowUpsPage() {
         </TabsContent>
       </Tabs>
 
+      {/* 修改随访计划日期弹窗 */}
+      <Dialog open={!!editDateResult} onOpenChange={(open) => !open && setEditDateResult(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>调整随访计划日期</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>下次随访预定日期</Label>
+              <Input type="date" value={newNextDate} onChange={e => setNewNextDate(e.target.value)} />
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">修改后，任务预警时间将物理更新为新日期。</p>
+          </div>
+          <DialogFooter>
+             <Button variant="outline" onClick={() => setEditDateResult(null)}>取消</Button>
+             <Button onClick={handleUpdateNextDate} disabled={submitting}>确认调整</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 随访结案弹窗 */}
       <Dialog open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>随访闭环结案登记</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
               <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME || '未知'}</span></p>
               <p>异常摘要：<span className="text-muted-foreground">"{selectedResult?.ZYYCJGXQ}"</span></p>
             </div>
+            
             <div className="space-y-2">
               <Label>随访回访结果详情</Label>
-              <Textarea placeholder="请详细记录与患者的沟通结果及处置方案..." className="min-h-[100px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+              <Textarea placeholder="请详细记录与患者的沟通结果及处置方案..." className="min-h-[80px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
+               <div className="space-y-3">
+                 <Label className="font-bold text-xs flex items-center gap-2"><Calendar className="h-3.5 w-3.5" /> 下次随访预定</Label>
+                 <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
+                 <div className="flex flex-col gap-2">
+                    <Label className="text-[10px] text-muted-foreground font-bold">计算基准</Label>
+                    <RadioGroup value={followUpForm.calculationBase} onValueChange={v => setFollowUpForm({...followUpForm, calculationBase: v as any})} className="flex gap-4">
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="base-today" /><Label htmlFor="base-today" className="text-[10px]">当天</Label></div>
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">体检日</Label></div>
+                    </RadioGroup>
+                 </div>
+               </div>
+               <div className="space-y-2">
+                 <Label className="text-[10px] text-muted-foreground">快速选择周期</Label>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(1)}>1月后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(3)}>3月后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(6)}>半年后</Button>
+                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(12)}>1年后</Button>
+                 </div>
+               </div>
             </div>
 
             <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
               <div className="flex justify-between items-center">
-                <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 同步检查结果/病历附件 (PDF)</Label>
+                <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 同步检查结果/病历附件</Label>
                 <div className="flex gap-2">
                    <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                       <SelectTrigger className="h-8 w-24 text-[10px]"><SelectValue /></SelectTrigger>
@@ -326,12 +422,11 @@ export default function FollowUpsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
-               <div className="space-y-2"><Label>结案时间</Label><Input type="time" value={followUpForm.SFSJ} onChange={e => setFollowUpForm({...followUpForm, SFSJ: e.target.value})} /></div>
-            </div>
-            <div className="flex items-center space-x-2 p-2 bg-blue-50/50 rounded">
-                <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                <Label htmlFor="jcsf" className="text-xs text-blue-700">标记为：已完成计划要求的复查或病理检查</Label>
+               <div className="space-y-2"><Label>本次结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+               <div className="flex items-center space-x-2 pt-8">
+                  <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
+                  <Label htmlFor="jcsf" className="text-xs">标记为：已完成必要复查</Label>
+               </div>
             </div>
           </div>
           <DialogFooter>
