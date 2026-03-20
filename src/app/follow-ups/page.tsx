@@ -102,7 +102,7 @@ export default function FollowUpsPage() {
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     const hasAnyFollowUp = recordFollowUps.length > 0;
     
-    // 1. 初次随访 (T[通知日期] + 7) 逻辑优化：若已随访则闭环任务
+    // 1. 初次随访 (T[通知日期] + 7) 逻辑：若周期内已有随访则自动闭环
     const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
@@ -216,7 +216,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床闭环路径驱动中心</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">全院闭环路径中心</p>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -365,12 +365,12 @@ export default function FollowUpsPage() {
                     <Label className="text-[10px] text-muted-foreground font-bold">计算基准</Label>
                     <RadioGroup value={followUpForm.calculationBase} onValueChange={v => setFollowUpForm({...followUpForm, calculationBase: v as any})} className="flex gap-4">
                        <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="base-today" /><Label htmlFor="base-today" className="text-[10px]">当天</Label></div>
-                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">原始体检日</Label></div>
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">体检日</Label></div>
                     </RadioGroup>
                  </div>
                </div>
                <div className="space-y-2">
-                 <Label className="text-[10px] text-muted-foreground">快速选择周期 (基于上方基准)</Label>
+                 <Label className="text-[10px] text-muted-foreground">快速选择周期</Label>
                  <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(1)}>1月后</Button>
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(3)}>3月后</Button>
@@ -395,7 +395,7 @@ export default function FollowUpsPage() {
                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={async () => {
                      const files = await DataService.selectLocalFiles(true);
                      if (files) setSelectedFiles(prev => [...prev, ...files]);
-                   }}>选择物理文件</Button>
+                   }}>选择本地文件</Button>
                 </div>
               </div>
               {selectedFiles.length > 0 && (
@@ -414,7 +414,7 @@ export default function FollowUpsPage() {
                <div className="space-y-2"><Label>结案操作日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
                <div className="flex items-center space-x-2 pt-8">
                   <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                  <Label htmlFor="jcsf" className="text-xs font-bold text-primary">标记为：已完成医学复查</Label>
+                  <Label htmlFor="jcsf" className="text-xs font-bold text-primary">已完成医学复查</Label>
                </div>
             </div>
           </div>
@@ -422,7 +422,7 @@ export default function FollowUpsPage() {
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
             <Button onClick={handleCompleteTask} disabled={submitting}>
               {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              确认结案并同步中心库
+              确认结案并同步
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -235,7 +235,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1 text-sm">全流程临床闭环记录 · 中心化物理数据库驱动</p>
+          <p className="text-muted-foreground mt-1 text-sm">全流程临床闭环记录 · 中心化数据库驱动</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading} title="从中心库刷新流水">

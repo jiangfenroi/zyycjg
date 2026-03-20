@@ -133,7 +133,7 @@ export default function PatientsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">患者档案管理</h1>
-          <p className="text-muted-foreground mt-1 text-sm">统一身份中心：身份证号 ＞ 档案编号 ＞ 体检编号</p>
+          <p className="text-muted-foreground mt-1 text-sm">统一身份中心：全流程建档</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => fetchData()} disabled={loading}>
@@ -151,7 +151,7 @@ export default function PatientsPage() {
                   <div className="space-y-2"><Label>患者姓名</Label><Input value={formData.PERSONNAME} onChange={e => setFormData({...formData, PERSONNAME: e.target.value})} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>身份证号</Label><Input value={formData.IDNO} maxLength={18} onChange={e => setFormData({...formData, IDNO: e.target.value})} placeholder="输入 18 位身份证号实现自动关联" /></div>
+                  <div className="space-y-2"><Label>身份证号</Label><Input value={formData.IDNO} maxLength={18} onChange={e => setFormData({...formData, IDNO: e.target.value})} placeholder="输入 18 位身份证号" /></div>
                   <div className="space-y-2"><Label>手机号</Label><Input value={formData.PHONE} onChange={e => setFormData({...formData, PHONE: e.target.value})} /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -179,7 +179,10 @@ export default function PatientsPage() {
                 <div className="space-y-2"><Label>单位信息</Label><Input value={formData.UNITNAME} onChange={e => setFormData({...formData, UNITNAME: e.target.value})} /></div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddPatient} disabled={submitting}>确认同步建档</Button>
+                <Button onClick={handleAddPatient} disabled={submitting}>
+                   {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                   确认同步建档
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

@@ -151,7 +151,7 @@ export function PatientDetailClient({ id }: { id: string }) {
 
   const handleUpdateStatus = async (status: 'alive' | 'deceased' | 'lost') => {
     if (!person) return
-    const success = await DataService.addPatient({ ...person, STATUS: status })
+    const success = await DataService.addPatient({ ...person, STATUS: status });
     if (success) {
       toast({ title: "状态更新已下发" })
       loadAllData()
@@ -176,7 +176,7 @@ export function PatientDetailClient({ id }: { id: string }) {
   }
 
   const handleUpload = async () => {
-    if (!selectedFilePath) return
+    if (!selectedFilePath || uploading) return
     setUploading(true)
     try {
       const success = await DataService.uploadDocument(selectedFilePath, id, uploadType, uploadDate)
@@ -195,7 +195,7 @@ export function PatientDetailClient({ id }: { id: string }) {
   }
 
   const handleAddFollowUp = async () => {
-    if (!followUpForm.HFresult) return
+    if (!followUpForm.HFresult || followUpSubmitting) return
     setFollowUpSubmitting(true)
     try {
       const selectedRes = results.find(r => r.TJBHID === followUpForm.ZYYCJGTJBH);
@@ -239,19 +239,19 @@ export function PatientDetailClient({ id }: { id: string }) {
           </Button>
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
-              全院电子档案主页
+              全院电子档案
               <Badge variant="outline" className="font-mono text-[10px] bg-white">{id}</Badge>
             </h1>
-            <p className="text-xs text-muted-foreground">物理同步轨迹 · 全流程临床闭环记录</p>
+            <p className="text-xs text-muted-foreground">物理同步轨迹 · 全流程临床记录</p>
           </div>
         </div>
         <div className="flex gap-2">
-          {person.STATUS === 'deceased' && <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5"><UserMinus className="h-3 w-3" /> 已死亡 · 随访预警已物理停办</Badge>}
+          {person.STATUS === 'deceased' && <Badge variant="destructive" className="animate-pulse flex items-center gap-1.5"><UserMinus className="h-3 w-3" /> 已死亡 · 随访已停办</Badge>}
           <Button size="sm" onClick={() => setIsFollowUpOpen(true)} disabled={person.STATUS === 'deceased'}>
              <PlusCircle className="mr-2 h-4 w-4" /> 登记随访结案
           </Button>
           <Button size="sm" variant="outline" onClick={() => setIsUploadOpen(true)}>
-             <Upload className="mr-2 h-4 w-4" /> 同步物理报告
+             <Upload className="mr-2 h-4 w-4" /> 同步电子报告
           </Button>
         </div>
       </div>
@@ -272,15 +272,15 @@ export function PatientDetailClient({ id }: { id: string }) {
             <CardContent className="space-y-6 pt-0">
               <div className="space-y-4">
                 <div className="p-3 bg-muted/40 rounded-lg space-y-2 border">
-                  <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">档案当前状态</Label>
+                  <Label className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">状态管理</Label>
                   <Select value={person.STATUS || 'alive'} onValueChange={handleUpdateStatus}>
                     <SelectTrigger className="h-8 text-xs font-bold">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="alive" className="text-emerald-600"><div className="flex items-center gap-2"><Heart className="h-3 w-3" /> 正常管理中</div></SelectItem>
+                      <SelectItem value="alive" className="text-emerald-600"><div className="flex items-center gap-2"><Heart className="h-3 w-3" /> 正常管理</div></SelectItem>
                       <SelectItem value="deceased" className="text-destructive"><div className="flex items-center gap-2"><UserMinus className="h-3 w-3" /> 已死亡</div></SelectItem>
-                      <SelectItem value="lost" className="text-amber-600"><div className="flex items-center gap-2"><UserCheck className="h-3 w-3" /> 无法取得联系</div></SelectItem>
+                      <SelectItem value="lost" className="text-amber-600"><div className="flex items-center gap-2"><UserCheck className="h-3 w-3" /> 无法联系</div></SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -292,18 +292,14 @@ export function PatientDetailClient({ id }: { id: string }) {
                    </div>
                    <div className="flex items-center gap-3 text-xs">
                      <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                     <span className="text-muted-foreground leading-snug">{person.UNITNAME || '无工作单位信息'}</span>
-                   </div>
-                   <div className="flex items-center gap-3 text-xs">
-                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                     <span className="text-[10px] text-muted-foreground italic">最后同步: {person.LAST_UPDATE ? new Date(person.LAST_UPDATE).toLocaleString() : '-'}</span>
+                     <span className="text-muted-foreground leading-snug">{person.UNITNAME || '无单位信息'}</span>
                    </div>
                 </div>
               </div>
 
               <div className="pt-4 border-t space-y-2">
                 <Button variant="outline" className="w-full justify-start h-9 text-xs font-bold" onClick={handlePACSClose}>
-                  <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 影像物理查阅
+                  <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 影像调阅
                 </Button>
               </div>
             </CardContent>
@@ -314,12 +310,9 @@ export function PatientDetailClient({ id }: { id: string }) {
            <Tabs defaultValue="timeline" className="w-full">
               <div className="flex items-center justify-between mb-2 px-1">
                  <TabsList className="bg-muted/50 p-1">
-                    <TabsTrigger value="timeline" className="text-xs px-6 font-bold">全时序临床闭环轨迹 ({timelineData.length})</TabsTrigger>
-                    <TabsTrigger value="documents" className="text-xs px-6 font-bold">中心库报告汇总 ({docs.length})</TabsTrigger>
+                    <TabsTrigger value="timeline" className="text-xs px-6 font-bold">临床轨迹 ({timelineData.length})</TabsTrigger>
+                    <TabsTrigger value="documents" className="text-xs px-6 font-bold">电子报告 ({docs.length})</TabsTrigger>
                  </TabsList>
-                 <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                    <Clock className="h-3 w-3" /> 按临床发生时间倒序排列
-                 </div>
               </div>
 
               <TabsContent value="timeline" className="mt-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -343,7 +336,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                                   "text-[10px] px-2 h-5 font-bold",
                                   !isResult && "text-emerald-600 border-emerald-200 bg-emerald-50"
                                 )}>
-                                   {isResult ? `重要异常: ${event.data.ZYYCJGFL}类` : '随访结案流水'}
+                                   {isResult ? `异常: ${event.data.ZYYCJGFL}类` : '随访结案'}
                                 </Badge>
                                 {isResult && event.data.NEXT_DATE && (
                                   <Badge variant="secondary" className="text-[10px] h-5 font-bold border-primary/20 bg-primary/5">
@@ -358,14 +351,14 @@ export function PatientDetailClient({ id }: { id: string }) {
                                       <div className="space-y-1">
                                          <h3 className="text-sm font-bold flex items-center gap-2">
                                             {isResult ? <AlertCircle className="h-4 w-4 text-primary" /> : <ClipboardCheck className="h-4 w-4 text-emerald-500" />}
-                                            {isResult ? '临床异常发现摘要' : '临床沟通与回访结论'}
+                                            {isResult ? '异常详情摘要' : '临床回访结论'}
                                          </h3>
                                          <p className="text-xs text-muted-foreground font-medium leading-relaxed">
                                             {isResult ? event.data.ZYYCJGXQ : event.data.HFresult}
                                          </p>
                                       </div>
                                       <div className="text-right shrink-0">
-                                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">操作员</p>
+                                         <p className="text-[10px] font-bold text-muted-foreground uppercase">经办人</p>
                                          <p className="text-xs font-bold text-primary">{isResult ? event.data.WORKER : event.data.SFGZRY}</p>
                                       </div>
                                    </div>
@@ -374,14 +367,8 @@ export function PatientDetailClient({ id }: { id: string }) {
                                       <div className="grid grid-cols-2 gap-4 pt-3 border-t bg-muted/5 p-2 rounded-md">
                                          {event.data.ZYYCJGCZYJ && (
                                             <div className="space-y-1">
-                                               <p className="text-[10px] font-bold text-muted-foreground uppercase">医生处置意见</p>
+                                               <p className="text-[10px] font-bold text-muted-foreground uppercase">处置意见</p>
                                                <p className="text-[11px] italic font-medium">"{event.data.ZYYCJGCZYJ}"</p>
-                                            </div>
-                                         )}
-                                         {event.data.ZYYCJGFKJG && (
-                                            <div className="space-y-1">
-                                               <p className="text-[10px] font-bold text-muted-foreground uppercase">被通知人反馈</p>
-                                               <p className="text-[11px] italic font-medium">"{event.data.ZYYCJGFKJG}"</p>
                                             </div>
                                          )}
                                       </div>
@@ -391,8 +378,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                                       <div className="pt-3 border-t">
                                          <div className="flex items-center justify-between p-2 bg-emerald-50 rounded border border-emerald-100">
                                             <div className="flex items-center gap-2 text-[10px] text-emerald-700 font-bold uppercase">
-                                               <Calendar className="h-3 w-3" />
-                                               下次随访时间已同步
+                                               <Calendar className="h-3 w-3" /> 下次随访已同步
                                             </div>
                                             <span className="text-xs font-bold text-emerald-700 font-mono">{event.data.XCSFTIME}</span>
                                          </div>
@@ -401,8 +387,8 @@ export function PatientDetailClient({ id }: { id: string }) {
 
                                    {eventDocs.length > 0 && (
                                       <div className="pt-4 space-y-2">
-                                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                            <Paperclip className="h-3 w-3" /> 关联物理报告文件 ({eventDocs.length})
+                                         <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
+                                            <Paperclip className="h-3 w-3" /> 关联报告 ({eventDocs.length})
                                          </div>
                                          <div className="grid gap-2 sm:grid-cols-2">
                                             {eventDocs.map(doc => (
@@ -412,11 +398,8 @@ export function PatientDetailClient({ id }: { id: string }) {
                                                      <span className="truncate font-medium" title={doc.FILENAME}>{doc.FILENAME}</span>
                                                   </div>
                                                   <div className="flex gap-1">
-                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:bg-primary/10" onClick={() => DataService.downloadDocument(doc.FILE_URL, doc.FILENAME)}>
+                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-primary" onClick={() => DataService.downloadDocument(doc.FILE_URL, doc.FILENAME)}>
                                                         <Download className="h-3 w-3" />
-                                                     </Button>
-                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDoc(doc.ID, doc.FILE_URL)}>
-                                                        <Trash2 className="h-3 w-3" />
                                                      </Button>
                                                   </div>
                                                </div>
@@ -435,8 +418,8 @@ export function PatientDetailClient({ id }: { id: string }) {
                   <Card className="border-dashed py-24 bg-muted/5">
                     <CardContent className="flex flex-col items-center gap-4">
                        <FileSearch className="h-12 w-12 text-muted-foreground opacity-20" />
-                       <p className="text-sm text-muted-foreground font-medium italic">该档案暂无临床轨迹。请先在工作台进行异常登记。</p>
-                       <Button variant="outline" size="sm" onClick={() => setIsFollowUpOpen(true)} className="font-bold"><PlusCircle className="mr-2 h-4 w-4" /> 发起首笔结案记录</Button>
+                       <p className="text-sm text-muted-foreground font-medium italic">暂无轨迹记录。</p>
+                       <Button variant="outline" size="sm" onClick={() => setIsFollowUpOpen(true)} className="font-bold"><PlusCircle className="mr-2 h-4 w-4" /> 登记随访</Button>
                     </CardContent>
                   </Card>
                 )}
@@ -455,14 +438,14 @@ export function PatientDetailClient({ id }: { id: string }) {
                       <div className="flex-1 overflow-hidden">
                         <p className="text-xs font-bold truncate mb-0.5" title={doc.FILENAME}>{doc.FILENAME}</p>
                         <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
-                           <Calendar className="h-2.5 w-2.5" /> {doc.UPLOAD_DATE} 物理同步
+                           <Calendar className="h-2.5 w-2.5" /> {doc.UPLOAD_DATE}
                         </p>
                       </div>
                       <div className="flex gap-2 border-t pt-3">
                         <Button variant="outline" className="flex-1 h-8 text-[10px] font-bold" onClick={() => DataService.downloadDocument(doc.FILE_URL, doc.FILENAME)}>
-                          <Download className="mr-1.5 h-3 w-3" /> 物理导出
+                          <Download className="mr-1.5 h-3 w-3" /> 导出
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDoc(doc.ID, doc.FILE_URL)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDoc(doc.ID, doc.FILE_URL)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
@@ -470,7 +453,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                   )) : (
                     <div className="col-span-full text-center py-24 border-2 border-dashed rounded-xl bg-muted/5 text-muted-foreground">
                        <FilePlus2 className="h-10 w-10 mx-auto opacity-20 mb-3" />
-                       <p className="text-xs font-medium">中心库暂无关联报告附件。点击右上方“同步物理报告”手动归档。</p>
+                       <p className="text-xs font-medium">暂无关联报告。</p>
                     </div>
                   )}
                 </div>
@@ -481,23 +464,23 @@ export function PatientDetailClient({ id }: { id: string }) {
 
       <Dialog open={isFollowUpOpen} onOpenChange={setIsFollowUpOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>临床随访结案 - {person.PERSONNAME}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>随访结案 - {person.PERSONNAME}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4 text-sm">
             <div className="space-y-2">
-              <Label>关联体检业务流水号</Label>
+              <Label>关联业务流水</Label>
               <Select value={followUpForm.ZYYCJGTJBH} onValueChange={v => setFollowUpForm({...followUpForm, ZYYCJGTJBH: v})}>
-                <SelectTrigger><SelectValue placeholder="选取已登记的体检流水" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="选取已登记的流水" /></SelectTrigger>
                 <SelectContent>
                   {results.map(r => (
-                    <SelectItem key={r.ID} value={r.TJBHID || ''}>{r.TJBHID || '无体检号'} - {r.ZYYCJGXQ.substring(0, 15)}...</SelectItem>
+                    <SelectItem key={r.ID} value={r.TJBHID || ''}>{r.TJBHID || '无编号'} - {r.ZYYCJGXQ.substring(0, 15)}...</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>随访/回访结论详情 <span className="text-destructive">*</span></Label>
-              <Textarea value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} placeholder="记录关键沟通信息、治疗方案变化及后续复查建议..." className="min-h-[120px]" />
+              <Label>回访结论详情 <span className="text-destructive">*</span></Label>
+              <Textarea value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} placeholder="记录关键沟通信息..." className="min-h-[120px]" />
             </div>
 
             <div className="grid grid-cols-2 gap-6 p-4 border rounded-lg bg-primary/5 border-primary/10">
@@ -539,7 +522,7 @@ export function PatientDetailClient({ id }: { id: string }) {
               <div className="space-y-2"><Label>本次结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
               <div className="flex items-center space-x-2 pt-8">
                 <Checkbox id="jcsf_detail" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                <Label htmlFor="jcsf_detail" className="text-xs font-bold text-primary">已完成必要的临床复查</Label>
+                <Label htmlFor="jcsf_detail" className="text-xs font-bold text-primary">已完成必要的复查</Label>
               </div>
             </div>
           </div>
@@ -547,7 +530,7 @@ export function PatientDetailClient({ id }: { id: string }) {
             <Button variant="outline" onClick={() => setIsFollowUpOpen(false)}>取消</Button>
             <Button onClick={handleAddFollowUp} disabled={followUpSubmitting} className="font-bold shadow-md">
               {followUpSubmitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              确认提交结案
+              确认结案提交
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -555,10 +538,10 @@ export function PatientDetailClient({ id }: { id: string }) {
 
       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>物理归档 PDF 电子报告</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>归档 PDF 电子报告</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4 text-sm">
             <div className="space-y-2">
-              <Label>选取物理文件</Label>
+              <Label>选取本地文件</Label>
               <Button variant="outline" onClick={handleSelectFile} className="w-full h-12 border-dashed border-2 hover:bg-primary/5 hover:border-primary transition-all">
                  {selectedFileName || "点击浏览本地磁盘文件..."}
               </Button>
@@ -569,20 +552,17 @@ export function PatientDetailClient({ id }: { id: string }) {
                   <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
                </div>
                <div className="space-y-1">
-                  <Label>报告物理分类</Label>
+                  <Label>报告分类</Label>
                   <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="PE_REPORT">综合体检报告</SelectItem>
-                      <SelectItem value="IMAGING">医学影像报告</SelectItem>
-                      <SelectItem value="PATHOLOGY">临床病理报告</SelectItem>
+                      <SelectItem value="PE_REPORT">体检报告</SelectItem>
+                      <SelectItem value="IMAGING">影像报告</SelectItem>
+                      <SelectItem value="PATHOLOGY">病理报告</SelectItem>
                     </SelectContent>
                   </Select>
                </div>
             </div>
-            <p className="text-[10px] text-muted-foreground bg-blue-50 p-2.5 rounded border border-blue-100 italic">
-               * 物理同步引擎将自动对文件进行重命名并分拣至中心服务器的 <code>[患者ID]/[报告类别]</code> 目录下，确保附件检索的高效性。
-            </p>
           </div>
           <DialogFooter>
             <Button onClick={handleUpload} disabled={uploading || !selectedFilePath} className="w-full font-bold shadow-md">
