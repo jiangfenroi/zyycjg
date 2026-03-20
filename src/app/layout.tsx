@@ -8,9 +8,9 @@ import { Toaster } from '@/components/ui/toaster';
 import { DataService } from "@/services/data-service";
 
 /**
- * 根布局加固：
- * 1. 物理移除加载阻塞逻辑，彻底解决 Electron 环境下的无限转圈问题。
- * 2. 物理移除外部字体依赖，确保内网离线环境零报错 (ERR_NAME_NOT_RESOLVED)。
+ * 根布局物理加固：
+ * 1. 移除首屏阻塞逻辑，确保 children 能够第一时间到达 AuthWrapper。
+ * 2. 采用 suppressHydrationWarning 规避不可避免的浏览器扩展插件干扰。
  */
 export default function RootLayout({
   children,
@@ -21,7 +21,7 @@ export default function RootLayout({
     // 异步执行审计，不阻塞 UI 挂载
     DataService.performMonthlyAgeAudit().catch(() => {});
     
-    // 初始化主题
+    // 初始化本地主题
     const savedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('app-theme') || 'normal' : 'normal';
     document.documentElement.classList.remove('dark', 'eye-care');
     if (savedTheme !== 'normal') {

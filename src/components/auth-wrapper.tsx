@@ -7,46 +7,42 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 /**
- * 身份验证包装器物理加固：
- * 1. 采用标准的 mounted 模式解决 Hydration Mismatch (水合不匹配) 错误。
- * 2. 确保所有 Hooks (usePathname, useRouter, useEffect) 在任何条件返回前调用，彻底解决“无限转圈”风险。
- * 3. 初始渲染与服务器保持一致（展示稳定加载动画），挂载后再根据登录状态切换布局。
+ * 身份验证包装器（水合增强版）：
+ * 1. 彻底移除渲染阻塞：初始挂载阶段直接渲染 children，确保 SSR/CSR 结构一致，物理消除“无限转圈”。
+ * 2. 延迟布局注入：仅在挂载成功且确认身份后，动态包裹侧边栏容器。
+ * 3. 稳健路径检查：适配 Electron 静态路径模式。
  */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = React.useState(false);
   const pathname = usePathname()
   const router = useRouter()
   
-  const isAuthPage = pathname === '/login' || pathname === '/login/';
+  // 稳健的登录/配置页识别逻辑
+  const isAuthPage = pathname?.startsWith('/login') || pathname?.startsWith('/setup');
 
   React.useEffect(() => {
-    // 标记已挂载，触发 UI 切换
     setMounted(true);
     
-    // 仅在挂载后执行敏感的 localStorage 检查与路由跳转
+    // 仅在挂载后执行敏感的 localStorage 检查
     if (typeof localStorage !== 'undefined') {
       const user = localStorage.getItem('currentUser');
-      if (!user && !isAuthPage) {
+      if (!user && !isAuthPage && pathname !== '/') {
         router.push('/login');
       }
     }
-  }, [isAuthPage, router]);
+  }, [isAuthPage, pathname, router]);
 
-  // 1. 初始渲染阶段 (Server + Client 1st pass)：返回稳定的加载结构，必须与 SSR 结果完全一致
+  // 1. 初始及水合阶段：渲染基础容器，必须与 SSR 结果完全一致以防报错
   if (!mounted) {
-    return (
-      <div className="min-h-screen w-full bg-background flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <div className="min-h-screen w-full bg-background">{children}</div>;
   }
 
-  // 2. 登录/配置页阶段：不加载侧边栏容器
+  // 2. 登录/配置页：不加载侧边栏
   if (isAuthPage) {
     return <main className="w-full h-full min-h-screen bg-slate-50">{children}</main>
   }
 
-  // 3. 业务功能阶段：展示全院侧边栏闭环布局
+  // 3. 业务功能页：挂载成功后动态注入侧边栏架构
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full overflow-hidden">
