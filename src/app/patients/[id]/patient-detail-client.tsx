@@ -159,7 +159,10 @@ export function PatientDetailClient({ id }: { id: string }) {
   }
 
   const handlePACSClose = async () => {
-    const url = `http://172.16.201.61:7242/?ChtId=${id}`;
+    const settings = await DataService.getSystemSettings();
+    const template = settings.PACS_URL_TEMPLATE || 'http://172.16.201.61:7242/?ChtId=${id}';
+    const url = template.replace('${id}', id);
+    
     if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.openExternal) {
       await window.electronAPI.openExternal(url);
     } else {
@@ -299,7 +302,7 @@ export function PatientDetailClient({ id }: { id: string }) {
 
               <div className="pt-4 border-t space-y-2">
                 <Button variant="outline" className="w-full justify-start h-9 text-xs font-bold" onClick={handlePACSClose}>
-                  <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 影像调阅
+                  <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 影像原始查询
                 </Button>
               </div>
             </CardContent>

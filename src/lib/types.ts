@@ -73,6 +73,7 @@ export interface SystemSettings {
   LOGIN_BG_URL?: string;
   STORAGE_PATH?: string;
   LAST_AGE_AUDIT?: string;
+  PACS_URL_TEMPLATE?: string;
 }
 
 export interface SystemLog {

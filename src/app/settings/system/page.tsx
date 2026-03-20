@@ -13,7 +13,9 @@ import {
   UserPlus, 
   Trash2, 
   Upload,
-  BookOpen
+  BookOpen,
+  Globe,
+  Monitor
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -38,6 +40,7 @@ export default function GlobalManagementPage() {
     SYSTEM_LOGO_URL: '',
     LOGIN_BG_URL: '',
     STORAGE_PATH: '',
+    PACS_URL_TEMPLATE: '',
   })
   const [users, setUsers] = React.useState<User[]>([])
   const [isAddUserOpen, setIsAddUserOpen] = React.useState(false)
@@ -65,7 +68,8 @@ export default function GlobalManagementPage() {
     const success = await DataService.updateSystemSettings({ 
       SYSTEM_NAME: settings.SYSTEM_NAME, 
       SYSTEM_LOGO_TEXT: settings.SYSTEM_LOGO_TEXT,
-      STORAGE_PATH: settings.STORAGE_PATH
+      STORAGE_PATH: settings.STORAGE_PATH,
+      PACS_URL_TEMPLATE: settings.PACS_URL_TEMPLATE
     })
     if (success) toast({ title: "配置已保存" })
     setSubmitting(false)
@@ -107,12 +111,13 @@ export default function GlobalManagementPage() {
     <div className="space-y-6 fade-in">
       <div>
         <h1 className="text-3xl font-bold text-primary">全院管理中心</h1>
-        <p className="text-muted-foreground text-sm">品牌资产、人员权限与中心化存储配置</p>
+        <p className="text-muted-foreground text-sm">品牌资产、临床集成与中心化存储配置</p>
       </div>
 
       <Tabs defaultValue="brand">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsList className="grid w-full max-w-xl grid-cols-4">
           <TabsTrigger value="brand">视觉与品牌</TabsTrigger>
+          <TabsTrigger value="clinical">临床集成</TabsTrigger>
           <TabsTrigger value="storage">中心存储</TabsTrigger>
           <TabsTrigger value="users">人员权限</TabsTrigger>
         </TabsList>
@@ -167,6 +172,41 @@ export default function GlobalManagementPage() {
           </div>
         </TabsContent>
 
+        <TabsContent value="clinical" className="pt-4">
+           <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2"><Monitor className="h-4 w-4" /> 外部浏览器集成</CardTitle>
+                <CardDescription>配置通过外部默认浏览器调阅临床系统（如 PACS）的跳转规则。</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label>PACS 影像浏览器跳转地址模板</Label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="http://172.16.201.61:7242/?ChtId=${id}" 
+                      className="pl-10"
+                      value={settings.PACS_URL_TEMPLATE} 
+                      onChange={e => setSettings({...settings, PACS_URL_TEMPLATE: e.target.value})} 
+                    />
+                  </div>
+                  <div className="bg-primary/5 border border-primary/10 p-3 rounded-lg flex items-start gap-2">
+                    <BookOpen className="h-4 w-4 text-primary mt-0.5" />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      系统会自动将 <code>${{id}}</code> 替换为实际的患者 ID。<br />
+                      示例：<code>http://PACS_SERVER/view?id=${{id}}</code><br />
+                      配置后，所有终端均会同步此调阅地址。
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={handleSaveBasic} disabled={submitting}>
+                  {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
+                  确认同步临床集成配置
+                </Button>
+              </CardContent>
+           </Card>
+        </TabsContent>
+
         <TabsContent value="storage" className="pt-4">
           <Card>
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><FolderOpen className="h-4 w-4" /> 物理存储映射</CardTitle></CardHeader>
@@ -194,7 +234,7 @@ export default function GlobalManagementPage() {
                 <CardTitle className="text-base">全院账号库</CardTitle>
                 <CardDescription className="text-xs">仅主管理员可管理操作员凭据</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setIsAddUserOpen(true)}><UserPlus className="h-4 w-4 mr-2" /> 新增账户</Button>
+              <Button size="sm" onClick={() => setIsAddUserOpen(true)}><UserCog className="h-4 w-4 mr-2" /> 新增账户</Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>

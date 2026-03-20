@@ -362,7 +362,7 @@ export default function FollowUpsPage() {
                  <Label className="font-bold text-xs flex items-center gap-2 text-primary"><Calendar className="h-3.5 w-3.5" /> 下次随访预定</Label>
                  <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
                  <div className="flex flex-col gap-2">
-                    <Label className="text-[10px] text-muted-foreground font-bold">计算基准</Label>
+                    <Label className="text-[10px] text-muted-foreground font-bold">计算基准日期</Label>
                     <RadioGroup value={followUpForm.calculationBase} onValueChange={v => setFollowUpForm({...followUpForm, calculationBase: v as any})} className="flex gap-4">
                        <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="base-today" /><Label htmlFor="base-today" className="text-[10px]">当天</Label></div>
                        <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">体检日</Label></div>
@@ -370,7 +370,7 @@ export default function FollowUpsPage() {
                  </div>
                </div>
                <div className="space-y-2">
-                 <Label className="text-[10px] text-muted-foreground">快速选择周期</Label>
+                 <Label className="text-[10px] text-muted-foreground">快速周期预设</Label>
                  <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(1)}>1月后</Button>
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(3)}>3月后</Button>
