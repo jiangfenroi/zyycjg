@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from "react"
-import { LayoutDashboard, Users, AlertCircle, History, FileText, LogOut, Settings, Clock } from "lucide-react"
+import { LayoutDashboard, Users, AlertCircle, History, FileText, LogOut, Settings, Clock, Download } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarGroup, SidebarGroupLabel, SidebarGroupContent } from "@/components/ui/sidebar"
@@ -14,6 +14,7 @@ const navigation = [
   { name: "异常结果登记", href: "/abnormal-results", icon: AlertCircle },
   { name: "随访任务管理", href: "/follow-ups", icon: History },
   { name: "病历档案检索", href: "/patients", icon: Users },
+  { name: "数据导出中心", href: "/export", icon: Download },
   { name: "电子报告中心", href: "/reports", icon: FileText },
 ]
 
