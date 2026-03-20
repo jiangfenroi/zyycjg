@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -98,12 +97,15 @@ export default function Dashboard() {
   const trendData = React.useMemo(() => {
     const { results, followUps } = data
     const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    
+    // 闭环率统计引擎：基于通知日期 (ZYYCJGTZRQ) 进行月度归集
     return months.map(m => {
       const prefix = `${selectedYear}-${m}`
       const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(prefix))
       const completedForMonth = resultsInMonth.filter(r => 
         followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
       ).length
+      
       return {
         month: `${parseInt(m)}月`,
         rate: resultsInMonth.length > 0 ? Math.round((completedForMonth / resultsInMonth.length) * 100) : 0,
@@ -182,7 +184,7 @@ export default function Dashboard() {
                   <BarChart3 className="h-4 w-4" />
                   随访闭环率月度趋势 (%)
                 </CardTitle>
-                <p className="text-[10px] text-muted-foreground font-medium italic">基于发现日期计算登记与结案比例</p>
+                <p className="text-[10px] text-muted-foreground font-medium italic">基于通知日期 (ZYYCJGTZRQ) 计算登记与结案比例</p>
               </div>
               <Select value={selectedYear} onValueChange={setSelectedYear}>
                 <SelectTrigger className="w-[100px] h-8 text-xs">
