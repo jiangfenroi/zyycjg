@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   /* 确保生成的静态文件路径在 Electron 中更易处理 */
   trailingSlash: true,
   images: {
-    unoptimized: true, // 静态导出模式下必须禁用图片优化
+    unoptimized: true, // 静态导出模式下必须禁用图片优化，确保护理端离线加载速度
     remotePatterns: [
       {
         protocol: 'https',
@@ -30,10 +30,10 @@ const nextConfig: NextConfig = {
     ],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true, // 生产环境忽略类型错误以加快构建速度
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // 生产环境忽略 ESLint 检查
   }
 };
 
