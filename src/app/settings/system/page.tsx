@@ -32,7 +32,7 @@ export default function GlobalManagementPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
-  const [settings, setSettings] = React.setSettings<SystemSettings>({
+  const [settings, setSettings] = React.useState<SystemSettings>({
     SYSTEM_NAME: '',
     SYSTEM_LOGO_TEXT: '',
     SYSTEM_LOGO_URL: '',
