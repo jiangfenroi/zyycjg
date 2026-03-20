@@ -24,98 +24,92 @@ import { DataService } from "@/services/data-service"
 export default function Dashboard() {
   const [isClient, setIsClient] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
-  const [stats, setStats] = React.useState({
-    totalPatients: 0,
-    pendingFollowUps: 0,
-    completedFollowUps: 0,
-    aClassResults: 0,
-    bClassResults: 0,
-    totalResults: 0,
-  })
-  const [trendData, setTrendData] = React.useState<any[]>([])
+  const [data, setData] = React.useState<{
+    patients: any[],
+    results: any[],
+    followUps: any[]
+  }>({ patients: [], results: [], followUps: [] })
+
+  const loadDashboardData = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      const [patients, results, followUps] = await Promise.all([
+        DataService.getPatients(),
+        DataService.getAbnormalResults(),
+        DataService.getFollowUps()
+      ])
+      setData({ patients, results, followUps })
+    } catch (err) {
+      console.error("Dashboard data fetch error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   React.useEffect(() => {
     setIsClient(true)
-    async function loadDashboardData() {
-      setLoading(true)
-      try {
-        const [patients, results, followUps] = await Promise.all([
-          DataService.getPatients(),
-          DataService.getAbnormalResults(),
-          DataService.getFollowUps()
-        ])
-
-        const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
-        const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
-        
-        const pending = results.filter(r => 
-          !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
-        ).length
-
-        setStats({
-          totalPatients: patients.length,
-          pendingFollowUps: pending,
-          completedFollowUps: followUps.length,
-          aClassResults: aClass,
-          bClassResults: bClass,
-          totalResults: results.length
-        })
-
-        const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-        const currentYear = new Date().getFullYear()
-        
-        const monthlyStats = months.map(m => {
-          const monthLabel = `${parseInt(m)}月`
-          // 以通知月份为基准进行过滤
-          const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(`${currentYear}-${m}`))
-          // 检查该通知月的所有记录中，有多少已完成随访
-          const completedForMonth = resultsInMonth.filter(r => 
-            followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
-          ).length
-
-          const rate = resultsInMonth.length > 0 
-            ? Math.round((completedForMonth / resultsInMonth.length) * 100) 
-            : 0
-
-          return {
-            month: monthLabel,
-            rate: rate,
-            count: completedForMonth,
-            total: resultsInMonth.length
-          }
-        })
-
-        setTrendData(monthlyStats)
-
-      } catch (err) {
-        console.error("Dashboard analytics error:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
     loadDashboardData()
-  }, [])
+  }, [loadDashboardData])
 
-  const completionRate = stats.totalResults > 0 
-    ? Math.round((stats.completedFollowUps / stats.totalResults) * 100) 
-    : 0
+  // 使用 useMemo 缓存高性能计算结果
+  const stats = React.useMemo(() => {
+    const { results, followUps, patients } = data
+    const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
+    const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
+    const pending = results.filter(r => 
+      !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
+    ).length
+    
+    return {
+      totalPatients: patients.length,
+      pendingFollowUps: pending,
+      completedFollowUps: followUps.length,
+      aClassResults: aClass,
+      bClassResults: bClass,
+      totalResults: results.length,
+      completionRate: results.length > 0 ? Math.round((followUps.length / results.length) * 100) : 0
+    }
+  }, [data])
 
-  const categoryData = [
+  const trendData = React.useMemo(() => {
+    const { results, followUps } = data
+    const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    const currentYear = new Date().getFullYear()
+    
+    return months.map(m => {
+      const prefix = `${currentYear}-${m}`
+      const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(prefix))
+      const completedForMonth = resultsInMonth.filter(r => 
+        followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
+      ).length
+
+      return {
+        month: `${parseInt(m)}月`,
+        rate: resultsInMonth.length > 0 ? Math.round((completedForMonth / resultsInMonth.length) * 100) : 0,
+        count: completedForMonth,
+        total: resultsInMonth.length
+      }
+    })
+  }, [data])
+
+  const categoryData = React.useMemo(() => [
     { name: "A类", value: stats.aClassResults, color: "hsl(var(--primary))" },
     { name: "B类", value: stats.bClassResults, color: "hsl(var(--secondary))" },
-  ]
+  ], [stats])
 
   if (!isClient || loading) {
     return (
-      <div className="h-full w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 font-medium">中心数据库统计分析引擎初始化中</span>
+      <div className="h-full w-full flex items-center justify-center bg-background/50 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50" />
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">正在同步全院中心库数据...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台</h1>
@@ -123,106 +117,106 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <FollowUpNotifier />
-          <Button variant="outline" size="sm" asChild className="hidden sm:flex">
+          <Button variant="outline" size="sm" asChild className="hidden sm:flex shadow-sm">
             <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 档案管理</Link>
           </Button>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-primary shadow-sm">
+        <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">累计建档量</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">记录总数</p>
+            <p className="text-xs text-muted-foreground mt-1">全院档案总数</p>
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-destructive shadow-sm">
+        <Card className="border-l-4 border-l-destructive shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">待随访任务</CardTitle>
+            <CardTitle className="text-sm font-medium">待处理随访</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">当前未结案</p>
+            <p className="text-xs text-muted-foreground mt-1">当前未结案任务</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-secondary shadow-sm relative">
+        <Card className="border-l-4 border-l-secondary shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{completionRate}%</div>
+            <div className="text-2xl font-bold">{stats.completionRate}%</div>
             <div className="flex justify-between items-end mt-1">
               <p className="text-xs text-muted-foreground">累计结案 {stats.completedFollowUps} 例</p>
               <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" asChild>
-                <Link href="/analytics/follow-up-rate">查看年度详情 <ArrowUpRight className="ml-0.5 h-2.5 w-2.5" /></Link>
+                <Link href="/analytics/follow-up-rate">趋势详情 <ArrowUpRight className="ml-0.5 h-2.5 w-2.5" /></Link>
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500 shadow-sm">
+        <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">异常登记总数</CardTitle>
+            <CardTitle className="text-sm font-medium">异常结果流水</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalResults}</div>
-            <p className="text-xs text-muted-foreground mt-1">流水总量</p>
+            <p className="text-xs text-muted-foreground mt-1">流水数据总量</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 md:grid-cols-7">
-        <Card className="md:col-span-4">
+        <Card className="md:col-span-4 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <BarChart3 className="h-4 w-4" />
-              随访结案月度趋势 (按通知月统计随访率)
+              月度闭环率趋势 (按通知月份回溯)
             </CardTitle>
-            <CardDescription>趋势表示该月发现的异常中最终完成闭环的比例</CardDescription>
+            <CardDescription>反映当月发现的异常最终完成随访的比例</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
                 <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
                 <Tooltip 
                   cursor={{ fill: 'hsl(var(--muted))', opacity: 0.4 }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
-                      const data = payload[0].payload;
+                      const d = payload[0].payload;
                       return (
                         <div className="bg-background border p-3 rounded-lg shadow-xl text-xs space-y-1">
-                          <p className="font-bold border-b pb-1 mb-1 text-primary">{data.month} 指标</p>
-                          <p className="text-foreground flex justify-between gap-6"><span>随访率:</span> <span className="font-bold">{data.rate}%</span></p>
-                          <p className="text-muted-foreground flex justify-between gap-6"><span>异常通知:</span> <span>{data.total} 例</span></p>
-                          <p className="text-muted-foreground flex justify-between gap-6"><span>已结案:</span> <span>{data.count} 例</span></p>
+                          <p className="font-bold border-b pb-1 mb-1 text-primary">{d.month}</p>
+                          <p className="flex justify-between gap-6"><span>闭环率:</span> <span className="font-bold">{d.rate}%</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-6"><span>发现总数:</span> <span>{d.total} 例</span></p>
+                          <p className="text-muted-foreground flex justify-between gap-6"><span>已结案:</span> <span>{d.count} 例</span></p>
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="rate" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-3">
+        <Card className="md:col-span-3 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <PieChart className="h-4 w-4" />
-              风险分类分布
+              异常结果风险构成
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[320px] flex flex-col items-center justify-center pt-4">
@@ -232,10 +226,11 @@ export default function Dashboard() {
                   data={categoryData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={65}
-                  outerRadius={85}
+                  innerRadius={60}
+                  outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  animationDuration={1000}
                 >
                   {categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -260,7 +255,7 @@ export default function Dashboard() {
               {categoryData.map((item) => (
                 <div key={item.name} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="font-medium">{item.name}: {item.value}</span>
+                  <span className="font-medium text-muted-foreground">{item.name}: <span className="text-foreground font-bold">{item.value}</span></span>
                 </div>
               ))}
             </div>
@@ -268,34 +263,34 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="border-dashed border-2">
+      <Card className="border-dashed border-2 bg-muted/5">
         <CardHeader>
-          <CardTitle className="text-lg">快捷业务通道</CardTitle>
-          <CardDescription>直接访问中心服务器常用的业务操作模块</CardDescription>
+          <CardTitle className="text-lg">业务快捷引擎</CardTitle>
+          <CardDescription>直接接入中心服务器核心业务流水模块</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-primary/5 hover:border-primary transition-all group" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-primary/5 hover:border-primary transition-all group shadow-sm" asChild>
             <Link href="/abnormal-results">
-              <AlertCircle className="h-6 w-6 text-primary" />
-              <span className="font-bold">登记异常结果</span>
+              <AlertCircle className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+              <span className="font-bold">异常结果登记</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-secondary/5 hover:border-secondary transition-all group" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-secondary/5 hover:border-secondary transition-all group shadow-sm" asChild>
             <Link href="/follow-ups">
-              <History className="h-6 w-6 text-secondary" />
-              <span className="font-bold">随访闭环</span>
+              <History className="h-6 w-6 text-secondary group-hover:scale-110 transition-transform" />
+              <span className="font-bold">随访闭环管理</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group shadow-sm" asChild>
             <Link href="/reports">
-              <FileText className="h-6 w-6 text-muted-foreground" />
-              <span className="font-bold">报告附件</span>
+              <FileText className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-bold">电子报告查询</span>
             </Link>
           </Button>
-          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group" asChild>
+          <Button variant="outline" className="h-24 flex-col gap-2 hover:bg-muted transition-all group shadow-sm" asChild>
             <Link href="/patients">
-              <Users className="h-6 w-6 text-muted-foreground" />
-              <span className="font-bold">电子病历档案</span>
+              <Users className="h-6 w-6 text-muted-foreground group-hover:scale-110 transition-transform" />
+              <span className="font-bold">全院病历档案</span>
             </Link>
           </Button>
         </CardContent>
