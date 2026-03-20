@@ -43,7 +43,7 @@ export default function FollowUpPathsPage() {
 
   const handleAddPath = async () => {
     if (!newPath.NAME) {
-      toast({ variant: "destructive", title: "校验失败", description: "计划名称不能为空" })
+      toast({ variant: "destructive", title: "校验失败", description: "路径名称不能为空" })
       return
     }
     setSubmitting(true)
@@ -55,7 +55,7 @@ export default function FollowUpPathsPage() {
       CREATE_DATE: new Date().toISOString().split('T')[0]
     })
     if (success) {
-      toast({ title: "随访计划已入库" })
+      toast({ title: "随访路径已入库" })
       setIsAddOpen(false)
       fetchPaths()
       setNewPath({ NAME: '', URL: '', DESCRIPTION: '' })
@@ -63,37 +63,46 @@ export default function FollowUpPathsPage() {
     setSubmitting(false)
   }
 
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`确定要永久删除随访路径 ${name} 吗？`)) return
+    const success = await DataService.deleteFollowUpPath(id)
+    if (success) {
+      toast({ title: "删除成功" })
+      fetchPaths()
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">标准化随访计划配置</h1>
-          <p className="text-muted-foreground mt-1">定义临床指南随访周期与权威处置路径</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">随访路径库管理</h1>
+          <p className="text-muted-foreground mt-1">自定义全院临床标准化随访路径及处置标准</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> 新增计划</Button>
+            <Button><Plus className="mr-2 h-4 w-4" /> 新增路径定义</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>定义标准化临床随访计划</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>定义随访路径</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label>计划名称</Label>
-                <Input value={newPath.NAME} onChange={e => setNewPath({...newPath, NAME: e.target.value})} placeholder="例如：肺结节标准化随访管理计划" />
+                <Label>路径名称</Label>
+                <Input value={newPath.NAME} onChange={e => setNewPath({...newPath, NAME: e.target.value})} placeholder="例如：肺结节标准化随访路径" />
               </div>
               <div className="space-y-2">
-                <Label>临床指南链接</Label>
-                <Input value={newPath.URL} onChange={e => setNewPath({...newPath, URL: e.target.value})} placeholder="公众号文章或 PDF 路径 URL" />
+                <Label>参考文档链接</Label>
+                <Input value={newPath.URL} onChange={e => setNewPath({...newPath, URL: e.target.value})} placeholder="输入临床指南 URL 或文档路径" />
               </div>
               <div className="space-y-2">
-                <Label>计划核心逻辑说明</Label>
-                <Textarea value={newPath.DESCRIPTION} onChange={e => setNewPath({...newPath, DESCRIPTION: e.target.value})} placeholder="简述随访周期要求..." />
+                <Label>路径逻辑描述</Label>
+                <Textarea value={newPath.DESCRIPTION} onChange={e => setNewPath({...newPath, DESCRIPTION: e.target.value})} placeholder="简述随访周期及关键操作逻辑..." />
               </div>
             </div>
             <DialogFooter>
               <Button onClick={handleAddPath} disabled={submitting}>
                 {submitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4" />}
-                保存计划
+                保存路径至数据库
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -103,39 +112,45 @@ export default function FollowUpPathsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            临床指南库
+            <Route className="h-5 w-5 text-primary" />
+            中心数据库存储路径列表
           </CardTitle>
-          <CardDescription>此处定义的计划将在异常结果登记时关联，用于驱动后续的自动提醒流程。</CardDescription>
+          <CardDescription>此处定义的随访路径将供异常结果登记时选择，用于驱动自动化提醒引擎。</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead>计划名称</TableHead>
-                <TableHead>参考指南</TableHead>
-                <TableHead>核心逻辑</TableHead>
-                <TableHead>同步日期</TableHead>
+                <TableHead>路径名称</TableHead>
+                <TableHead>参考链接</TableHead>
+                <TableHead>描述说明</TableHead>
+                <TableHead>创建日期</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
               ) : paths.length > 0 ? paths.map((p) => (
                 <TableRow key={p.ID} className="text-xs">
                   <TableCell className="font-bold">{p.NAME}</TableCell>
                   <TableCell>
                     {p.URL ? (
-                      <a href={p.URL} target="_blank" className="flex items-center gap-1 text-blue-600 font-bold hover:underline">
-                        <LinkIcon className="h-3 w-3" /> 查看指南
+                      <a href={p.URL} target="_blank" className="flex items-center gap-1 text-blue-600 hover:underline">
+                        <LinkIcon className="h-3 w-3" /> 点击跳转
                       </a>
                     ) : '-'}
                   </TableCell>
-                  <TableCell className="text-muted-foreground max-w-[300px] truncate" title={p.DESCRIPTION}>{p.DESCRIPTION || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground max-w-[250px] truncate" title={p.DESCRIPTION}>{p.DESCRIPTION || '-'}</TableCell>
                   <TableCell className="font-mono">{p.CREATE_DATE}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.ID, p.NAME)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               )) : (
-                <TableRow><TableCell colSpan={4} className="text-center py-10 text-muted-foreground italic">暂无计划定义</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">暂无路径定义</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

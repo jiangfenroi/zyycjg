@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, Info, Link as LinkIcon, BookOpen } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, Info } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -29,18 +29,17 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       
-      // 预警逻辑：仅展示已到达 NEXT_DATE (计划预定日期) 且没有结案记录的项
+      // 预警触发逻辑：基于数据库记录的 NEXT_DATE
       const pending = results.filter(r => {
         const hasFollowUp = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
         if (hasFollowUp) return false
-        
-        if (!r.NEXT_DATE) return false // 未设置日期不触发提醒
+        if (!r.NEXT_DATE) return false 
         return r.NEXT_DATE <= today
       })
       
       setTasks(pending)
     } catch (err) {
-      console.error("Failed to load path notification tasks", err)
+      console.error("数据库提醒引擎同步失败", err)
     } finally {
       setLoading(false)
     }
@@ -71,19 +70,19 @@ export function FollowUpNotifier() {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4" />
-              随访计划触发提醒
+              随访触发预警
             </h3>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  展示所有已到达标准化临床路径预定随访日期的患者名单
+                  列表仅展示已到达数据库中预定随访触发日期的患者
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {loading ? "正在同步中心库..." : `当前有 ${count} 项随访计划已到期`}
+            {loading ? "同步数据库流水中..." : `当前有 ${count} 项随访计划已到触发期`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -98,11 +97,10 @@ export function FollowUpNotifier() {
               >
                 <div className="flex justify-between items-start">
                   <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700">{task.PATH_NAME || '标准计划'}</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700">{task.PATH_NAME || '自定义路径'}</Badge>
                 </div>
                 <div className="flex justify-between items-center mt-2">
-                  <span className="text-[9px] font-bold text-destructive">计划日期: {task.NEXT_DATE}</span>
-                  {task.PATH_URL && <BookOpen className="h-2.5 w-2.5 text-blue-500" />}
+                  <span className="text-[9px] font-bold text-destructive">触发日期: {task.NEXT_DATE}</span>
                 </div>
               </Link>
             )) : (
@@ -112,7 +110,7 @@ export function FollowUpNotifier() {
         </ScrollArea>
         <div className="p-2 border-t text-center">
           <Button variant="ghost" size="sm" className="w-full text-xs font-semibold text-primary" asChild>
-            <Link href="/follow-ups">进入随访计划工作台</Link>
+            <Link href="/follow-ups">进入闭环管理工作台</Link>
           </Button>
         </div>
       </PopoverContent>
