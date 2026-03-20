@@ -148,7 +148,6 @@ async function initDB(config) {
 }
 
 function createWindow(startPath = '/login') {
-  // 动态处理图标路径，兼容开发与生产环境
   const iconPath = isDev 
     ? path.join(__dirname, '../public/favicon.ico') 
     : path.join(__dirname, '../out/favicon.ico');
@@ -225,6 +224,10 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
   }
 });
 
+/**
+ * 强化版分层文件上传逻辑
+ * Root / PersonID / Type / Filename
+ */
 ipcMain.handle('file-upload', async (event, { personId, type, customDate, storagePath }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -235,28 +238,45 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate, storag
     if (canceled || filePaths.length === 0) return { success: false };
 
     if (!storagePath || !fs.existsSync(storagePath)) {
-      return { success: false, error: '中心存储路径不存在或不可用' };
+      return { success: false, error: '中心存储路径不存在或不可用，请检查网络共享状态' };
     }
 
     const source = filePaths[0];
-    const fileName = `${personId}_${type}_${Date.now()}.pdf`;
-    const destDir = path.join(storagePath, personId);
+    const originalExt = path.extname(source);
+    const originalBaseName = path.basename(source, originalExt);
+    const uploadDateStr = customDate || new Date().toISOString().split('T')[0];
+    const datePrefix = uploadDateStr.replace(/-/g, '');
     
+    // 定义文件分类映射，用于文件夹命名
+    const typeFolderMap = {
+      'PE_REPORT': '体检报告汇总',
+      'IMAGING': '医学影像报告',
+      'PATHOLOGY': '病理组织报告'
+    };
+    const typeFolder = typeFolderMap[type] || type;
+
+    // 建立多级物理目录: Root / PersonID / TypeFolder
+    const destDir = path.join(storagePath, personId, typeFolder);
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-    
+
+    // 格式化文件名: YYYYMMDD_类别_原始名.pdf
+    const fileName = `${datePrefix}_${typeFolder}_${originalBaseName}${originalExt}`;
     const destPath = path.join(destDir, fileName);
+    
     fs.copyFileSync(source, destPath);
+
+    writeLog('INFO', `文件已同步至中心库: ${destPath}`);
 
     return { 
       success: true, 
       data: { 
         fileName: fileName, 
         fileUrl: destPath, 
-        uploadDate: customDate || new Date().toISOString().split('T')[0] 
+        uploadDate: uploadDateStr 
       } 
     };
   } catch (err) {
-    writeLog('ERROR', '附件上传失败: ' + err.message);
+    writeLog('ERROR', '附件上传物理失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -270,7 +290,7 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
 
     if (filePath) {
       if (!fs.existsSync(sourcePath)) {
-        return { success: false, error: '源文件已移动或丢失' };
+        return { success: false, error: '源文件在中心库中已移动或丢失' };
       }
       fs.copyFileSync(sourcePath, filePath);
       return { success: true };
@@ -278,6 +298,20 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
     return { success: false };
   } catch (err) {
     writeLog('ERROR', '附件另存为失败: ' + err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('file-delete', async (event, { filePath }) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      writeLog('INFO', `文件已从物理中心库移除: ${filePath}`);
+      return { success: true };
+    }
+    return { success: false, error: '物理文件不存在' };
+  } catch (err) {
+    writeLog('ERROR', '附件删除物理失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -296,6 +330,7 @@ app.whenReady().then(async () => {
     }
   });
 
+  // 安全访问中心存储库文件的协议
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
     callback({ path: path.normalize(filePath) });

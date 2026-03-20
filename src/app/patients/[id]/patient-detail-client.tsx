@@ -16,12 +16,13 @@ import {
   Activity,
   Loader2,
   Eye,
+  Trash2,
   Calendar as CalendarIcon
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -75,19 +76,21 @@ export function PatientDetailClient({ id }: { id: string }) {
   }, [loadAllData])
 
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
-  if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在。</div>
+  if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在于中心库中。</div>
 
   const handleUpload = async () => {
     setUploading(true)
     try {
       const success = await DataService.uploadDocument(id, uploadType, uploadDate)
       if (success) {
-        toast({ title: "报告上传成功", description: "附件已存档并关联至患者电子病历。" })
+        toast({ title: "报告同步成功", description: "附件已存储于中心分层目录，并关联至电子病历。" })
         setIsUploadOpen(false)
         loadAllData()
       } else {
-        toast({ variant: "destructive", title: "操作取消或失败" })
+        toast({ variant: "destructive", title: "上传取消或路径错误" })
       }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "物理同步失败", description: err.message })
     } finally {
       setUploading(false)
     }
@@ -98,13 +101,22 @@ export function PatientDetailClient({ id }: { id: string }) {
     if (success) toast({ title: "另存为成功", description: `报告已导出至选定目录。` });
   }
 
+  const handleDeleteDoc = async (doc: PatientDocument) => {
+    if (!confirm(`确定要从物理中心库和数据库中永久删除报告 ${doc.FILENAME} 吗？`)) return;
+    const success = await DataService.deleteDocument(doc.ID, doc.FILE_URL);
+    if (success) {
+      toast({ title: "附件已彻底移除" });
+      loadAllData();
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="text-2xl font-bold text-primary">患者完整病历档案</h1>
+        <h1 className="text-2xl font-bold text-primary">全院电子病历档案</h1>
         <Badge variant="outline" className="bg-white font-mono">{id}</Badge>
       </div>
 
@@ -129,15 +141,12 @@ export function PatientDetailClient({ id }: { id: string }) {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs italic text-muted-foreground">网络版数据中心同步地址</span>
+                <span className="text-[10px] text-muted-foreground">中心存储映射: {id}</span>
               </div>
             </div>
             <div className="pt-6 border-t flex flex-col gap-2">
               <Button variant="outline" className="w-full justify-start" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')}>
-                <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 中心影像查询
-              </Button>
-              <Button variant="outline" className="w-full justify-start text-destructive hover:bg-destructive/5 border-destructive/20">
-                <Activity className="mr-2 h-4 w-4" /> 临床风险预警历史
+                <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 医学影像原始查询
               </Button>
             </div>
           </CardContent>
@@ -146,9 +155,9 @@ export function PatientDetailClient({ id }: { id: string }) {
         <div className="md:col-span-2 space-y-6">
           <Tabs defaultValue="abnormal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="abnormal">异常结果 {results.length}</TabsTrigger>
-              <TabsTrigger value="followup">随访记录 {followUps.length}</TabsTrigger>
-              <TabsTrigger value="files">报告附件 {docs.length}</TabsTrigger>
+              <TabsTrigger value="abnormal">重要异常结果 {results.length}</TabsTrigger>
+              <TabsTrigger value="followup">随访闭环历史 {followUps.length}</TabsTrigger>
+              <TabsTrigger value="files">电子报告中心 {docs.length}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="abnormal" className="mt-4">
@@ -156,8 +165,8 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader><TableRow>
-                      <TableHead>体检号</TableHead>
-                      <TableHead>分类</TableHead>
+                      <TableHead>体检流水号</TableHead>
+                      <TableHead>风险分类</TableHead>
                       <TableHead>登记日期</TableHead>
                       <TableHead>详情描述</TableHead>
                     </TableRow></TableHeader>
@@ -170,7 +179,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                           <TableCell className="max-w-[200px] truncate" title={r.ZYYCJGXQ}>{r.ZYYCJGXQ}</TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无登记记录</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无历史异常结果登记</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -183,10 +192,10 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader><TableRow>
-                      <TableHead>体检号</TableHead>
-                      <TableHead>日期</TableHead>
-                      <TableHead>结果摘要</TableHead>
-                      <TableHead>复查情况</TableHead>
+                      <TableHead>关联体检号</TableHead>
+                      <TableHead>结案日期</TableHead>
+                      <TableHead>回访结论摘要</TableHead>
+                      <TableHead>核查情况</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {followUps.length > 0 ? followUps.map(f => (
@@ -196,12 +205,12 @@ export function PatientDetailClient({ id }: { id: string }) {
                           <TableCell className="max-w-[300px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell>
                              <Badge variant={f.jcsf ? "default" : "outline"} className="text-[10px]">
-                               {f.jcsf ? '已复查' : '未复查'}
+                               {f.jcsf ? '已完成复查' : '尚未复查'}
                              </Badge>
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无历史随访记录</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无到期随访结案记录</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -212,7 +221,7 @@ export function PatientDetailClient({ id }: { id: string }) {
             <TabsContent value="files" className="mt-4 space-y-4">
               <div className="flex justify-end">
                 <Button size="sm" onClick={() => setIsUploadOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" /> 上传新报告
+                  <Upload className="mr-2 h-4 w-4" /> 物理同步新报告
                 </Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -222,8 +231,8 @@ export function PatientDetailClient({ id }: { id: string }) {
                       <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-medium truncate" title={doc.FILENAME}>{doc.FILENAME}</p>
-                      <p className="text-xs text-muted-foreground">{doc.UPLOAD_DATE} · {doc.TYPE === 'IMAGING' ? '影像' : '体检'}</p>
+                      <p className="text-xs font-bold truncate" title={doc.FILENAME}>{doc.FILENAME}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{doc.UPLOAD_DATE} · {doc.TYPE === 'IMAGING' ? '医学影像' : doc.TYPE === 'PATHOLOGY' ? '病理报告' : '体检汇总'}</p>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(`app-file://${doc.FILE_URL}`)}>
@@ -232,10 +241,13 @@ export function PatientDetailClient({ id }: { id: string }) {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc)}>
                         <Download className="h-4 w-4 text-secondary" />
                       </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/5" onClick={() => handleDeleteDoc(doc)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </Card>
                 )) : (
-                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground">暂无关联附件。</div>
+                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground text-xs">中心库暂无关联附件报告。</div>
                 )}
               </div>
             </TabsContent>
@@ -245,40 +257,44 @@ export function PatientDetailClient({ id }: { id: string }) {
 
       <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>上传病历报告 - {person.PERSONNAME}</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
+          <DialogHeader><DialogTitle>同步病历报告至中心库 - {person.PERSONNAME}</DialogTitle></DialogHeader>
+          <div className="py-4 space-y-4 text-sm">
             <div className="space-y-2">
-              <Label>检查产生日期</Label>
+              <Label>检查/汇总日期</Label>
               <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>报告分类</Label>
+              <Label>报告分类 (将自动分拣至对应子目录)</Label>
               <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PE_REPORT">年度体检报告汇总</SelectItem>
-                  <SelectItem value="IMAGING">医学影像报告</SelectItem>
-                  <SelectItem value="PATHOLOGY">病理组织学报告</SelectItem>
+                  <SelectItem value="PE_REPORT">体检报告汇总流水</SelectItem>
+                  <SelectItem value="IMAGING">医学影像报告 (PACS)</SelectItem>
+                  <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <p className="text-xs text-muted-foreground bg-blue-50 p-3 rounded border border-blue-100 italic">
-              提示：附件将同步至医院中心存储路径。
-            </p>
+            <div className="text-[10px] text-muted-foreground bg-blue-50/50 p-3 rounded border border-blue-100 flex gap-2">
+              <Activity className="h-4 w-4 text-primary shrink-0" />
+              <p>系统将自动按 [患者ID] / [报告分类] / [日期_类别_文件名] 逻辑在物理服务器中建立多级目录。</p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
             <Button onClick={handleUpload} disabled={uploading}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "选择并上传"}
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "浏览本地并同步上传"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center bg-muted/20">
-            <h3 className="font-semibold text-primary">中心存储库 PDF 在线预览</h3>
+            <h3 className="font-bold text-primary text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              全院共享中心存储库 PDF 在线预览
+            </h3>
             <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>关闭预览</Button>
           </div>
           <div className="flex-1 w-full h-full bg-slate-100 overflow-hidden">

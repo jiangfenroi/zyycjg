@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import * as React from 'react'
@@ -60,34 +59,45 @@ export default function ReportsPage() {
     const matchesType = filterType === 'all' || doc.TYPE === filterType;
     const person = persons.find(p => p.PERSONID === doc.PERSONID);
     const matchesSearch = doc.FILENAME.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          person?.PERSONNAME.includes(searchTerm) ||
+                          (person?.PERSONNAME || '').includes(searchTerm) ||
                           doc.PERSONID.includes(searchTerm);
     return matchesType && matchesSearch;
   });
 
   const handleUploadClick = async () => {
     if (!uploadForm.personId) {
-      toast({ variant: "destructive", title: "上传失败", description: "请先选择关联患者。" })
+      toast({ variant: "destructive", title: "同步失败", description: "请先选择关联患者电子档案。" })
       return
     }
 
     setSubmitting(true)
-    const success = await DataService.uploadDocument(uploadForm.personId, uploadForm.type, uploadForm.date)
-    
-    if (success) {
-      toast({ title: "上传成功", description: "报告已存档并同步至数据库。" })
-      setIsUploadDialogOpen(false)
-      loadData()
-    } else {
-      toast({ variant: "destructive", title: "上传取消或失败" })
+    try {
+      const success = await DataService.uploadDocument(uploadForm.personId, uploadForm.type, uploadForm.date)
+      if (success) {
+        toast({ title: "同步成功", description: "报告已存档并同步至物理中心库及数据库索引。" })
+        setIsUploadDialogOpen(false)
+        loadData()
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "操作异常", description: err.message })
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   const handleDownload = async (doc: PatientDocument) => {
     const success = await DataService.downloadDocument(doc.FILE_URL, doc.FILENAME);
     if (success) {
-      toast({ title: "保存成功", description: `文件 ${doc.FILENAME} 已导出。` });
+      toast({ title: "导出成功", description: `文件 ${doc.FILENAME} 已保存。` });
+    }
+  }
+
+  const handleDelete = async (doc: PatientDocument) => {
+    if (!confirm(`确定要永久删除物理库中的报告附件 ${doc.FILENAME} 吗？`)) return;
+    const success = await DataService.deleteDocument(doc.ID, doc.FILE_URL);
+    if (success) {
+      toast({ title: "附件已彻底销毁" });
+      loadData();
     }
   }
 
@@ -95,50 +105,50 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">报告附件管理</h1>
-          <p className="text-muted-foreground mt-1">管理全院关联电子文档与影像扫描件，支持跨终端实时查阅。</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">全院报告附件中心</h1>
+          <p className="text-muted-foreground mt-1">基于物理中心库的分层文档管理系统，支持多终端实时调阅及物理同步。</p>
         </div>
         
         <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Upload className="mr-2 h-4 w-4" /> 上传报告
+              <Upload className="mr-2 h-4 w-4" /> 同步新报告
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>上传新报告附件</DialogTitle>
+              <DialogTitle>物理同步新报告附件</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 text-sm">
               <div className="space-y-2">
-                <Label>检查日期</Label>
+                <Label>检查/汇总日期</Label>
                 <Input type="date" value={uploadForm.date} onChange={e => setUploadForm({...uploadForm, date: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>关联患者</Label>
+                <Label>关联患者档案</Label>
                 <Select value={uploadForm.personId} onValueChange={v => setUploadForm({...uploadForm, personId: v})}>
                   <SelectTrigger>
-                    <SelectValue placeholder="选择患者..." />
+                    <SelectValue placeholder="检索并选择患者..." />
                   </SelectTrigger>
                   <SelectContent>
                     {persons.map(p => (
                       <SelectItem key={p.PERSONID} value={p.PERSONID}>
-                        {p.PERSONNAME} {p.PERSONID}
+                        {p.PERSONNAME} ({p.PERSONID})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>报告分类</Label>
+                <Label>报告分类分拣</Label>
                 <Select value={uploadForm.type} onValueChange={v => setUploadForm({...uploadForm, type: v as any})}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PE_REPORT">体检报告汇总</SelectItem>
-                    <SelectItem value="IMAGING">影像检查结果</SelectItem>
-                    <SelectItem value="PATHOLOGY">病理组织报告</SelectItem>
+                    <SelectItem value="PE_REPORT">年度体检报告汇总</SelectItem>
+                    <SelectItem value="IMAGING">医学影像扫描报告 (PACS)</SelectItem>
+                    <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -146,7 +156,7 @@ export default function ReportsPage() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>取消</Button>
               <Button onClick={handleUploadClick} disabled={submitting}>
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "选择并上传文件"}
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "浏览本地并物理同步"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -156,26 +166,26 @@ export default function ReportsPage() {
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="md:col-span-1">
           <CardHeader>
-            <CardTitle className="text-base">文件检索与筛选</CardTitle>
+            <CardTitle className="text-base">中心库多维检索</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">文件类型</label>
+              <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">分拣类别</label>
               <Select defaultValue="all" onValueChange={setFilterType}>
                 <SelectTrigger><SelectValue placeholder="全部" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部类型</SelectItem>
-                  <SelectItem value="PE_REPORT">体检报告汇总</SelectItem>
-                  <SelectItem value="IMAGING">影像检查结果</SelectItem>
-                  <SelectItem value="PATHOLOGY">病理组织报告</SelectItem>
+                  <SelectItem value="all">显示全部报告</SelectItem>
+                  <SelectItem value="PE_REPORT">体检汇总流水</SelectItem>
+                  <SelectItem value="IMAGING">医学影像 (PACS)</SelectItem>
+                  <SelectItem value="PATHOLOGY">临床病理</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">关键字搜索</label>
+              <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">模糊关键字</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="文件名、患者名..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <Input placeholder="文件名、患者、编号..." className="pl-8 text-xs" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
               </div>
             </div>
           </CardContent>
@@ -183,59 +193,62 @@ export default function ReportsPage() {
 
         <Card className="md:col-span-3">
           <CardHeader className="pb-3 border-b">
-            <CardTitle className="text-base">中心库文档列表</CardTitle>
+            <CardTitle className="text-base">物理中心库索引列表</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
              <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>文件名称</TableHead>
+                  <TableRow className="bg-muted/30">
+                    <TableHead>文件标题 (物理名)</TableHead>
                     <TableHead>关联患者</TableHead>
-                    <TableHead>文档分类</TableHead>
-                    <TableHead>检查上传日期</TableHead>
-                    <TableHead className="text-right">操作</TableHead>
+                    <TableHead>分拣类别</TableHead>
+                    <TableHead>同步日期</TableHead>
+                    <TableHead className="text-right">管理操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-10">同步数据库记录中...</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                   ) : filteredDocs.length > 0 ? filteredDocs.map((doc) => {
                     const person = persons.find(p => p.PERSONID === doc.PERSONID)
                     return (
-                      <TableRow key={doc.ID}>
+                      <TableRow key={doc.ID} className="text-xs">
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-blue-500" />
-                            <span className="truncate max-w-[200px]" title={doc.FILENAME}>{doc.FILENAME}</span>
+                            <span className="truncate max-w-[180px]" title={doc.FILENAME}>{doc.FILENAME}</span>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary">
-                            {person?.PERSONNAME}
+                          <Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary font-bold">
+                            {person?.PERSONNAME || '未知患者'}
                           </Link>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="text-[9px]">
                             {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检汇总' : '病理报告'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs font-mono">{doc.UPLOAD_DATE}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">{doc.UPLOAD_DATE}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" asChild>
+                            <Button variant="ghost" size="icon" asChild title="查看病历详情">
                               <Link href={`/patients/${doc.PERSONID}`}>
                                 <Eye className="h-4 w-4 text-primary" />
                               </Link>
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDownload(doc)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleDownload(doc)} title="另存为">
                               <Download className="h-4 w-4 text-secondary" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)} title="彻底销毁">
+                              <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     )
                   }) : (
-                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground">暂无相关附件记录。</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">中心库暂无符合筛选条件的报告流水</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -245,5 +258,3 @@ export default function ReportsPage() {
     </div>
   )
 }
-
-    

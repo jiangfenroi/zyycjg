@@ -9,8 +9,9 @@ declare global {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
       log: (level: string, message: string) => Promise<void>;
-      uploadFile: (params: { personId: string, type: string, customDate?: string, storagePath: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
+      uploadFile: (personId: string, type: string, customDate: string | undefined, storagePath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
+      deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
     };
   }
@@ -44,7 +45,7 @@ export const DataService = {
       );
       const results = await Promise.all(promises);
       const success = results.every(r => r.success);
-      if (success) await this.addLog('系统管理员', '同步更新全局配置', 'system');
+      if (success) await this.addLog('系统管理员', '同步更新全院全局配置', 'system');
       return success;
     }
     return true;
@@ -70,7 +71,7 @@ export const DataService = {
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
-      if (!result.success) throw new Error(result.error || '数据库同步异常');
+      if (!result.success) throw new Error(result.error || '中心数据库同步异常');
       return result.data;
     }
     return [];
@@ -118,7 +119,7 @@ export const DataService = {
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
-      if (result.success) await this.addLog(res.WORKER, `录入异常结果: ${res.PERSONID}`, 'alert');
+      if (result.success) await this.addLog(res.WORKER, `录入重要异常结果: ${res.PERSONID}`, 'alert');
       return result.success;
     }
     return true;
@@ -145,7 +146,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFSJ || '', followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
-      if (result.success) await this.addLog(followUp.SFGZRY, `结案随访: ${followUp.PERSONID}`, 'completed');
+      if (result.success) await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
       return result.success;
     }
     return true;
@@ -166,14 +167,15 @@ export const DataService = {
       const storagePath = settings.STORAGE_PATH;
       
       if (!storagePath) {
-        throw new Error('未配置中心存储路径，请联系管理员在设置中配置');
+        throw new Error('未配置全院统一物理存储路径，请管理员在系统设置中配置。');
       }
 
-      const uploadResult = await window.electronAPI.uploadFile({ personId, type, customDate, storagePath });
+      const uploadResult = await window.electronAPI.uploadFile(personId, type, customDate, storagePath);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
+        if (dbResult.success) await this.addLog('操作员', `上传报告附件: ${fileName}`, 'update');
         return dbResult.success;
       } else if (uploadResult.error) {
         throw new Error(uploadResult.error);
@@ -186,6 +188,22 @@ export const DataService = {
     if (isElectron) {
       const result = await window.electronAPI.downloadFile(sourcePath, fileName);
       return result.success;
+    }
+    return false;
+  },
+
+  async deleteDocument(id: string, filePath: string): Promise<boolean> {
+    if (isElectron) {
+      const deleteResult = await window.electronAPI.deleteFile(filePath);
+      if (deleteResult.success) {
+        const dbResult = await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
+        if (dbResult.success) await this.addLog('管理员', `删除报告附件: ${filePath.split(/[\\/]/).pop()}`, 'system');
+        return dbResult.success;
+      } else if (deleteResult.error) {
+        // 如果文件已经不存在，依然尝试清理数据库
+        await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
+        return true;
+      }
     }
     return false;
   },
@@ -211,7 +229,7 @@ export const DataService = {
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
-      if (result.success) await this.addLog('系统管理员', `销号: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `销号操作: ${username}`, 'system');
       return result.success;
     }
     return false;
@@ -220,7 +238,7 @@ export const DataService = {
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
-      if (result.success) await this.addLog('系统管理员', `安全重置密码: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `强制重置密码: ${username}`, 'system');
       return result.success;
     }
     return false;
