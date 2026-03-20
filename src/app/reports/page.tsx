@@ -146,7 +146,7 @@ export default function ReportsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PE_REPORT">年度体检报告汇总</SelectItem>
+                    <SelectItem value="PE_REPORT">总检体检报告</SelectItem>
                     <SelectItem value="IMAGING">医学影像扫描报告 (PACS)</SelectItem>
                     <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
                   </SelectContent>
@@ -175,7 +175,7 @@ export default function ReportsPage() {
                 <SelectTrigger><SelectValue placeholder="全部" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">显示全部报告</SelectItem>
-                  <SelectItem value="PE_REPORT">体检汇总流水</SelectItem>
+                  <SelectItem value="PE_REPORT">体检报告</SelectItem>
                   <SelectItem value="IMAGING">医学影像 (PACS)</SelectItem>
                   <SelectItem value="PATHOLOGY">临床病理</SelectItem>
                 </SelectContent>
@@ -226,7 +226,7 @@ export default function ReportsPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[9px]">
-                            {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检汇总' : '病理报告'}
+                            {doc.TYPE === 'IMAGING' ? '影像报告' : doc.TYPE === 'PE_REPORT' ? '体检报告' : '病理报告'}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground">{doc.UPLOAD_DATE}</TableCell>
@@ -241,7 +241,7 @@ export default function ReportsPage() {
                               <Download className="h-4 w-4 text-secondary" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => handleDelete(doc)} title="彻底销毁">
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

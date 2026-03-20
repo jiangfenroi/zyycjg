@@ -22,7 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -232,7 +232,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                     </div>
                     <div className="flex-1 overflow-hidden">
                       <p className="text-xs font-bold truncate" title={doc.FILENAME}>{doc.FILENAME}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{doc.UPLOAD_DATE} · {doc.TYPE === 'IMAGING' ? '医学影像' : doc.TYPE === 'PATHOLOGY' ? '病理报告' : '体检汇总'}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{doc.UPLOAD_DATE} · {doc.TYPE === 'IMAGING' ? '医学影像' : doc.TYPE === 'PATHOLOGY' ? '病理报告' : '体检报告'}</p>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(`app-file://${doc.FILE_URL}`)}>
@@ -268,7 +268,7 @@ export function PatientDetailClient({ id }: { id: string }) {
               <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PE_REPORT">体检报告汇总流水</SelectItem>
+                  <SelectItem value="PE_REPORT">体检报告 (总检汇总)</SelectItem>
                   <SelectItem value="IMAGING">医学影像报告 (PACS)</SelectItem>
                   <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
                 </SelectContent>

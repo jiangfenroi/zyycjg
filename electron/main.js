@@ -249,7 +249,7 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate, storag
     
     // 定义文件分类映射，用于文件夹命名
     const typeFolderMap = {
-      'PE_REPORT': '体检报告汇总',
+      'PE_REPORT': '体检报告',
       'IMAGING': '医学影像报告',
       'PATHOLOGY': '病理组织报告'
     };
