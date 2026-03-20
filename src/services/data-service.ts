@@ -22,9 +22,8 @@ const handleConnectionError = (err?: string) => {
   if (isElectron) {
     window.electronAPI.log('ERROR', '业务调用连接异常: ' + (err || '未知错误'));
   }
-  if (typeof window !== 'undefined') {
-    window.location.hash = '#/setup';
-  }
+  // 以前会重定向到 setup，现在建议用户在登录页检查配置
+  console.error("Database connection lost or configuration missing:", err);
 };
 
 export const DataService = {

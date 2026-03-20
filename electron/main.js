@@ -141,7 +141,7 @@ async function initDB(config) {
   }
 }
 
-function createWindow(startPath = '/') {
+function createWindow(startPath = '/login') {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -232,11 +232,10 @@ app.whenReady().then(async () => {
   const configExists = fs.existsSync(configPath);
   if (configExists) {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    const dbResult = await initDB(config);
-    createWindow(dbResult.success ? '/login' : '/setup');
-  } else {
-    createWindow('/setup');
+    await initDB(config);
   }
+  
+  createWindow('/login');
 });
 
 app.on('window-all-closed', () => {

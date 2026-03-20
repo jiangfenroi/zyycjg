@@ -18,7 +18,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     setMounted(true)
     
     const user = localStorage.getItem('currentUser');
-    const isAuthPage = pathname === '/login' || pathname === '/setup';
+    const isAuthPage = pathname === '/login';
     
     if (!user && !isAuthPage) {
       router.push('/login');
@@ -40,7 +40,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     )
   }
 
-  const isAuthPage = pathname === '/login' || pathname === '/setup';
+  const isAuthPage = pathname === '/login';
 
   if (isAuthPage) {
     return <main className="w-full h-full min-h-screen bg-slate-50">{children}</main>
