@@ -6,11 +6,13 @@ const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 /**
- * 终端兼容性与性能加固
+ * 环境兼容性与稳定性加固 (针对 Windows 8.1 及离线环境)
  */
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
+app.commandLine.appendSwitch('ignore-certificate-errors');
 
 const isDev = process.env.NODE_ENV === 'development';
 const configPath = path.join(app.getPath('userData'), 'db-config.enc');
@@ -105,7 +107,7 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
-        ZYYCJGBTZR VARCHAR(50),
+        ZYYCJGBTZR (50),
         ZYYCJGJKXJ TINYINT(1) DEFAULT 1,
         NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1
@@ -277,6 +279,7 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
 ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 app.whenReady().then(() => {
+  // 注册 APP 协议用于加载静态资源
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
@@ -290,6 +293,7 @@ app.whenReady().then(() => {
     }
   });
 
+  // 注册 APP-FILE 协议用于访问本地共享存储文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
     callback({ path: path.normalize(filePath) });
@@ -311,6 +315,7 @@ function createWindow() {
     }
   });
 
+  // 离线加固：优先加载静态入口
   const url = isDev ? `http://localhost:9002/login` : `app://./index.html#/login`;
   win.loadURL(url);
   win.once('ready-to-show', () => win.show());

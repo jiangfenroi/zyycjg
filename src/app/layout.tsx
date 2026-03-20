@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -6,13 +7,18 @@ import { AuthWrapper } from '@/components/auth-wrapper';
 import { Toaster } from '@/components/ui/toaster';
 import { DataService } from "@/services/data-service";
 
+/**
+ * 根布局加固：
+ * 1. 物理移除 Google Fonts 外部依赖，解决内网环境下的 ERR_NAME_NOT_RESOLVED 错误。
+ * 2. 采用系统原生字体族（微软雅黑、PingFang SC），确保离线环境下的视觉一致性。
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 启动时触发年龄自动核查流水
   React.useEffect(() => {
+    // 启动时触发年龄自动核查流水
     DataService.performMonthlyAgeAudit();
     
     // 初始化主题
@@ -26,12 +32,10 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        <title>重要异常结果管理系统</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <title>重要异常结果管理中心</title>
+        {/* 已物理移除外部字体链接，改用 globals.css 中的本地系统字体定义 */}
       </head>
-      <body className="font-body antialiased bg-background text-foreground">
+      <body className="font-sans antialiased bg-background text-foreground selection:bg-primary/10">
         <AuthWrapper>
           {children}
         </AuthWrapper>

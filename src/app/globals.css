@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -60,7 +61,7 @@
 
   .eye-care {
     /* 护眼模式 - 柔和暖沙 */
-    --background: 35 30% 88%; /* #f4ecd8 */
+    --background: 35 30% 88%;
     --foreground: 30 20% 15%;
     --card: 35 35% 94%;
     --card-foreground: 30 20% 15%;
@@ -87,7 +88,9 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    /* 采用本地系统字体族，解决 ERR_NAME_NOT_RESOLVED 并提升离线稳定性 */
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans", sans-serif;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
