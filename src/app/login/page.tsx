@@ -86,7 +86,7 @@ export default function LoginPage() {
       if (window.electronAPI) {
         const result = await window.electronAPI.setupDB(dbConfig)
         if (result.success) {
-          toast({ title: "接入成功", description: "远程数据库已通过加密信道同步" })
+          toast({ title: "接入成功", description: "远程数据库已接入" })
           setIsSettingsOpen(false)
           // 提交后强制重置 UI 状态
           setDbConfig({ host: '', port: '10699', user: '', password: '', database: '' })
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background" style={bgStyle}>
-      <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-0"></div>
+      <div className="absolute inset-0 bg-background/20 backdrop-blur-md z-0"></div>
       
       <div className="w-full max-w-md space-y-8 relative z-10 p-6 animate-in fade-in zoom-in duration-300">
         <div className="flex flex-col items-center text-center space-y-4">
@@ -171,7 +171,7 @@ export default function LoginPage() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[450px]">
                     <DialogHeader>
-                      <DialogTitle>中心服务器接入 (物理加密存储)</DialogTitle>
+                      <DialogTitle>中心服务器接入</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
@@ -201,7 +201,7 @@ export default function LoginPage() {
                     </div>
                     <DialogFooter>
                       <Button onClick={handleDbSetup} disabled={dbLoading || !isElectron} className="w-full">
-                        {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "物理保存并接入"}
+                        {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "确认接入"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
