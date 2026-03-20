@@ -1,8 +1,9 @@
+
 "use client"
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, User, Lock, Loader2, Server, AlertCircle } from "lucide-react"
+import { ShieldCheck, User, Lock, Loader2, Server, AlertCircle, Hash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,12 +38,13 @@ export default function LoginPage() {
     DataService.getSystemSettings().then(setSettings)
   }, [])
 
-  // 每次打开弹窗时重置输入状态，确保不缓存任何信息
-  React.useEffect(() => {
-    if (isSettingsOpen) {
-      setDbConfig({ host: '', port: '', user: '', password: '', database: '' })
+  // 每次打开弹窗时强制重置输入状态，确保不缓存任何敏感信息
+  const handleOpenSettings = (open: boolean) => {
+    setIsSettingsOpen(open);
+    if (open) {
+      setDbConfig({ host: '', port: '', user: '', password: '', database: '' });
     }
-  }, [isSettingsOpen])
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -167,7 +169,7 @@ export default function LoginPage() {
               </Button>
               
               <div className="flex items-center justify-center w-full pt-4 border-t">
-                <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <Dialog open={isSettingsOpen} onOpenChange={handleOpenSettings}>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
                       <Server className="mr-1 h-3 w-3" /> 数据库接入配置
@@ -180,31 +182,43 @@ export default function LoginPage() {
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
                         <Label className="text-xs">服务器主机</Label>
-                        <Input placeholder="例如：127.0.0.1" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                        <div className="relative">
+                           <Server className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
+                           <Input placeholder="例如：127.0.0.1" className="pl-8 text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">数据库名</Label>
-                          <Input placeholder="例如：meditrack_db" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                          <Input placeholder="例如：meditrack_db" className="text-xs h-9" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">端口</Label>
-                          <Input placeholder="例如：10699" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                          <div className="relative">
+                            <Hash className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
+                            <Input placeholder="例如：10699" className="pl-8 text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                          </div>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">访问账号</Label>
-                          <Input placeholder="例如：root" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                          <div className="relative">
+                            <User className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
+                            <Input placeholder="例如：root" className="pl-8 text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">访问密码</Label>
-                          <Input type="password" placeholder="请输入访问密码" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
+                            <Input type="password" placeholder="请输入密码" className="pl-8 text-xs h-9" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
+                          </div>
                         </div>
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleDbSetup} disabled={dbLoading || !isElectron} className="w-full">
+                      <Button onClick={handleDbSetup} disabled={dbLoading || !isElectron} className="w-full h-10 text-xs font-bold">
                         {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "确认接入"}
                       </Button>
                     </DialogFooter>

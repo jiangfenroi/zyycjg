@@ -1,5 +1,5 @@
 
-const { app, BrowserWindow, ipcMain, protocol, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -196,6 +196,15 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
 });
 
 ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
+
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
 
 ipcMain.handle('select-pdf', async (event, multi = false) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({

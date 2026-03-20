@@ -118,6 +118,15 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
   }
 
+  const handlePACSClose = async () => {
+    const url = `http://172.16.201.61:7242/?ChtId=${id}`;
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.openExternal) {
+      await window.electronAPI.openExternal(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
   if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在于中心库中。</div>
 
@@ -237,7 +246,7 @@ export function PatientDetailClient({ id }: { id: string }) {
               </div>
             </div>
             <div className="pt-6 border-t flex flex-col gap-2">
-              <Button variant="outline" className="w-full justify-start" onClick={() => window.open(`http://172.16.201.61:7242/?ChtId=${id}`, '_blank')}>
+              <Button variant="outline" className="w-full justify-start hover:bg-primary/5 hover:text-primary transition-colors" onClick={handlePACSClose}>
                 <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 医学影像原始查询
               </Button>
             </div>
