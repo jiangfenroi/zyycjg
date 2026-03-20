@@ -25,12 +25,10 @@ export interface AbnormalResult {
   ZYYCJGBTZR: string;
   NEXT_DATE?: string;
   IS_NOTIFIED: boolean;
-  IS_HEALTH_EDU: boolean;
   PERSONNAME?: string;
   SEX?: '男' | '女';
   AGE?: number;
   PHONE?: string;
-  OCCURDATE?: string;
 }
 
 export interface FollowUp {
@@ -67,6 +65,7 @@ export interface SystemSettings {
   SYSTEM_NAME: string;
   SYSTEM_LOGO_TEXT: string;
   SYSTEM_LOGO_URL?: string;
+  LOGIN_BG_URL?: string;
   STORAGE_PATH?: string;
 }
 

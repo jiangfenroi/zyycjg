@@ -6,22 +6,16 @@ const mysql = require('mysql2/promise');
 
 /**
  * 终极兼容性加固：针对 Windows 7 / 8.1
- * 彻底禁用 GPU 硬件加速及沙盒模式，防止旧版系统启动无反应
  */
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('disable-gpu-compositing');
-app.commandLine.appendSwitch('ignore-gpu-blacklist');
 
 const isDev = process.env.NODE_ENV === 'development';
 const configPath = path.join(app.getPath('userData'), 'db-config.json');
 const logPath = path.join(app.getPath('userData'), 'app.log');
 
-/**
- * 本地回顾性日志引擎
- */
 function writeLog(level, message) {
   try {
     const timestamp = new Date().toLocaleString();
@@ -32,12 +26,6 @@ function writeLog(level, message) {
   }
 }
 
-writeLog('INFO', '系统启动，执行内核初始化与兼容性检查');
-
-protocol.registerSchemesAsPrivileged([
-  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
-]);
-
 let dbConnection;
 
 async function initDB(config) {
@@ -45,8 +33,6 @@ async function initDB(config) {
     if (dbConnection) {
       try { await dbConnection.end(); } catch (e) {}
     }
-
-    writeLog('INFO', `尝试接入远程中心数据库: ${config.host}:${config.port}`);
 
     dbConnection = await mysql.createConnection({
       host: config.host,
@@ -56,8 +42,6 @@ async function initDB(config) {
       database: config.database,
       connectTimeout: 15000
     });
-
-    writeLog('INFO', '中心数据库连接成功，同步 Schema 结构');
 
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
@@ -96,8 +80,7 @@ async function initDB(config) {
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
         NEXT_DATE DATE,
-        IS_NOTIFIED TINYINT(1) DEFAULT 1,
-        IS_HEALTH_EDU TINYINT(1) DEFAULT 1
+        IS_NOTIFIED TINYINT(1) DEFAULT 1
       )`,
       `CREATE TABLE IF NOT EXISTS SP_SF (
         ID VARCHAR(50) PRIMARY KEY,
@@ -131,15 +114,16 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
-    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', 'M')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', '重')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_URL', '')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('LOGIN_BG_URL', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 
-    writeLog('INFO', '数据表结构检查完成');
     return { success: true };
   } catch (err) {
-    writeLog('ERROR', '核心数据库接入异常: ' + err.message);
+    writeLog('ERROR', '数据库连接失败: ' + err.message);
     return { success: false, error: err.message };
   }
 }
@@ -147,13 +131,13 @@ async function initDB(config) {
 function createWindow(startPath = '/login') {
   const iconPath = isDev 
     ? path.join(app.getAppPath(), 'public', 'favicon.ico') 
-    : path.join(app.getAppPath(), 'out', 'favicon.ico');
+    : path.join(process.resourcesPath, 'out', 'favicon.ico');
 
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
     show: false,
-    icon: iconPath,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -164,24 +148,16 @@ function createWindow(startPath = '/login') {
 
   const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
   win.loadURL(url);
-
-  win.once('ready-to-show', () => {
-    win.show();
-    writeLog('INFO', `主窗口就绪，路由: ${startPath}`);
-  });
-
+  win.once('ready-to-show', () => win.show());
   return win;
 }
 
-ipcMain.handle('app-log', (event, { level, message }) => {
-  writeLog(level, message);
-});
+ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    writeLog('INFO', '远程数据库参数更新成功');
     return { success: true };
   }
   return { success: false, error: result.error };
@@ -196,12 +172,11 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
       return { success: false, error: 'NO_CONFIG' };
     }
   }
-  
   try {
     const [rows] = await dbConnection.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    writeLog('ERROR', 'SQL 执行异常: ' + err.message + ' | SQL: ' + sql);
+    writeLog('ERROR', 'SQL 执行失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -216,103 +191,75 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
     if (rows.length > 0) return { success: true, user: rows[0] };
     return { success: false, error: '无效的身份凭据' };
   } catch (err) {
-    writeLog('ERROR', '认证异常: ' + err.message);
     return { success: false, error: err.message };
   }
 });
 
-/**
- * 选择本地文件 - 支持多选
- */
 ipcMain.handle('select-pdf', async (event, multi = false) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: multi ? ['openFile', 'multiSelections'] : ['openFile'],
-    filters: [{ name: 'PDF 报告', extensions: ['pdf'] }]
+    filters: [{ name: '文件', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
   });
   if (canceled || filePaths.length === 0) return { success: false };
-  
-  const files = filePaths.map(p => ({
-    path: p,
-    name: path.basename(p)
-  }));
-
-  return { success: true, files: files };
+  return { success: true, files: filePaths.map(p => ({ path: p, name: path.basename(p) })) };
 });
 
 /**
- * 物理文件同步至中心存储
+ * 系统资产上传处理 (Logo, 背景图)
  */
+ipcMain.handle('upload-system-asset', async (event, { sourcePath, storagePath, assetType }) => {
+  try {
+    if (!storagePath || !fs.existsSync(storagePath)) return { success: false, error: '存储路径无效' };
+    
+    const assetDir = path.join(storagePath, 'system_assets');
+    if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
+
+    const ext = path.extname(sourcePath);
+    const fileName = `${assetType}${ext}`;
+    const destPath = path.join(assetDir, fileName);
+    
+    fs.copyFileSync(sourcePath, destPath);
+    return { success: true, filePath: destPath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
 ipcMain.handle('file-upload-confirm', async (event, { sourcePath, personId, type, customDate, storagePath }) => {
   try {
-    if (!fs.existsSync(sourcePath)) return { success: false, error: '源文件不存在' };
-    if (!storagePath || !fs.existsSync(storagePath)) return { success: false, error: '中心存储路径不可用' };
-
-    const originalExt = path.extname(sourcePath);
-    const originalBaseName = path.basename(sourcePath, originalExt);
-    const uploadDateStr = customDate || new Date().toISOString().split('T')[0];
-    const datePrefix = uploadDateStr.replace(/-/g, '');
-    
-    const typeFolderMap = {
-      'PE_REPORT': '体检报告',
-      'IMAGING': '医学影像报告',
-      'PATHOLOGY': '病理组织报告'
-    };
+    const typeFolderMap = { 'PE_REPORT': '体检报告', 'IMAGING': '医学影像报告', 'PATHOLOGY': '病理组织报告' };
     const typeFolder = typeFolderMap[type] || type;
-
     const destDir = path.join(storagePath, personId, typeFolder);
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
-    const fileName = `${datePrefix}_${typeFolder}_${originalBaseName}${originalExt}`;
+    const ext = path.extname(sourcePath);
+    const fileName = `${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${typeFolder}_${path.basename(sourcePath, ext)}${ext}`;
     const destPath = path.join(destDir, fileName);
-    
     fs.copyFileSync(sourcePath, destPath);
-    writeLog('INFO', `文件已同步至中心库: ${destPath}`);
-
-    return { 
-      success: true, 
-      data: { 
-        fileName: fileName, 
-        fileUrl: destPath, 
-        uploadDate: uploadDateStr 
-      } 
-    };
+    return { success: true, data: { fileName, fileUrl: destPath, uploadDate: customDate || new Date().toISOString().split('T')[0] } };
   } catch (err) {
-    writeLog('ERROR', '附件同步物理失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
   try {
-    const { filePath } = await dialog.showSaveDialog({
-      defaultPath: fileName,
-      filters: [{ name: 'PDF 文件', extensions: ['pdf'] }]
-    });
-
+    const { filePath } = await dialog.showSaveDialog({ defaultPath: fileName });
     if (filePath) {
-      if (!fs.existsSync(sourcePath)) {
-        return { success: false, error: '源文件在中心库中已移动或丢失' };
-      }
       fs.copyFileSync(sourcePath, filePath);
       return { success: true };
     }
     return { success: false };
   } catch (err) {
-    writeLog('ERROR', '附件另存为失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('file-delete', async (event, { filePath }) => {
   try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      writeLog('INFO', `文件已从物理中心库移除: ${filePath}`);
-      return { success: true };
-    }
-    return { success: false, error: '物理文件不存在' };
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return { success: true };
   } catch (err) {
-    writeLog('ERROR', '附件删除物理失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -320,7 +267,7 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
-    if (url.includes(':')) { url = url.split(':').pop(); }
+    if (url.includes(':')) url = url.split(':').pop();
     if (url.startsWith('/')) url = url.slice(1);
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
@@ -336,13 +283,11 @@ app.whenReady().then(async () => {
     callback({ path: path.normalize(filePath) });
   });
 
-  const configExists = fs.existsSync(configPath);
-  if (configExists) {
+  if (fs.existsSync(configPath)) {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     await initDB(config);
   }
-  
   createWindow('/login');
 });
 
-app.on('window-all-closed', () => { app.quit(); });
+app.on('window-all-closed', () => app.quit());
