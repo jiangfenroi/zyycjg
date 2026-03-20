@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Loader2,
-  CalendarDays
+  CalendarDays,
+  Calendar
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from '@/components/ui/badge'
 import { DataService } from '@/services/data-service'
 import { 
@@ -37,7 +39,13 @@ import {
 export default function FollowUpRateAnalytics() {
   const router = useRouter()
   const [loading, setLoading] = React.useState(true)
+  const [selectedYear, setSelectedYear] = React.useState(new Date().getFullYear().toString())
   const [data, setData] = React.useState<{ results: any[], followUps: any[] }>({ results: [], followUps: [] })
+
+  const years = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
+  }, []);
 
   const fetchAnalytics = React.useCallback(async () => {
     setLoading(true)
@@ -59,10 +67,9 @@ export default function FollowUpRateAnalytics() {
   const { analyticsData, summary } = React.useMemo(() => {
     const { results, followUps } = data
     const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-    const currentYear = new Date().getFullYear()
     
     const monthly = months.map(m => {
-      const prefix = `${currentYear}-${m}`
+      const prefix = `${selectedYear}-${m}`
       const registeredInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(prefix))
       const completedInMonth = registeredInMonth.filter(r => 
         followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
@@ -76,8 +83,11 @@ export default function FollowUpRateAnalytics() {
       }
     })
 
-    const totalReg = results.length
-    const totalComp = followUps.length
+    const filteredResultsForYear = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(selectedYear))
+    const totalReg = filteredResultsForYear.length
+    const totalComp = filteredResultsForYear.filter(r => 
+      followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
+    ).length
     
     return {
       analyticsData: monthly,
@@ -87,7 +97,7 @@ export default function FollowUpRateAnalytics() {
         overallRate: totalReg > 0 ? Math.round((totalComp / totalReg) * 100) : 0
       }
     }
-  }, [data])
+  }, [data, selectedYear])
 
   if (loading) {
     return (
@@ -99,32 +109,47 @@ export default function FollowUpRateAnalytics() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-primary">随访闭环率分析</h1>
-          <p className="text-sm text-muted-foreground">统计维度：按发现月归集随访结果</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-primary">随访闭环率分析</h1>
+            <p className="text-sm text-muted-foreground">统计维度：按发现月归集随访结果</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="选择年份" />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map(y => (
+                <SelectItem key={y} value={y}>{y}年度</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1"><AlertCircle className="h-3 w-3" /> 累计异常登记</CardDescription>
+            <CardDescription className="flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {selectedYear}年度 累计异常登记</CardDescription>
             <CardTitle className="text-2xl">{summary.totalRegistered} <span className="text-xs font-normal text-muted-foreground">例</span></CardTitle>
           </CardHeader>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-secondary" /> 累计随访闭环</CardDescription>
+            <CardDescription className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-secondary" /> {selectedYear}年度 累计随访闭环</CardDescription>
             <CardTitle className="text-2xl text-secondary">{summary.totalCompleted} <span className="text-xs font-normal text-muted-foreground">例</span></CardTitle>
           </CardHeader>
         </Card>
         <Card className="bg-primary/5 border-primary/20 shadow-sm">
           <CardHeader className="pb-2">
-            <CardDescription className="flex items-center gap-1 text-primary font-bold"><TrendingUp className="h-3 w-3" /> 总计随访闭环率</CardDescription>
+            <CardDescription className="flex items-center gap-1 text-primary font-bold"><TrendingUp className="h-3 w-3" /> {selectedYear}年度 闭环率</CardDescription>
             <CardTitle className="text-3xl text-primary font-bold">{summary.overallRate}%</CardTitle>
           </CardHeader>
         </Card>
@@ -135,7 +160,7 @@ export default function FollowUpRateAnalytics() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
-              随访率月度趋势 (%)
+              {selectedYear}年度 随访率月度趋势 (%)
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[350px] pt-4">
@@ -158,7 +183,7 @@ export default function FollowUpRateAnalytics() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-primary" />
-              年度指标矩阵
+              {selectedYear}年度 指标矩阵
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">

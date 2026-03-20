@@ -3,10 +3,11 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Activity, ArrowUpRight, RefreshCw } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Activity, ArrowUpRight, RefreshCw, Calendar } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import { 
   Bar, 
@@ -33,11 +34,17 @@ const addYears = (dateStr: string, years: number) => {
 export default function Dashboard() {
   const [isClient, setIsClient] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
+  const [selectedYear, setSelectedYear] = React.useState(new Date().getFullYear().toString())
   const [data, setData] = React.useState<{
     patients: any[],
     results: any[],
     followUps: any[]
   }>({ patients: [], results: [], followUps: [] })
+
+  const years = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
+  }, []);
 
   const loadDashboardData = React.useCallback(async () => {
     setLoading(true)
@@ -98,10 +105,9 @@ export default function Dashboard() {
   const trendData = React.useMemo(() => {
     const { results, followUps } = data
     const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-    const currentYear = new Date().getFullYear()
     
     return months.map(m => {
-      const prefix = `${currentYear}-${m}`
+      const prefix = `${selectedYear}-${m}`
       const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").startsWith(prefix))
       const completedForMonth = resultsInMonth.filter(r => 
         followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
@@ -114,7 +120,7 @@ export default function Dashboard() {
         total: resultsInMonth.length
       }
     })
-  }, [data])
+  }, [data, selectedYear])
 
   const categoryData = React.useMemo(() => [
     { name: "A类 (即时)", value: stats.aClassResults, color: "hsl(var(--primary))" },
@@ -171,11 +177,28 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="md:col-span-4 shadow-sm border-t-2 border-t-primary/20">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
-              <BarChart3 className="h-4 w-4" />
-              随访闭环率年度趋势 (%)
-            </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">全等级异常结果覆盖 · 中心库实时归集</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
+                  <BarChart3 className="h-4 w-4" />
+                  随访闭环率年度趋势 (%)
+                </CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">全等级异常结果覆盖 · 中心库实时归集</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs">
+                    <SelectValue placeholder="选择年份" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(y => (
+                      <SelectItem key={y} value={y}>{y}年</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
             {loading ? (
@@ -197,7 +220,7 @@ export default function Dashboard() {
                         const d = payload[0].payload;
                         return (
                           <div className="bg-background border p-3 rounded-lg shadow-xl text-[11px] space-y-1 border-primary/20">
-                            <p className="font-bold border-b pb-1 mb-1 text-primary">{d.month}统计摘要</p>
+                            <p className="font-bold border-b pb-1 mb-1 text-primary">{selectedYear}年{d.month}统计摘要</p>
                             <div className="space-y-0.5">
                                <p className="flex justify-between gap-6"><span>随访闭环率:</span> <span className="font-bold text-primary">{d.rate}%</span></p>
                                <p className="text-muted-foreground flex justify-between gap-6"><span>月度登记:</span> <span>{d.total} 例</span></p>
