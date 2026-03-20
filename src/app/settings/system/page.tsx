@@ -45,7 +45,7 @@ export default function GlobalManagementPage() {
   const [users, setUsers] = React.useState<User[]>([])
   const [isAddUserOpen, setIsAddUserOpen] = React.useState(false)
   
-  const [newUser, setNewUser] = React.useState({ USERNAME: '', PASSWORD: '', REAL_NAME: '', ROLE: 'operator' as any })
+  const [newUser, setNewUser] = React.useState({ USERNAME: '', PASSWORD: '', REAL_NAME: '', ROLE: 'operator' })
 
   const loadData = React.useCallback(async () => {
     setLoading(true)
@@ -85,7 +85,7 @@ export default function GlobalManagementPage() {
           toast({ title: "资产已同步至中心库" });
           loadData();
         }
-      } catch (e: any) {
+      } catch (e) {
         toast({ variant: "destructive", title: "物理同步失败", description: e.message });
       } finally {
         setSubmitting(false)

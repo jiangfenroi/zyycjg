@@ -124,7 +124,7 @@ export function PatientDetailClient({ id }: { id: string }) {
 
   // 构造统一全量时序业务流
   const timelineData = React.useMemo(() => {
-    const events: any[] = []
+    const events = []
     
     results.forEach(r => {
       events.push({
@@ -149,7 +149,7 @@ export function PatientDetailClient({ id }: { id: string }) {
     return events.sort((a, b) => b.date.localeCompare(a.date))
   }, [results, followUps])
 
-  const handleUpdateStatus = async (status: 'alive' | 'deceased' | 'lost') => {
+  const handleUpdateStatus = async (status) => {
     if (!person) return
     const success = await DataService.addPatient({ ...person, STATUS: status });
     if (success) {
@@ -190,7 +190,7 @@ export function PatientDetailClient({ id }: { id: string }) {
         setSelectedFileName(null)
         loadAllData()
       }
-    } catch (err: any) {
+    } catch (err) {
       toast({ variant: "destructive", title: "物理归档失败", description: err.message })
     } finally {
       setUploading(false)
@@ -210,7 +210,7 @@ export function PatientDetailClient({ id }: { id: string }) {
         ID: `F${Date.now()}`,
         PERSONID: id,
         ...followUpForm
-      } as FollowUp)
+      })
       if (success) {
         toast({ title: "结案流水已入库" })
         setIsFollowUpOpen(false)
@@ -221,7 +221,7 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
   }
 
-  const handleDeleteDoc = async (docId: string, filePath: string) => {
+  const handleDeleteDoc = async (docId, filePath) => {
     if (!confirm(`确定彻底移除中心库中的报告文件吗？`)) return;
     const success = await DataService.deleteDocument(docId, filePath);
     if (success) {
@@ -556,7 +556,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                </div>
                <div className="space-y-1">
                   <Label>报告分类</Label>
-                  <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
+                  <Select value={uploadType} onValueChange={v => setUploadType(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PE_REPORT">体检报告</SelectItem>

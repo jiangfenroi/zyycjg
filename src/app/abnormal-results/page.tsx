@@ -143,6 +143,7 @@ export default function AbnormalResultsPage() {
         })
         
         if (success) {
+          // 尝试静默检查档案是否存在
           try {
             const patients = await DataService.getPatients();
             const existingPatient = patients.find(p => p.PERSONID === formData.PERSONID);
@@ -175,7 +176,7 @@ export default function AbnormalResultsPage() {
           toast({ variant: "destructive", title: "修改失败", description: "数据同步中断，请检查网络连接" })
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       toast({ variant: "destructive", title: "系统严重错误", description: err.message || "未知逻辑故障" })
     } finally {
       setSubmitting(false)
@@ -208,7 +209,7 @@ export default function AbnormalResultsPage() {
       } else {
         toast({ variant: "destructive", title: "档案同步失败", description: res.error })
       }
-    } catch (err: any) {
+    } catch (err) {
       toast({ variant: "destructive", title: "系统异常", description: err.message })
     } finally {
       setSubmitting(false)
@@ -321,7 +322,7 @@ export default function AbnormalResultsPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>结果分类</Label>
-                          <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
+                          <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v})}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="A">A类 (即时干预)</SelectItem><SelectItem value="B">B类 (常规随访)</SelectItem></SelectContent>
                           </Select>
@@ -420,7 +421,7 @@ export default function AbnormalResultsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>性别</Label>
-                    <Select value={patientData.SEX} onValueChange={v => setPatientData({...patientData, SEX: v as any})}>
+                    <Select value={patientData.SEX} onValueChange={v => setPatientData({...patientData, SEX: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="男">男</SelectItem>
