@@ -24,7 +24,6 @@ export default function LoginPage() {
   const [settings, setSettings] = React.useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isElectron, setIsElectron] = React.useState(false)
-  const [theme, setTheme] = React.useState<'normal' | 'dark' | 'eye-care'>('normal')
 
   // UI 零缓存逻辑：数据库配置状态始终为空，仅在提交时使用
   const [dbConfig, setDbConfig] = React.useState({
@@ -38,8 +37,6 @@ export default function LoginPage() {
   React.useEffect(() => {
     setIsElectron(typeof window !== 'undefined' && !!window.electronAPI)
     DataService.getSystemSettings().then(setSettings)
-    const savedTheme = localStorage.getItem('app-theme') as any || 'normal'
-    setTheme(savedTheme)
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -104,13 +101,6 @@ export default function LoginPage() {
     }
   }
 
-  const toggleTheme = (newTheme: 'normal' | 'dark' | 'eye-care') => {
-    setTheme(newTheme)
-    localStorage.setItem('app-theme', newTheme)
-    document.documentElement.classList.remove('dark', 'eye-care')
-    if (newTheme !== 'normal') document.documentElement.classList.add(newTheme)
-  }
-
   const bgStyle = settings?.LOGIN_BG_URL 
     ? { backgroundImage: `url(app-file://${settings.LOGIN_BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }
     : { backgroundColor: 'hsl(var(--background))' };
@@ -172,17 +162,11 @@ export default function LoginPage() {
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "进入系统"}
               </Button>
               
-              <div className="flex items-center justify-between w-full pt-4 border-t">
-                <div className="flex gap-1 bg-muted/30 p-1 rounded-lg">
-                   <Button variant={theme === 'normal' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => toggleTheme('normal')}><Monitor className="h-3.5 w-3.5" /></Button>
-                   <Button variant={theme === 'eye-care' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => toggleTheme('eye-care')}><Eye className="h-3.5 w-3.5" /></Button>
-                   <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => toggleTheme('dark')}><Moon className="h-3.5 w-3.5" /></Button>
-                </div>
-
+              <div className="flex items-center justify-center w-full pt-4 border-t">
                 <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
-                      <Server className="mr-1 h-3 w-3" /> 数据库接入
+                      <Server className="mr-1 h-3 w-3" /> 数据库接入配置
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[450px]">
