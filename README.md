@@ -5,7 +5,7 @@
 
 ---
 
-## 一 服务器端配置要求 (MySQL)
+## 一 服务器端配置要求
 
 系统采用中心化部署模式，所有的客户端均连接至同一台服务器。
 
@@ -15,9 +15,9 @@
 
 ### 2 基础安装步骤
 1. 安装 MySQL Server。
-2. 编辑配置文件 `my.ini` (Windows) 或 `my.cnf` (Linux)：
-   - 设置监听端口：`port = 10699` (建议使用此非标准端口)。
-   - 允许远程连接：确保 `bind-address = 0.0.0.0`。
+2. 编辑配置文件 `my.ini` 或 `my.cnf`：
+   - 设置监听端口：`port = 10699`
+   - 允许远程连接：确保 `bind-address = 0.0.0.0`
 3. 重启 MySQL 服务。
 4. 在防火墙中开放 TCP `10699` 端口。
 
@@ -38,22 +38,22 @@ FLUSH PRIVILEGES;
 
 ## 二 数据库表结构详解
 
-系统在首次连接成功后会自动创建以下表结构：
+系统在首次连接成功后会自动创建以下 7 张核心表：
 
-- **SP_USERS**: 用户权限表 (ID, USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE)
-- **SP_SETTINGS**: 系统配置表 (CONF_KEY, CONF_VALUE)
-- **SP_PERSON**: 患者档案表 (PERSONID, PERSONNAME, SEX, AGE, PHONE, IDNO, UNITNAME, OCCURDATE, OPTNAME)
-- **SP_ZYJG**: 重要异常结果登记表 (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU)
-- **SP_SF**: 随访记录表 (ID, PERSONID, ZYYCJGTJBH, HFRESULT, SFTIME, SFSJ, SFGZRY, jcsf, XCSFTIME)
-- **SP_LOGS**: 系统操作日志表 (ID, OPERATOR, ACTION, TYPE, LOG_TIME)
-- **SP_DOCUMENTS**: 附件管理表 (ID, PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL)
+- **SP_USERS**: 用户权限表。包含 ID, USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE。
+- **SP_SETTINGS**: 系统配置表。包含 CONF_KEY, CONF_VALUE。
+- **SP_PERSON**: 患者档案表。包含 PERSONID, PERSONNAME, SEX, AGE, PHONE, IDNO, UNITNAME, OCCURDATE, OPTNAME。
+- **SP_ZYJG**: 重要异常结果登记表。包含 ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, IS_NOTIFIED, IS_HEALTH_EDU。
+- **SP_SF**: 随访记录表。包含 ID, PERSONID, ZYYCJGTJBH, HFRESULT, SFTIME, SFSJ, SFGZRY, jcsf, XCSFTIME。
+- **SP_LOGS**: 系统操作日志表。包含 ID, OPERATOR, ACTION, TYPE, LOG_TIME。
+- **SP_DOCUMENTS**: 附件管理表。包含 ID, PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL。
 
 ---
 
 ## 三 客户端程序打包流程
 
 ### 1 开发环境准备
-- 确保已安装 Node.js (建议 v20+)。
+- 确保已安装 Node.js 建议 v20 以上。
 - 确保已安装 git。
 
 ### 2 打包步骤
@@ -80,11 +80,11 @@ FLUSH PRIVILEGES;
 - 基础组件：必须安装 **Microsoft Visual C++ Redistributable 2015-2022** 运行库。
 
 ### 2 数据库配置方式
-- 启动程序后，在**登录界面**底部点击“**服务器连接设置**”即可配置中心数据库参数。
+- **重要更新**：启动程序后，在**登录界面**底部点击“**服务器连接设置**”即可配置中心数据库参数。配置完成后系统将自动尝试连接并初始化服务器端。
 
-### 3 常见问题排查 (Windows 7/8.1)
+### 3 常见问题排查
 针对安装后运行无反应的情况：
-1. **硬件加速**：系统已默认禁用硬件加速。若仍无反应，请更新显卡驱动。
+1. **显卡驱动**：系统已默认禁用硬件加速。若仍无反应，请尝试更新显卡驱动。
 2. **VC++ 运行库**：未安装运行库会导致 `mysql2` 驱动无法加载。
 3. **回顾性日志**：程序会自动记录运行详情。请查看以下路径的日志文件以获取报错堆栈：
    `%APPDATA%/meditrack-connect/app.log`
@@ -94,10 +94,10 @@ FLUSH PRIVILEGES;
 ## 五 核心业务标准
 
 ### 1 重要异常结果登记标准
-包含档案编号、体检编号、姓名、结果分类、异常结果详情、通知日期/时间、处置建议等 16 维核心数据。
+系统自动记录登记日期及时间。包含档案编号、体检编号、姓名、结果分类、异常结果详情、通知日期、时间、处置建议等 16 维核心数据。
 
 ### 2 重要异常随访结案标准
-包含回访结果详情、是否复查、回访日期/时间、下次回访时间等 11 维标准闭环数据。
+系统自动记录随访日期及时间。包含回访结果详情、是否复查、回访日期、时间、下次回访时间等 11 维标准闭环数据。
 
 ---
 &copy; 2024 MediTrack Connect. 医疗数据安全保护系统.
