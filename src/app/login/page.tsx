@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ShieldCheck, User, Lock, Loader2, Server, Hash } from "lucide-react"
+import { ShieldCheck, User, Lock, Loader2, Server } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { DataService } from "@/services/data-service"
 
 /**
- * 登录页面：物理响应加固
- * 1. 物理移除表单嵌套冲突，确保“数据库配置”不会触发“登录提交”。
- * 2. 强制指定 type="button"，防止 Electron 环境下的默认刷新。
+ * 登录页面物理加固：
+ * 1. 物理移除对话框嵌套，防止事件冒泡导致的表单意外提交。
+ * 2. 强制指定 type="button"，彻底解决 Electron 环境下的页面刷新问题。
  */
 export default function LoginPage() {
   const router = useRouter()
@@ -39,13 +39,11 @@ export default function LoginPage() {
   React.useEffect(() => {
     const checkElectron = typeof window !== 'undefined' && !!window.electronAPI;
     setIsElectron(checkElectron)
-    
-    // 异步加载品牌资产
     DataService.getSystemSettings().then(setSettings).catch(() => {});
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault() // 物理防止原生提交
     if (!username || !password || loading) {
       toast({ variant: "destructive", title: "校验失败", description: "请输入工号和密码" })
       return
@@ -68,7 +66,6 @@ export default function LoginPage() {
           }
         }
       } else {
-        // Web 预览演示模式
         if (username === 'admin' && password === '123456') {
           const mockUser = { ID: 0, USERNAME: 'admin', REAL_NAME: '演示管理员', ROLE: 'admin' }
           localStorage.setItem('currentUser', JSON.stringify(mockUser))
@@ -85,11 +82,11 @@ export default function LoginPage() {
   }
 
   const handleDbSetup = async (e: React.MouseEvent) => {
-    e.preventDefault(); // 物理防止冒泡
-    if (!isElectron) return;
+    e.preventDefault()
+    if (!isElectron) return
     if (!dbConfig.host || !dbConfig.database || dbLoading) {
-      toast({ variant: "destructive", title: "校验失败", description: "地址与数据库名为必填项" });
-      return;
+      toast({ variant: "destructive", title: "校验失败", description: "地址与数据库名为必填项" })
+      return
     }
     
     setDbLoading(true)
@@ -99,7 +96,6 @@ export default function LoginPage() {
         if (result.success) {
           toast({ title: "接入成功", description: "中心服务器连接已物理同步" })
           setIsSettingsOpen(false)
-          // 重新载入品牌设置
           const newSettings = await DataService.getSystemSettings(true)
           setSettings(newSettings)
         } else {
@@ -161,14 +157,14 @@ export default function LoginPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
+            <CardFooter className="flex flex-col">
               <Button type="submit" className="w-full h-11 text-sm font-bold shadow-lg" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "进入系统"}
               </Button>
             </CardFooter>
           </form>
 
-          {/* 物理隔离：将 Dialog 移出主表单，彻底防止事件冲突 */}
+          {/* 物理隔离对话框，防止表单嵌套 */}
           <div className="flex items-center justify-center w-full pb-6 px-6">
             <div className="w-full pt-4 border-t text-center">
               <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>

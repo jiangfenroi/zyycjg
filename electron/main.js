@@ -288,7 +288,8 @@ ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message
 
 app.whenReady().then(() => {
   /**
-   * 离线 SPA 协议：支持物理路径解析，处理 Next.js 客户端路由刷新
+   * 离线 SPA 协议优化：
+   * 智能处理 Next.js 客户端路由，确保路由刷新时不会出现 404
    */
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
@@ -298,6 +299,7 @@ app.whenReady().then(() => {
     const cleanPath = url.split('#')[0].split('?')[0];
     let filePath = path.join(app.getAppPath(), 'out', cleanPath);
     
+    // 如果物理文件不存在（可能是 SPA 路由），指向 index.html
     if (!fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory()) {
       filePath = path.join(app.getAppPath(), 'out', 'index.html');
     }

@@ -58,7 +58,8 @@ export default function GlobalManagementPage() {
 
   React.useEffect(() => { loadData() }, [loadData])
 
-  const handleSaveBasic = async () => {
+  const handleSaveBasic = async (e: React.MouseEvent) => {
+    e.preventDefault()
     if (submitting) return
     setSubmitting(true)
     try {
@@ -69,7 +70,8 @@ export default function GlobalManagementPage() {
     }
   }
 
-  const handleAddUser = async () => {
+  const handleAddUser = async (e: React.MouseEvent) => {
+    e.preventDefault()
     if (!newUser.USERNAME || submitting) return
     setSubmitting(true)
     try {
@@ -119,7 +121,7 @@ export default function GlobalManagementPage() {
                   <Label>默认 Logo 字符</Label>
                   <Input value={settings.SYSTEM_LOGO_TEXT} maxLength={1} onChange={e => setSettings({...settings, SYSTEM_LOGO_TEXT: e.target.value})} />
                 </div>
-                <Button className="w-full font-bold" onClick={handleSaveBasic} disabled={submitting}>
+                <Button type="button" className="w-full font-bold" onClick={handleSaveBasic} disabled={submitting}>
                   {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
                   保存全院基础配置
                 </Button>
@@ -152,7 +154,7 @@ export default function GlobalManagementPage() {
                     </div>
                   </div>
                 </div>
-                <Button onClick={handleSaveBasic} disabled={submitting} className="font-bold">保存集成配置</Button>
+                <Button type="button" onClick={handleSaveBasic} disabled={submitting} className="font-bold">保存集成配置</Button>
               </CardContent>
            </Card>
         </TabsContent>
@@ -165,7 +167,7 @@ export default function GlobalManagementPage() {
                 <Label>中心物理路径 (UNC)</Label>
                 <Input placeholder="\\Server\SharedFolder" value={settings.STORAGE_PATH} onChange={e => setSettings({...settings, STORAGE_PATH: e.target.value})} />
               </div>
-              <Button onClick={handleSaveBasic} disabled={submitting} className="font-bold">同步存储配置</Button>
+              <Button type="button" onClick={handleSaveBasic} disabled={submitting} className="font-bold">同步存储配置</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -176,7 +178,7 @@ export default function GlobalManagementPage() {
               <div>
                 <CardTitle className="text-base">全院人员中心</CardTitle>
               </div>
-              <Button size="sm" onClick={() => setIsAddUserOpen(true)} className="font-bold"><UserPlus className="h-4 w-4 mr-2" /> 新增人员</Button>
+              <Button type="button" size="sm" onClick={() => setIsAddUserOpen(true)} className="font-bold"><UserPlus className="h-4 w-4 mr-2" /> 新增人员</Button>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -188,7 +190,7 @@ export default function GlobalManagementPage() {
                       <TableCell className="font-bold">{u.REAL_NAME}</TableCell>
                       <TableCell><Badge variant={u.ROLE === 'admin' ? 'default' : 'outline'}>{u.ROLE === 'admin' ? '管理' : '操作'}</Badge></TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if(confirm('确定注销？')) DataService.deleteUser(u.ID, u.USERNAME).then(() => loadData()) }} disabled={u.USERNAME === 'admin'}><Trash2 className="h-3.5 w-3.5" /></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { if(confirm('确定注销？')) DataService.deleteUser(u.ID, u.USERNAME).then(() => loadData()) }} disabled={u.USERNAME === 'admin'}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -214,7 +216,7 @@ export default function GlobalManagementPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter><Button onClick={handleAddUser} disabled={submitting} className="w-full font-bold">同步至中心库</Button></DialogFooter>
+          <DialogFooter><Button type="button" onClick={handleAddUser} disabled={submitting} className="w-full font-bold">同步至中心库</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
