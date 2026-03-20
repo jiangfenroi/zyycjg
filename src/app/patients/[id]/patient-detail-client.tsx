@@ -149,9 +149,9 @@ export function PatientDetailClient({ id }: { id: string }) {
     return events.sort((a, b) => b.date.localeCompare(a.date))
   }, [results, followUps])
 
-  const handleUpdateStatus = async (status) => {
+  const handleUpdateStatus = async (status: string) => {
     if (!person) return
-    const success = await DataService.addPatient({ ...person, STATUS: status });
+    const success = await DataService.addPatient({ ...person, STATUS: status } as Person);
     if (success) {
       toast({ title: "状态更新已下发" })
       loadAllData()
@@ -190,7 +190,7 @@ export function PatientDetailClient({ id }: { id: string }) {
         setSelectedFileName(null)
         loadAllData()
       }
-    } catch (err) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "物理归档失败", description: err.message })
     } finally {
       setUploading(false)
@@ -210,7 +210,7 @@ export function PatientDetailClient({ id }: { id: string }) {
         ID: `F${Date.now()}`,
         PERSONID: id,
         ...followUpForm
-      })
+      } as FollowUp)
       if (success) {
         toast({ title: "结案流水已入库" })
         setIsFollowUpOpen(false)
@@ -221,7 +221,7 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
   }
 
-  const handleDeleteDoc = async (docId, filePath) => {
+  const handleDeleteDoc = async (docId: string, filePath: string) => {
     if (!confirm(`确定彻底移除中心库中的报告文件吗？`)) return;
     const success = await DataService.deleteDocument(docId, filePath);
     if (success) {
@@ -321,7 +321,7 @@ export function PatientDetailClient({ id }: { id: string }) {
               <TabsContent value="timeline" className="mt-0 space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {timelineData.length > 0 ? (
                   <div className="relative pl-6 border-l-2 border-primary/20 space-y-8 pb-12 mt-4 ml-4">
-                    {timelineData.map((event, index) => {
+                    {timelineData.map((event) => {
                       const eventDocs = docs.filter(d => d.UPLOAD_DATE === event.date);
                       const isResult = event.type === 'RESULT';
                       
@@ -394,7 +394,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                                             <Paperclip className="h-3 w-3" /> 关联报告 ({eventDocs.length})
                                          </div>
                                          <div className="grid gap-2 sm:grid-cols-2">
-                                            {eventDocs.map(doc => (
+                                            {eventDocs.map((doc: PatientDocument) => (
                                                <div key={doc.ID} className="flex items-center justify-between p-2 bg-background rounded border text-[10px] group/item hover:border-primary transition-colors">
                                                   <div className="flex items-center gap-2 truncate">
                                                      <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -556,7 +556,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                </div>
                <div className="space-y-1">
                   <Label>报告分类</Label>
-                  <Select value={uploadType} onValueChange={v => setUploadType(v)}>
+                  <Select value={uploadType} onValueChange={(v: any) => setUploadType(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="PE_REPORT">体检报告</SelectItem>

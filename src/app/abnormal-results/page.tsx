@@ -175,7 +175,7 @@ export default function AbnormalResultsPage() {
           toast({ variant: "destructive", title: "修改失败", description: "数据同步中断，请检查网络连接" })
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "系统严重错误", description: err.message || "未知逻辑故障" })
     } finally {
       setSubmitting(false)
@@ -208,7 +208,7 @@ export default function AbnormalResultsPage() {
       } else {
         toast({ variant: "destructive", title: "档案同步失败", description: res.error })
       }
-    } catch (err) {
+    } catch (err: any) {
       toast({ variant: "destructive", title: "系统异常", description: err.message })
     } finally {
       setSubmitting(false)
@@ -325,7 +325,7 @@ export default function AbnormalResultsPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>结果分类</Label>
-                          <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v})}>
+                          <Select value={formData.ZYYCJGFL} onValueChange={(v: any) => setFormData({...formData, ZYYCJGFL: v})}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="A">A类 (即时干预)</SelectItem><SelectItem value="B">B类 (常规随访)</SelectItem></SelectContent>
                           </Select>
@@ -424,7 +424,7 @@ export default function AbnormalResultsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>性别</Label>
-                    <Select value={patientData.SEX} onValueChange={v => setPatientData({...patientData, SEX: v})}>
+                    <Select value={patientData.SEX} onValueChange={(v: any) => setPatientData({...patientData, SEX: v})}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="男">男</SelectItem>
