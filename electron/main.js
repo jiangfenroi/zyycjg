@@ -1,5 +1,5 @@
 
-const { app, BrowserWindow, ipcMain, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const mysql = require('mysql2/promise');
@@ -32,7 +32,7 @@ function writeLog(level, message) {
   }
 }
 
-writeLog('INFO', '系统正在启动，执行兼容性检查');
+writeLog('INFO', '系统启动，执行兼容性检查与内核初始化');
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
@@ -46,7 +46,7 @@ async function initDB(config) {
       try { await dbConnection.end(); } catch (e) {}
     }
 
-    writeLog('INFO', `尝试连接中心数据库: ${config.host}:${config.port}`);
+    writeLog('INFO', `尝试接入远程 MySQL: ${config.host}:${config.port}`);
 
     dbConnection = await mysql.createConnection({
       host: config.host,
@@ -72,13 +72,6 @@ async function initDB(config) {
         CONF_KEY VARCHAR(50) PRIMARY KEY,
         CONF_VALUE TEXT
       )`,
-      `CREATE TABLE IF NOT EXISTS SP_PATHS (
-        ID VARCHAR(50) PRIMARY KEY,
-        NAME VARCHAR(200) NOT NULL,
-        URL TEXT,
-        DESCRIPTION TEXT,
-        CREATE_DATE DATE
-      )`,
       `CREATE TABLE IF NOT EXISTS SP_PERSON (
         PERSONID VARCHAR(50) PRIMARY KEY,
         PERSONNAME VARCHAR(50) NOT NULL,
@@ -102,7 +95,6 @@ async function initDB(config) {
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
-        PATH_ID VARCHAR(50),
         NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1,
         IS_HEALTH_EDU TINYINT(1) DEFAULT 1
@@ -139,15 +131,9 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 结构加固：确保 SP_ZYJG 包含 PATH_ID 和 NEXT_DATE
-    try {
-      await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN PATH_ID VARCHAR(50) AFTER ZYYCJGBTZR");
-      await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN NEXT_DATE DATE AFTER PATH_ID");
-    } catch (e) {
-      // 字段可能已存在
-    }
-
+    // 初始化配置
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 
     writeLog('INFO', '数据表结构检查完成');
@@ -176,7 +162,7 @@ function createWindow(startPath = '/login') {
 
   win.once('ready-to-show', () => {
     win.show();
-    writeLog('INFO', '主窗口已就绪');
+    writeLog('INFO', '主窗口就绪');
   });
 
   return win;
@@ -230,20 +216,76 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
   }
 });
 
+/**
+ * 物理文件上传处理器：将文件拷贝至中心化存储路径
+ */
+ipcMain.handle('file-upload', async (event, { personId, type, customDate, storagePath }) => {
+  try {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'PDF 报告', extensions: ['pdf'] }]
+    });
+
+    if (canceled || filePaths.length === 0) return { success: false };
+
+    const source = filePaths[0];
+    const fileName = `${personId}_${type}_${Date.now()}.pdf`;
+    const destDir = path.join(storagePath, personId);
+    
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    
+    const destPath = path.join(destDir, fileName);
+    fs.copyFileSync(source, destPath);
+
+    return { 
+      success: true, 
+      data: { 
+        fileName: fileName, 
+        fileUrl: destPath, 
+        uploadDate: customDate || new Date().toISOString().split('T')[0] 
+      } 
+    };
+  } catch (err) {
+    writeLog('ERROR', '文件上传失败: ' + err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
+  try {
+    const { filePath } = await dialog.showSaveDialog({
+      defaultPath: fileName,
+      filters: [{ name: 'PDF 文件', extensions: ['pdf'] }]
+    });
+
+    if (filePath) {
+      fs.copyFileSync(sourcePath, filePath);
+      return { success: true };
+    }
+    return { success: false };
+  } catch (err) {
+    writeLog('ERROR', '文件另存为失败: ' + err.message);
+    return { success: false, error: err.message };
+  }
+});
+
 app.whenReady().then(async () => {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) { url = url.split(':').pop(); }
     if (url.startsWith('/')) url = url.slice(1);
-    
     const cleanPath = url.split('#')[0].split('?')[0];
     const filePath = path.join(app.getAppPath(), 'out', cleanPath);
-    
     if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
       callback({ path: path.normalize(filePath) });
     } else {
       callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
     }
+  });
+
+  protocol.registerFileProtocol('app-file', (request, callback) => {
+    const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
+    callback({ path: path.normalize(filePath) });
   });
 
   const configExists = fs.existsSync(configPath);
@@ -255,6 +297,4 @@ app.whenReady().then(async () => {
   createWindow('/login');
 });
 
-app.on('window-all-closed', () => {
-  app.quit();
-});
+app.on('window-all-closed', () => { app.quit(); });

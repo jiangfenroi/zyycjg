@@ -7,14 +7,11 @@ import {
   Users,
   AlertCircle,
   History,
-  Settings,
-  Bell,
   FileText,
   UserCog,
   LogOut,
   Palette,
-  Clock,
-  Route
+  Clock
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -37,9 +34,9 @@ import { DataService } from "@/services/data-service"
 const navigation = [
   { name: "工作台", href: "/", icon: LayoutDashboard },
   { name: "重要异常结果登记", href: "/abnormal-results", icon: AlertCircle },
-  { name: "重要异常结果随访", href: "/follow-ups", icon: History },
-  { name: "患者档案管理", href: "/patients", icon: Users },
-  { name: "报告查询", href: "/reports", icon: FileText },
+  { name: "随访管理工作台", href: "/follow-ups", icon: History },
+  { name: "患者档案检索", href: "/patients", icon: Users },
+  { name: "全院报告查询", href: "/reports", icon: FileText },
 ]
 
 export function AppSidebar() {
@@ -63,22 +60,13 @@ export function AppSidebar() {
     if (storedUser) {
       setUser(JSON.parse(storedUser))
     }
-    
     loadSettings()
-    
-    const timer = setInterval(loadSettings, 30000)
-    return () => clearInterval(timer)
   }, [loadSettings, pathname])
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
     router.push('/login')
-    toast({ title: "已退出登录", description: "您的会话已安全结束。" })
-  }
-
-  const getLogoUrl = () => {
-    if (!settings.SYSTEM_LOGO_URL) return null;
-    return `app-file://${settings.SYSTEM_LOGO_URL}`;
+    toast({ title: "已安全退出" })
   }
 
   return (
@@ -87,15 +75,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl shadow-inner overflow-hidden">
             {settings.SYSTEM_LOGO_URL ? (
-              <img 
-                src={getLogoUrl() || ''} 
-                alt="Logo" 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  setSettings(prev => ({ ...prev, SYSTEM_LOGO_URL: '' }));
-                }}
-              />
+              <img src={`app-file://${settings.SYSTEM_LOGO_URL}`} alt="Logo" className="w-full h-full object-cover" />
             ) : (
               settings.SYSTEM_LOGO_TEXT
             )}
@@ -107,7 +87,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="pt-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">主要业务模块</SidebarGroupLabel>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">业务核心</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -130,34 +110,21 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">系统管理</SidebarGroupLabel>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">管理面板</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === '/settings/paths'}
-                  tooltip="随访路径配置"
-                  className="h-11 px-4"
-                >
-                  <Link href="/settings/paths">
-                    <Route className="size-5" />
-                    <span className="group-data-[collapsible=icon]:hidden">随访路径配置</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               {user?.ROLE === 'admin' && (
                 <>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === '/settings/users'}
-                      tooltip="用户权限管理"
+                      tooltip="人员权限"
                       className="h-11 px-4"
                     >
                       <Link href="/settings/users">
                         <UserCog className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
+                        <span className="group-data-[collapsible=icon]:hidden">人员权限</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -165,12 +132,12 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === '/settings/logs'}
-                      tooltip="系统操作日志"
+                      tooltip="全量审计"
                       className="h-11 px-4"
                     >
                       <Link href="/settings/logs">
                         <Clock className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">系统操作日志</span>
+                        <span className="group-data-[collapsible=icon]:hidden">全量审计</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -178,12 +145,12 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === '/settings/system'}
-                      tooltip="系统身份设置"
+                      tooltip="全院统一配置"
                       className="h-11 px-4 text-secondary hover:text-secondary/80"
                     >
                       <Link href="/settings/system">
                         <Palette className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">系统身份设置</span>
+                        <span className="group-data-[collapsible=icon]:hidden">全院统一配置</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -194,7 +161,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border/50">
-        <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center border border-white/20 shadow-sm">
               <span className="text-xs font-medium">{user?.REAL_NAME?.charAt(0) || 'U'}</span>
@@ -207,7 +174,6 @@ export function AppSidebar() {
           <button 
             onClick={handleLogout}
             className="p-1.5 hover:bg-destructive/20 rounded-md text-destructive transition-colors"
-            title="退出登录"
           >
             <LogOut className="h-4 w-4" />
           </button>

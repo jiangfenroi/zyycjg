@@ -11,14 +11,6 @@ export interface Person {
   OPTNAME?: string;
 }
 
-export interface FollowUpPath {
-  ID: string;
-  NAME: string;
-  URL?: string;
-  DESCRIPTION?: string;
-  CREATE_DATE: string;
-}
-
 export interface AbnormalResult {
   ID: string;
   PERSONID: string;
@@ -31,7 +23,6 @@ export interface AbnormalResult {
   ZYYCJGTZSJ: string;
   WORKER: string;
   ZYYCJGBTZR: string;
-  PATH_ID?: string;
   NEXT_DATE?: string;
   IS_NOTIFIED: boolean;
   IS_HEALTH_EDU: boolean;
@@ -40,8 +31,6 @@ export interface AbnormalResult {
   AGE?: number;
   PHONE?: string;
   OCCURDATE?: string;
-  PATH_NAME?: string;
-  PATH_URL?: string;
 }
 
 export interface FollowUp {
@@ -54,15 +43,6 @@ export interface FollowUp {
   SFGZRY: string;
   jcsf: boolean;
   XCSFTIME?: string;
-}
-
-export interface FollowUpTask {
-  ID?: number;
-  PERSONID: string;
-  ZYYCJGTJBH?: string;
-  XCSFTIME: string;
-  STATUS: 'pending' | 'completed';
-  CREATE_TIME?: string;
 }
 
 export interface PatientDocument {
@@ -87,7 +67,7 @@ export interface SystemSettings {
   SYSTEM_NAME: string;
   SYSTEM_LOGO_TEXT: string;
   SYSTEM_LOGO_URL?: string;
-  AUTO_START?: string;
+  STORAGE_PATH?: string;
 }
 
 export interface SystemLog {

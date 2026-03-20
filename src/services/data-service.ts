@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Person, AbnormalResult, FollowUp, FollowUpTask, PatientDocument, SystemSettings, SystemLog, User, FollowUpPath } from '@/lib/types';
+import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
 
 declare global {
   interface Window {
@@ -9,7 +9,7 @@ declare global {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
       log: (level: string, message: string) => Promise<void>;
-      uploadFile: (personId: string, type: string, customDate?: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+      uploadFile: (params: { personId: string, type: string, customDate?: string, storagePath: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
     };
@@ -17,12 +17,6 @@ declare global {
 }
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
-
-const handleConnectionError = (err?: string) => {
-  if (isElectron) {
-    window.electronAPI.log('ERROR', '数据库连接异常: ' + (err || '未知错误'));
-  }
-};
 
 export const DataService = {
   async logToFile(level: 'INFO' | 'ERROR', message: string) {
@@ -40,7 +34,7 @@ export const DataService = {
         return settings as SystemSettings;
       }
     }
-    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '' };
+    return { SYSTEM_NAME: 'MediTrack Connect', SYSTEM_LOGO_TEXT: 'M', SYSTEM_LOGO_URL: '', STORAGE_PATH: '' };
   },
 
   async updateSystemSettings(settings: SystemSettings): Promise<boolean> {
@@ -50,7 +44,7 @@ export const DataService = {
       );
       const results = await Promise.all(promises);
       const success = results.every(r => r.success);
-      if (success) await this.addLog('管理员', '更新了系统全局配置', 'system');
+      if (success) await this.addLog('管理员', '同步更新全局配置', 'system');
       return success;
     }
     return true;
@@ -76,7 +70,7 @@ export const DataService = {
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
-      if (!result.success) throw new Error(result.error || '数据库连接异常');
+      if (!result.success) throw new Error(result.error || '数据库同步异常');
       return result.data;
     }
     return [];
@@ -90,7 +84,7 @@ export const DataService = {
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
       ]);
-      if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建患者档案: ${person.PERSONNAME}`, 'update');
+      if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建档案: ${person.PERSONNAME}`, 'update');
       return result.success;
     }
     return true;
@@ -99,10 +93,9 @@ export const DataService = {
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
       const sql = `
-        SELECT r.*, p.PERSONNAME, p.SEX, p.AGE, p.PHONE, pa.NAME as PATH_NAME, pa.URL as PATH_URL
+        SELECT r.*, p.PERSONNAME, p.SEX, p.AGE, p.PHONE 
         FROM SP_ZYJG r 
         LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
-        LEFT JOIN SP_PATHS pa ON r.PATH_ID = pa.ID
         ORDER BY r.ZYYCJGTZRQ DESC, r.ZYYCJGTZSJ DESC`;
       const result = await window.electronAPI.query(sql);
       if (result.success) {
@@ -118,42 +111,17 @@ export const DataService = {
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, PATH_ID, NEXT_DATE, IS_NOTIFIED, IS_HEALTH_EDU) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, NEXT_DATE, IS_NOTIFIED, IS_HEALTH_EDU) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || '', res.PATH_ID || null, res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
+        res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
       ]);
-      if (result.success) await this.addLog(res.WORKER, `异常结果入库 ID: ${res.PERSONID}`, 'alert');
+      if (result.success) await this.addLog(res.WORKER, `录入异常结果: ${res.PERSONID}`, 'alert');
       return result.success;
     }
     return true;
-  },
-
-  async getFollowUpPaths(): Promise<FollowUpPath[]> {
-    if (isElectron) {
-      const result = await window.electronAPI.query('SELECT * FROM SP_PATHS ORDER BY CREATE_DATE DESC');
-      if (result.success) return result.data;
-    }
-    return [];
-  },
-
-  async addFollowUpPath(path: FollowUpPath): Promise<boolean> {
-    if (isElectron) {
-      const sql = 'INSERT INTO SP_PATHS (ID, NAME, URL, DESCRIPTION, CREATE_DATE) VALUES (?, ?, ?, ?, ?)';
-      const result = await window.electronAPI.query(sql, [path.ID, path.NAME, path.URL || '', path.DESCRIPTION || '', path.CREATE_DATE]);
-      return result.success;
-    }
-    return true;
-  },
-
-  async deleteFollowUpPath(id: string): Promise<boolean> {
-    if (isElectron) {
-      const result = await window.electronAPI.query('DELETE FROM SP_PATHS WHERE ID = ?', [id]);
-      return result.success;
-    }
-    return false;
   },
 
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
@@ -177,7 +145,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFSJ || '', followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
-      if (result.success) await this.addLog(followUp.SFGZRY, `随访闭环结案 ID: ${followUp.PERSONID}`, 'completed');
+      if (result.success) await this.addLog(followUp.SFGZRY, `结案随访: ${followUp.PERSONID}`, 'completed');
       return result.success;
     }
     return true;
@@ -194,7 +162,14 @@ export const DataService = {
 
   async uploadDocument(personId: string, type: string, customDate?: string): Promise<any> {
     if (isElectron) {
-      const uploadResult = await window.electronAPI.uploadFile(personId, type, customDate);
+      const settings = await this.getSystemSettings();
+      const storagePath = settings.STORAGE_PATH;
+      
+      if (!storagePath) {
+        throw new Error('未配置中心存储路径');
+      }
+
+      const uploadResult = await window.electronAPI.uploadFile({ personId, type, customDate, storagePath });
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         if (personId === 'SYSTEM') return fileUrl;
@@ -235,7 +210,7 @@ export const DataService = {
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
-      if (result.success) await this.addLog('管理员', `销号处理: ${username}`, 'system');
+      if (result.success) await this.addLog('管理员', `销号: ${username}`, 'system');
       return result.success;
     }
     return false;
@@ -244,7 +219,7 @@ export const DataService = {
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
-      if (result.success) await this.addLog('管理员', `强制重置密码: ${username}`, 'system');
+      if (result.success) await this.addLog('管理员', `安全重置密码: ${username}`, 'system');
       return result.success;
     }
     return false;

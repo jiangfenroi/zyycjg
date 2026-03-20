@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X } from 'lucide-react'
+import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X, FolderOpen, ShieldAlert, Key } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,13 +16,20 @@ export default function SystemSettingsPage() {
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
   const [uploading, setUploading] = React.useState(false)
+  const [adminPassword, setAdminPassword] = React.useState('')
+  const [currentUser, setCurrentUser] = React.useState<any>(null)
+  
   const [settings, setSettings] = React.useState<SystemSettings>({
     SYSTEM_NAME: '',
     SYSTEM_LOGO_TEXT: '',
     SYSTEM_LOGO_URL: '',
+    STORAGE_PATH: '',
   })
 
   React.useEffect(() => {
+    const user = localStorage.getItem('currentUser')
+    if (user) setCurrentUser(JSON.parse(user))
+    
     DataService.getSystemSettings().then(data => {
       setSettings(data)
       setLoading(false)
@@ -38,9 +45,24 @@ export default function SystemSettingsPage() {
     setSubmitting(true)
     const success = await DataService.updateSystemSettings(settings)
     if (success) {
-      toast({ title: "设置已同步", description: "系统配置已更新。" })
+      toast({ title: "设置已同步", description: "全院配置已更新。" })
     } else {
       toast({ variant: "destructive", title: "更新失败", description: "请检查数据库连接" })
+    }
+    setSubmitting(false)
+  }
+
+  const handlePasswordUpdate = async () => {
+    if (!adminPassword || adminPassword.length < 6) {
+      toast({ variant: "destructive", title: "安全验证", description: "新密码长度至少为 6 位" })
+      return
+    }
+    
+    setSubmitting(true)
+    const success = await DataService.resetPassword(currentUser.ID, 'admin', adminPassword)
+    if (success) {
+      toast({ title: "管理员密码已更新", description: "下次登录请使用新密码。" })
+      setAdminPassword('')
     }
     setSubmitting(false)
   }
@@ -51,7 +73,7 @@ export default function SystemSettingsPage() {
       const result = await DataService.uploadDocument('SYSTEM', 'LOGO')
       if (typeof result === 'string') {
         setSettings({ ...settings, SYSTEM_LOGO_URL: result })
-        toast({ title: "Logo 上传成功", description: "点击保存后将正式应用。" })
+        toast({ title: "Logo 上传成功" })
       }
     } catch (err) {
       toast({ variant: "destructive", title: "上传失败" })
@@ -60,108 +82,116 @@ export default function SystemSettingsPage() {
     }
   }
 
-  const removeLogo = () => {
-    setSettings({ ...settings, SYSTEM_LOGO_URL: '' })
-  }
-
   if (loading) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
 
-  const getPreviewLogoUrl = () => {
-    if (!settings.SYSTEM_LOGO_URL) return null;
-    return `app-file://${settings.SYSTEM_LOGO_URL}`;
-  }
-
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">系统身份设置</h1>
-        <p className="text-muted-foreground mt-1">自定义客户端的展示名称与品牌标识。</p>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">全院系统设置</h1>
+        <p className="text-muted-foreground mt-1">管理全院统一的品牌、中心存储路径及管理员安全。</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5 text-primary" />
-            品牌自定义
-          </CardTitle>
-          <CardDescription>设置将保存至中心服务器，所有连接的客户端均会同步显示。</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>程序显示名称</Label>
-            <Input 
-              value={settings.SYSTEM_NAME} 
-              onChange={e => setSettings({...settings, SYSTEM_NAME: e.target.value})}
-              placeholder="请输入系统名称"
-            />
-          </div>
-          
-          <div className="space-y-4">
-            <Label>系统 Logo 图片</Label>
-            <div className="flex items-start gap-6">
-              <div className="relative group">
-                <div className="w-24 h-24 bg-muted rounded-xl flex items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden shadow-inner">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-primary" />
+              品牌与外观
+            </CardTitle>
+            <CardDescription>配置同步至中心库，全院客户端通用。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label>系统显示名称</Label>
+              <Input 
+                value={settings.SYSTEM_NAME} 
+                onChange={e => setSettings({...settings, SYSTEM_NAME: e.target.value})}
+              />
+            </div>
+            
+            <div className="space-y-4">
+              <Label>系统标识图片</Label>
+              <div className="flex items-start gap-4">
+                <div className="w-20 h-20 bg-muted rounded-xl flex items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden">
                   {settings.SYSTEM_LOGO_URL ? (
-                    <img 
-                      src={getPreviewLogoUrl() || ''} 
-                      alt="Logo Preview" 
-                      className="w-full h-full object-cover"
-                      onError={(e) => (e.currentTarget.src = "https://placehold.co/100x100?text=Error")}
-                    />
+                    <img src={`app-file://${settings.SYSTEM_LOGO_URL}`} className="w-full h-full object-cover" />
                   ) : (
-                    <ImageIcon className="h-8 w-8 text-muted-foreground opacity-30" />
+                    <ImageIcon className="h-8 w-8 opacity-30" />
                   )}
                 </div>
-                {settings.SYSTEM_LOGO_URL && (
-                  <button 
-                    onClick={removeLogo}
-                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 shadow-lg hover:scale-110 transition-transform"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
+                <div className="flex-1 space-y-2">
+                  <p className="text-[10px] text-muted-foreground">建议透明背景图片</p>
+                  <Button variant="outline" size="sm" onClick={handleLogoUpload} disabled={uploading}>
+                    {uploading ? <Loader2 className="animate-spin" /> : <Upload className="h-4 w-4 mr-1" />} 上传图片
+                  </Button>
+                </div>
               </div>
-              <div className="flex-1 space-y-3">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  建议上传正方形透明背景图片。设置后将替换侧边栏上方的文字 Logo。
-                </p>
-                <Button variant="outline" size="sm" onClick={handleLogoUpload} disabled={uploading}>
-                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  选择图片
+            </div>
+
+            <Button className="w-full" onClick={handleSave} disabled={submitting}>
+              <Save className="mr-2 h-4 w-4" /> 保存全局配置
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-secondary" />
+              中心附件存储路径
+            </CardTitle>
+            <CardDescription>配置全院统一的 PDF 及影像扫描件物理存储位置。</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label>全院物理存储路径</Label>
+              <Input 
+                placeholder="例如: \\SERVER_IP\MediStorage" 
+                value={settings.STORAGE_PATH}
+                onChange={e => setSettings({...settings, STORAGE_PATH: e.target.value})}
+              />
+              <p className="text-[10px] text-muted-foreground bg-slate-50 p-2 rounded border">
+                提示：建议使用 UNC 共享路径。请确保运行该程序的 Windows 账户对该路径具有读写权限。
+              </p>
+            </div>
+            <Button variant="secondary" className="w-full" onClick={handleSave} disabled={submitting}>
+               <Save className="mr-2 h-4 w-4" /> 更新存储路径
+            </Button>
+          </CardContent>
+        </Card>
+
+        {currentUser?.USERNAME === 'admin' && (
+          <Card className="md:col-span-2 border-destructive/20 bg-destructive/5">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldAlert className="h-5 w-5" />
+                管理员安全中心
+              </CardTitle>
+              <CardDescription>管理超级管理员 admin 的登录凭据。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-end gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label>重置 Admin 登录密码</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      type="password"
+                      placeholder="输入至少 6 位新密码" 
+                      className="pl-10"
+                      value={adminPassword}
+                      onChange={e => setAdminPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <Button variant="destructive" onClick={handlePasswordUpdate} disabled={submitting}>
+                  立即更新管理员密码
                 </Button>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>文字 Logo 备用</Label>
-            <div className="flex items-center gap-4">
-              <Input 
-                className="w-24 text-center font-bold text-lg"
-                value={settings.SYSTEM_LOGO_TEXT} 
-                maxLength={2}
-                onChange={e => setSettings({...settings, SYSTEM_LOGO_TEXT: e.target.value})}
-              />
-              <div className="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-2xl shadow-inner">
-                {settings.SYSTEM_LOGO_TEXT || '?'}
-              </div>
-              <p className="text-xs text-muted-foreground">图片未设置时显示</p>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-md flex gap-3">
-            <Info className="h-5 w-5 text-blue-500 shrink-0" />
-            <p className="text-xs text-blue-700 leading-relaxed">
-              管理员提示：修改完成后，所有接入中心服务器的终端均会同步应用。
-            </p>
-          </div>
-
-          <Button className="w-full h-11" onClick={handleSave} disabled={submitting}>
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            保存全局配置
-          </Button>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
