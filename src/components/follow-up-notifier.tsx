@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, RefreshCw, UserMinus } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -37,7 +37,7 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       const pending = results.filter(r => {
-        // 核心逻辑：过滤已死亡的患者
+        // 核心拦截逻辑：已死亡档案不进入预警队列
         if (r.STATUS === 'deceased') return false;
 
         const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
@@ -45,6 +45,7 @@ export function FollowUpNotifier() {
         const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
         const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
 
+        // A/B 类同等对待：触发逻辑一致
         const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
         const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
@@ -53,7 +54,7 @@ export function FollowUpNotifier() {
       
       setTasks(pending)
     } catch (err) {
-      console.error("提醒同步失败", err)
+      console.error("提醒中心同步失败", err)
     } finally {
       if (!silent) setLoading(false)
     }
@@ -61,7 +62,7 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(() => loadTasks(true), 300000)
+    const timer = setInterval(() => loadTasks(true), 300000) // 5分钟自动静默同步
     return () => clearInterval(timer)
   }, [loadTasks])
 
@@ -84,9 +85,9 @@ export function FollowUpNotifier() {
           <div className="flex flex-col">
             <h3 className="font-semibold flex items-center gap-2 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4" />
-              随访触发预警
+              重要异常随访预警
             </h3>
-            <span className="text-[10px] text-muted-foreground mt-0.5">{loading ? '同步中...' : `当前 ${count} 项待处理`}</span>
+            <span className="text-[10px] text-muted-foreground mt-0.5">{loading ? '正在同步中心库...' : `当前 ${count} 项待结案任务`}</span>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadTasks()} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -100,20 +101,23 @@ export function FollowUpNotifier() {
               const today = new Date().toISOString().split('T')[0];
               const isAnnual = today >= addYears(task.ZYYCJGTZRQ, 1);
               return (
-                <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0">
+                <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0 transition-colors">
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
-                    <Badge variant={isAnnual ? "destructive" : "outline"} className="text-[9px] bg-blue-50">
-                      {isAnnual ? '年度复查' : '待复查'}
+                    <Badge variant={isAnnual ? "destructive" : "secondary"} className="text-[9px] px-1.5 h-4">
+                      {isAnnual ? '年度复查' : `${task.ZYYCJGFL}类异常`}
                     </Badge>
                   </div>
-                  <span className="text-[9px] font-bold text-destructive mt-1.5">
-                    {isAnnual ? `周年日期: ${addYears(task.ZYYCJGTZRQ, 1)}` : `预定日期: ${task.NEXT_DATE}`}
-                  </span>
+                  <div className="flex justify-between items-end mt-2">
+                     <span className="text-[9px] font-bold text-destructive">
+                        应结案日期: {isAnnual ? addYears(task.ZYYCJGTZRQ, 1) : task.NEXT_DATE}
+                     </span>
+                     <span className="text-[8px] text-muted-foreground font-mono">{task.TJBHID}</span>
+                  </div>
                 </Link>
               );
             }) : (
-              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期任务</div>
+              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期预警任务</div>
             )}
           </div>
         </ScrollArea>

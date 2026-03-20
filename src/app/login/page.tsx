@@ -93,7 +93,7 @@ export default function LoginPage() {
       if (window.electronAPI) {
         const result = await window.electronAPI.setupDB(dbConfig)
         if (result.success) {
-          toast({ title: "接入成功", description: "远程数据库已接入" })
+          toast({ title: "接入成功", description: "中心服务器连接已同步" })
           setIsSettingsOpen(false)
           setDbConfig({ host: '', port: '', user: '', password: '', database: '' })
           const newSettings = await DataService.getSystemSettings(true)
@@ -181,7 +181,7 @@ export default function LoginPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">服务器主机</Label>
+                        <Label className="text-xs">服务器地址</Label>
                         <div className="relative">
                            <Server className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
                            <Input placeholder="例如：127.0.0.1" className="pl-8 text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />

@@ -49,7 +49,7 @@ export default function Dashboard() {
       ])
       setData({ patients, results, followUps })
     } catch (err) {
-      console.error("Dashboard data fetch error:", err)
+      console.error("全院数据同步异常", err)
     } finally {
       setIsClient(true)
       setLoading(false)
@@ -66,9 +66,8 @@ export default function Dashboard() {
     const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
     const today = new Date().toISOString().split('T')[0]
     
-    // 待处理随访逻辑：包含 A 类和 B 类，支持 T+7 和年度自动提醒，且过滤死亡档案
+    // 待处理随访逻辑：包含 T+7 与年度自动提醒，并物理过滤已死亡档案
     const pending = results.filter(r => {
-      // 关键过滤：若患者已死亡，则不计入待随访任务
       if (r.STATUS === 'deceased') return false;
 
       const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
@@ -122,19 +121,19 @@ export default function Dashboard() {
   if (!isClient) return null
 
   return (
-    <div className="space-y-8 fade-in">
+    <div className="space-y-8 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm">重要异常结果中心化同步概览</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">重要异常结果中心化数据库管理流水</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={loadDashboardData} disabled={loading} title="从中心数据库同步">
+          <Button variant="outline" size="icon" onClick={loadDashboardData} disabled={loading} title="从中心数据库同步全量数据">
              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
           <FollowUpNotifier />
           <Button variant="outline" size="sm" asChild className="hidden sm:flex shadow-sm">
-            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 档案管理</Link>
+            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 档案中心</Link>
           </Button>
         </div>
       </div>
@@ -142,11 +141,11 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: "全院建档量", value: stats.totalPatients, icon: Users, color: "primary", label: "中心库档案总数" },
-          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "已过滤死亡档案" },
+          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "已物理过滤死亡档案" },
           { title: "随访闭环率", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "secondary", label: `累计结案 ${stats.completedFollowUps} 例`, detail: true },
-          { title: "异常结果流水", value: stats.totalResults, icon: TrendingUp, color: "amber-500", label: "历史登记总量" }
+          { title: "异常结果登记", value: stats.totalResults, icon: TrendingUp, color: "amber-500", label: "全量历史登记流水" }
         ].map((item, idx) => (
-          <Card key={idx} className={`border-l-4 border-l-${item.color === 'amber-500' ? 'amber-500' : 'primary'} shadow-sm`}>
+          <Card key={idx} className={`border-l-4 border-l-${item.color === 'amber-500' ? 'amber-500' : 'primary'} shadow-sm hover:shadow-md transition-shadow`}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-bold">{item.title}</CardTitle>
               <item.icon className={`h-4 w-4 text-${item.color === 'amber-500' ? 'amber-500' : 'primary'}`} />
@@ -154,7 +153,7 @@ export default function Dashboard() {
             <CardContent>
               {loading ? <Skeleton className="h-8 w-24" /> : <div className="text-2xl font-bold">{item.value.toLocaleString()}</div>}
               <div className="flex justify-between items-end mt-1">
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{item.label}</p>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.label}</p>
                 {item.detail && (
                   <Button variant="link" size="sm" className="h-auto p-0 text-[10px] font-bold" asChild>
                     <Link href="/analytics/follow-up-rate">趋势详情 <ArrowUpRight className="ml-0.5 h-2.5 w-2.5" /></Link>
@@ -171,9 +170,9 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <BarChart3 className="h-4 w-4" />
-              随访闭环率月度趋势 (%)
+              随访闭环率年度趋势 (%)
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">基于发现月回溯统计 · 全量异常结果</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">全等级异常结果覆盖 · 中心库实时归集</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
             {loading ? (
@@ -194,12 +193,12 @@ export default function Dashboard() {
                       if (active && payload && payload.length) {
                         const d = payload[0].payload;
                         return (
-                          <div className="bg-background border p-3 rounded-lg shadow-xl text-[11px] space-y-1">
-                            <p className="font-bold border-b pb-1 mb-1 text-primary">{d.month}统计</p>
+                          <div className="bg-background border p-3 rounded-lg shadow-xl text-[11px] space-y-1 border-primary/20">
+                            <p className="font-bold border-b pb-1 mb-1 text-primary">{d.month}统计摘要</p>
                             <div className="space-y-0.5">
-                               <p className="flex justify-between gap-6"><span>闭环率:</span> <span className="font-bold">{d.rate}%</span></p>
-                               <p className="text-muted-foreground flex justify-between gap-6"><span>异常总数:</span> <span>{d.total} 例</span></p>
-                               <p className="text-muted-foreground flex justify-between gap-6"><span>已结案:</span> <span>{d.count} 例</span></p>
+                               <p className="flex justify-between gap-6"><span>随访闭环率:</span> <span className="font-bold text-primary">{d.rate}%</span></p>
+                               <p className="text-muted-foreground flex justify-between gap-6"><span>月度登记:</span> <span>{d.total} 例</span></p>
+                               <p className="text-muted-foreground flex justify-between gap-6"><span>年度结案:</span> <span>{d.count} 例</span></p>
                             </div>
                           </div>
                         );
@@ -218,9 +217,9 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <PieChart className="h-4 w-4" />
-              重要异常风险分布
+              全院风险分类分布
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">按临床等级分类</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">基于临床 A/B 等级归档</CardDescription>
           </CardHeader>
           <CardContent className="h-[320px] flex flex-col items-center justify-center pt-4">
             {loading ? (
@@ -247,9 +246,9 @@ export default function Dashboard() {
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-background border p-2 rounded-lg shadow-xl text-xs">
+                            <div className="bg-background border p-2 rounded-lg shadow-xl text-xs border-primary/20">
                               <p className="font-bold" style={{ color: payload[0].payload.color }}>{payload[0].name}</p>
-                              <p className="font-bold mt-1">占比: {payload[0].value} 例</p>
+                              <p className="font-bold mt-1 text-primary">档案总数: {payload[0].value} 例</p>
                             </div>
                           );
                         }
@@ -258,11 +257,11 @@ export default function Dashboard() {
                     />
                   </RePieChart>
                 </ResponsiveContainer>
-                <div className="flex gap-6 text-[11px] mt-4">
+                <div className="flex gap-6 text-[11px] mt-4 font-bold">
                   {categoryData.map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="font-bold text-muted-foreground">{item.name}: <span className="text-foreground">{item.value}</span></span>
+                      <span className="text-muted-foreground uppercase tracking-widest">{item.name}: <span className="text-foreground">{item.value}</span></span>
                     </div>
                   ))}
                 </div>
@@ -275,19 +274,19 @@ export default function Dashboard() {
       <Card className="border-dashed border-2 bg-muted/5 border-primary/20">
         <CardHeader>
           <CardTitle className="text-lg font-bold">全院中心化业务模块</CardTitle>
-          <CardDescription className="text-[11px] font-medium">临床路径驱动的中心化数据库管理引擎</CardDescription>
+          <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">临床路径驱动的物理同步引擎</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "重要异常登记", icon: AlertCircle, href: "/abnormal-results", color: "primary" },
             { label: "到期随访闭环", icon: History, href: "/follow-ups", color: "secondary" },
-            { label: "电子报告索引", icon: FileText, href: "/reports", color: "muted-foreground" },
+            { label: "电子报告中心", icon: FileText, href: "/reports", color: "muted-foreground" },
             { label: "全院病历档案", icon: Users, href: "/patients", color: "muted-foreground" }
           ].map((btn, i) => (
             <Button key={i} variant="outline" className={`h-20 flex-col gap-1.5 hover:bg-primary/5 hover:border-primary transition-all group shadow-sm`} asChild>
               <Link href={btn.href}>
-                <btn.icon className={`h-5 w-5 text-primary group-hover:scale-110 transition-transform`} />
-                <span className="font-bold text-xs">{btn.label}</span>
+                <btn.icon className={`h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300`} />
+                <span className="font-bold text-xs uppercase tracking-widest">{btn.label}</span>
               </Link>
             </Button>
           ))}

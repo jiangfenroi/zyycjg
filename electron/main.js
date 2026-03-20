@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 /**
- * 终端兼容性加固
+ * 终端兼容性与性能加固
  */
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('no-sandbox');
@@ -16,8 +16,8 @@ const isDev = process.env.NODE_ENV === 'development';
 const configPath = path.join(app.getPath('userData'), 'db-config.enc');
 const logPath = path.join(app.getPath('userData'), 'app.log');
 
-// 加密配置
-const ENCRYPTION_KEY = crypto.scryptSync(app.name || 'meditrack-secret', 'salt', 32);
+// AES-256 加密配置
+const ENCRYPTION_KEY = crypto.scryptSync(app.name || 'meditrack-system-secret', 'salt', 32);
 const IV_LENGTH = 16;
 
 function encrypt(text) {
@@ -29,13 +29,17 @@ function encrypt(text) {
 }
 
 function decrypt(text) {
-  const textParts = text.split(':');
-  const iv = Buffer.from(textParts.shift(), 'hex');
-  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (e) {
+    return null;
+  }
 }
 
 function writeLog(level, message) {
@@ -63,6 +67,7 @@ async function initDB(config) {
       connectTimeout: 15000
     });
 
+    // 核心业务表结构初始化
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -137,6 +142,7 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
+    // 初始化默认配置
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', '重')");
@@ -149,6 +155,7 @@ async function initDB(config) {
   }
 }
 
+// IPC 通信处理器
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -164,10 +171,15 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     if (fs.existsSync(configPath)) {
       try {
         const encryptedData = fs.readFileSync(configPath, 'utf8');
-        const config = JSON.parse(decrypt(encryptedData));
-        await initDB(config);
+        const configStr = decrypt(encryptedData);
+        if (configStr) {
+          const config = JSON.parse(configStr);
+          await initDB(config);
+        } else {
+          return { success: false, error: '解密凭据失败' };
+        }
       } catch (e) {
-        return { success: false, error: '解密配置失败' };
+        return { success: false, error: '加载数据库配置失败' };
       }
     } else {
       return { success: false, error: 'NO_CONFIG' };
@@ -194,8 +206,6 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
     return { success: false, error: err.message };
   }
 });
-
-ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 ipcMain.handle('open-external', async (event, url) => {
   try {
@@ -265,7 +275,10 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
   }
 });
 
+ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
+
 app.whenReady().then(() => {
+  // 静态协议注册
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
@@ -279,6 +292,7 @@ app.whenReady().then(() => {
     }
   });
 
+  // 本地文件协议注册
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
     callback({ path: path.normalize(filePath) });

@@ -15,6 +15,7 @@ declare global {
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
+      openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
     };
   }
 }
@@ -24,11 +25,11 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 let cachedSettings: SystemSettings | null = null;
 
 export const DataService = {
-  // 年龄计算核心逻辑
+  // 年龄计算核心逻辑：支持 18 位身份证自动识别与建档周期递增
   calculateCurrentAge(person: Person): number {
     const today = new Date();
     
-    // 优先级 1: 身份证驱动
+    // 优先级 1: 身份证驱动 (18位)
     if (person.IDNO && person.IDNO.length === 18) {
       const birthYear = parseInt(person.IDNO.substring(6, 10));
       const birthMonth = parseInt(person.IDNO.substring(10, 12)) - 1;
@@ -43,7 +44,7 @@ export const DataService = {
       return age;
     }
 
-    // 优先级 2: 建档日期推算驱动
+    // 优先级 2: 建档日期推算驱动 (周年递增)
     if (person.OCCURDATE && person.AGE !== undefined) {
       const occurDate = new Date(person.OCCURDATE);
       const yearDiff = today.getFullYear() - occurDate.getFullYear();
@@ -59,7 +60,7 @@ export const DataService = {
     return person.AGE || 0;
   },
 
-  // 每月 1 号全量核查
+  // 全量年龄核查流水：每月 1 号静默执行
   async performMonthlyAgeAudit(): Promise<void> {
     if (!isElectron) return;
     
@@ -82,7 +83,7 @@ export const DataService = {
     }
 
     await this.updateSystemSettings({ LAST_AGE_AUDIT: monthKey });
-    console.log('年龄核查完成，数据库已同步。');
+    console.log('年度/月度年龄核查完成，数据库已物理同步。');
   },
 
   async getSystemSettings(force = false): Promise<SystemSettings> {
@@ -115,10 +116,10 @@ export const DataService = {
     return false;
   },
 
-  async uploadSystemAsset(sourcePath: string, assetType: 'SYSTEM_LOGO_URL' | 'LOGIN_BG_URL'): Promise<boolean> {
+  async uploadSystemAsset(sourcePath: string, assetType: string): Promise<boolean> {
     if (isElectron) {
       const settings = await this.getSystemSettings();
-      if (!settings.STORAGE_PATH) throw new Error('未配置中心存储路径');
+      if (!settings.STORAGE_PATH) throw new Error('未配置中心共享存储路径');
       
       const res = await window.electronAPI.uploadSystemAsset({
         sourcePath,
@@ -133,7 +134,7 @@ export const DataService = {
     return false;
   },
 
-  async addLog(operator: string, action: string, type: string): Promise<boolean> {
+  async addLog(operator: string, action: string, type: 'alert' | 'update' | 'completed' | 'system'): Promise<boolean> {
     if (isElectron) {
       const sql = 'INSERT INTO SP_LOGS (OPERATOR, ACTION, TYPE) VALUES (?, ?, ?)';
       const result = await window.electronAPI.query(sql, [operator, action, type]);
@@ -158,46 +159,17 @@ export const DataService = {
     return [];
   },
 
-  async checkPatientExists(personId: string, idNo?: string): Promise<{ exists: boolean; existingData?: Person }> {
-    if (!isElectron) return { exists: false };
-    
-    if (idNo) {
-      const idNoRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE IDNO = ? ORDER BY SOURCE = "import" DESC, LAST_UPDATE DESC LIMIT 1', [idNo]);
-      if (idNoRes.success && idNoRes.data && idNoRes.data.length > 0) {
-        return { exists: true, existingData: idNoRes.data[0] };
-      }
-    }
-
-    const idRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE PERSONID = ?', [personId]);
-    if (idRes.success && idRes.data && idRes.data.length > 0) {
-      return { exists: true, existingData: idRes.data[0] };
-    }
-
-    return { exists: false };
-  },
-
   async addPatient(person: Person): Promise<{ success: boolean; error?: string }> {
     if (isElectron) {
-      const check = await this.checkPatientExists(person.PERSONID, person.IDNO);
-      
-      if (check.exists && check.existingData) {
-        if (check.existingData.SOURCE === 'import' && person.SOURCE === 'manual') {
-          return { success: true }; 
-        }
-        
-        const sql = `UPDATE SP_PERSON SET PERSONNAME=?, SEX=?, AGE=?, PHONE=?, UNITNAME=?, OCCURDATE=?, OPTNAME=?, SOURCE=?, IDNO=?, STATUS=? WHERE PERSONID=?`;
-        const res = await window.electronAPI.query(sql, [
-          person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
-          person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统', person.SOURCE || 'manual', person.IDNO || null, person.STATUS || 'alive', person.PERSONID
-        ]);
-        return res;
-      }
-
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO, SOURCE, STATUS) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON DUPLICATE KEY UPDATE 
+                   PERSONNAME=VALUES(PERSONNAME), SEX=VALUES(SEX), AGE=VALUES(AGE), PHONE=VALUES(PHONE), 
+                   UNITNAME=VALUES(UNITNAME), IDNO=VALUES(IDNO), STATUS=VALUES(STATUS), LAST_UPDATE=CURRENT_TIMESTAMP`;
+      
       const result = await window.electronAPI.query(sql, [
         person.PERSONID, person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
-        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null, person.SOURCE || 'manual', person.STATUS || 'alive'
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统管理员', person.IDNO || null, person.SOURCE || 'manual', person.STATUS || 'alive'
       ]);
       return result;
     }
@@ -206,7 +178,10 @@ export const DataService = {
 
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
-      const sql = `SELECT r.*, p.PERSONNAME, p.STATUS FROM SP_ZYJG r LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID ORDER BY r.ZYYCJGTZRQ DESC`;
+      const sql = `SELECT r.*, p.PERSONNAME, p.STATUS, p.SEX, p.AGE, p.PHONE 
+                   FROM SP_ZYJG r 
+                   LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
+                   ORDER BY r.ZYYCJGTZRQ DESC`;
       const result = await window.electronAPI.query(sql);
       if (result.success) return result.data.map((r: any) => ({ ...r, IS_NOTIFIED: !!r.IS_NOTIFIED }));
     }
@@ -222,6 +197,9 @@ export const DataService = {
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
         res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0
       ]);
+      if (result.success) {
+        await this.addLog(res.WORKER, `登记异常结果: ${res.PERSONID} - ${res.ZYYCJGXQ.substring(0, 20)}...`, 'alert');
+      }
       return result.success;
     }
     return false;
@@ -242,6 +220,9 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFSJ || '', followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
+      if (result.success) {
+        await this.addLog(followUp.SFGZRY, `随访结案: ${followUp.PERSONID}`, 'completed');
+      }
       return result.success;
     }
     return false;
@@ -256,6 +237,14 @@ export const DataService = {
     return [];
   },
 
+  async selectLocalFile(): Promise<{ path: string; name: string } | null> {
+    if (isElectron) {
+      const res = await window.electronAPI.selectPDF(false);
+      if (res.success && res.files && res.files.length > 0) return res.files[0];
+    }
+    return null;
+  },
+
   async selectLocalFiles(multi = true): Promise<{ path: string; name: string }[]> {
     if (isElectron) {
       const res = await window.electronAPI.selectPDF(multi);
@@ -267,7 +256,7 @@ export const DataService = {
   async uploadDocument(sourcePath: string, personId: string, type: string, customDate?: string): Promise<boolean> {
     if (isElectron) {
       const settings = await this.getSystemSettings();
-      if (!settings.STORAGE_PATH) throw new Error('未配置存储路径');
+      if (!settings.STORAGE_PATH) throw new Error('未配置中心存储映射路径');
       const uploadResult = await window.electronAPI.confirmUpload(sourcePath, personId, type, customDate, settings.STORAGE_PATH);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
