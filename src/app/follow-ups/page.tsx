@@ -102,11 +102,11 @@ export default function FollowUpsPage() {
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     const hasAnyFollowUp = recordFollowUps.length > 0;
     
-    // 1. 初次随访 (T[通知日期] + 7) 逻辑：若周期内已有随访则自动闭环
+    // 1. 初次随访 (通知日期 + 7) 逻辑：若周期内已有随访则自动闭环
     const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
-    // 2. 年度复查 (T[体检日期] + 365)
+    // 2. 年度复查 (体检日期 + 365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
     const oneYearMark = addYears(peDate, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
@@ -131,7 +131,7 @@ export default function FollowUpsPage() {
   }
 
   const handleUpdateNextDate = async () => {
-    if (!editDateResult || !newNextDate) return;
+    if (!editDateResult || !newNextDate || submitting) return;
     setSubmitting(true);
     try {
       const success = await DataService.updateNextFollowUpDate(editDateResult.ID, newNextDate);
@@ -148,7 +148,7 @@ export default function FollowUpsPage() {
   }
 
   const handleCompleteTask = async () => {
-    if (!selectedResult || !followUpForm.HFresult) {
+    if (!selectedResult || !followUpForm.HFresult || submitting) {
       toast({ variant: "destructive", title: "校验失败", description: "随访结论不能为空" })
       return
     }

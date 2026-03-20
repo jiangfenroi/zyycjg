@@ -25,6 +25,7 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 let cachedSettings: SystemSettings | null = null;
 
 export const DataService = {
+  // 从体检流水号解析日期 (YYYYMMDD)
   getPEDateFromID(tjbhid: string, fallback: string): string {
     if (!tjbhid || tjbhid.length < 8) return fallback;
     const y = tjbhid.substring(0, 4);
@@ -162,7 +163,6 @@ export const DataService = {
       ]);
       return result;
     }
-    // Web Preview Support
     return { success: true };
   },
 
@@ -196,7 +196,6 @@ export const DataService = {
       }
       return result.success;
     }
-    // Web Preview Support
     return true;
   },
 

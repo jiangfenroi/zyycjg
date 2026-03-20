@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DataService } from "@/services/data-service"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription } from "@/components/alert"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,7 +24,7 @@ export default function LoginPage() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isElectron, setIsElectron] = React.useState(false)
 
-  // UI 零缓存逻辑：数据库配置状态始终为空，绝不从本地回显已保存的参数
+  // 零缓存策略：每次重置为空
   const [dbConfig, setDbConfig] = React.useState({
     host: '',
     port: '',
@@ -38,17 +38,17 @@ export default function LoginPage() {
     DataService.getSystemSettings().then(setSettings)
   }, [])
 
-  // 每次打开弹窗时强制重置输入状态，确保不缓存任何敏感信息
   const handleOpenSettings = (open: boolean) => {
     setIsSettingsOpen(open);
     if (open) {
+      // 物理清空内存状态，不显性回显
       setDbConfig({ host: '', port: '', user: '', password: '', database: '' });
     }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username || !password) {
+    if (!username || !password || loading) {
       toast({ variant: "destructive", title: "校验失败", description: "请输入工号和密码" })
       return
     }
@@ -84,7 +84,7 @@ export default function LoginPage() {
       toast({ variant: "destructive", title: "操作受限", description: "Web 预览模式不支持物理连接" })
       return
     }
-    if (!dbConfig.host || !dbConfig.database || !dbConfig.user || !dbConfig.password) {
+    if (!dbConfig.host || !dbConfig.database || !dbConfig.user || !dbConfig.password || dbLoading) {
       toast({ variant: "destructive", title: "校验失败", description: "请完整填写数据库接入参数" })
       return
     }
@@ -130,16 +130,9 @@ export default function LoginPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground drop-shadow-sm">
               {settings?.SYSTEM_NAME || "重要异常结果管理系统"}
             </h1>
-            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">全院中心化数据库管理平台</p>
+            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">中心化数据库管理平台</p>
           </div>
         </div>
-
-        {!isElectron && (
-          <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-[10px]">预览环境：演示工号 admin / 密码 123456</AlertDescription>
-          </Alert>
-        )}
 
         <Card className="shadow-2xl bg-card/90 backdrop-blur-xl border-none">
           <CardHeader>
@@ -184,19 +177,19 @@ export default function LoginPage() {
                         <Label className="text-xs">服务器地址</Label>
                         <div className="relative">
                            <Server className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                           <Input placeholder="例如：127.0.0.1" className="pl-8 text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                           <Input placeholder="127.0.0.1" className="pl-8 text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">数据库名</Label>
-                          <Input placeholder="例如：meditrack_db" className="text-xs h-9" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                          <Input placeholder="meditrack_db" className="text-xs h-9" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">端口</Label>
                           <div className="relative">
                             <Hash className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                            <Input placeholder="例如：10699" className="pl-8 text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                            <Input placeholder="10699" className="pl-8 text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
                           </div>
                         </div>
                       </div>
@@ -205,7 +198,7 @@ export default function LoginPage() {
                           <Label className="text-xs">访问账号</Label>
                           <div className="relative">
                             <User className="absolute left-3 top-3 h-3 w-3 text-muted-foreground" />
-                            <Input placeholder="例如：root" className="pl-8 text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                            <Input placeholder="root" className="pl-8 text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
                           </div>
                         </div>
                         <div className="space-y-1">

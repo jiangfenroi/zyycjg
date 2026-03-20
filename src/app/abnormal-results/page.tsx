@@ -129,7 +129,7 @@ export default function AbnormalResultsPage() {
   }
 
   const handleSubmitResult = async () => {
-    if (!formData.PERSONID || !formData.ZYYCJGXQ) {
+    if (!formData.PERSONID || !formData.ZYYCJGXQ || submitting) {
       toast({ variant: "destructive", title: "校验未通过", description: "档案编号及异常详情为系统核心字段，不可为空" })
       return
     }
@@ -183,7 +183,7 @@ export default function AbnormalResultsPage() {
   }
 
   const handleSubmitPatient = async () => {
-    if (!patientData.PERSONNAME || !patientData.PHONE) {
+    if (!patientData.PERSONNAME || !patientData.PHONE || submitting) {
       toast({ variant: "destructive", title: "资料不全", description: "姓名与联系方式是档案核心要素" })
       return
     }
@@ -316,7 +316,7 @@ export default function AbnormalResultsPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>体检流水号</Label>
-                        <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="例如: 202501010001" />
+                        <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="202501010001" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -328,14 +328,14 @@ export default function AbnormalResultsPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>经办人</Label>
-                          <Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} placeholder="操作人员姓名" />
+                          <Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} placeholder="操作员姓名" />
                         </div>
                       </div>
                    </div>
                    <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>被通知人姓名</Label>
-                        <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="患者本人或其家属" />
+                        <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="患者本人或家属" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -358,7 +358,7 @@ export default function AbnormalResultsPage() {
                       <div className="flex items-center justify-between p-3 border rounded-lg bg-primary/5 border-primary/10">
                          <div className="flex flex-col gap-1">
                             <Label className="text-xs font-bold text-primary">临床路径标记</Label>
-                            <span className="text-[10px] text-muted-foreground italic">即时干预状态确认</span>
+                            <span className="text-[10px] text-muted-foreground italic">即时处理状态确认</span>
                          </div>
                          <div className="flex gap-4">
                             <div className="flex items-center gap-2">
@@ -376,24 +376,24 @@ export default function AbnormalResultsPage() {
 
                 <div className="space-y-2">
                   <Label>异常情况摘要 <span className="text-destructive">*</span></Label>
-                  <Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[80px]" placeholder="记录检查发现的核心异常指标..." />
+                  <Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[80px]" placeholder="记录核心异常指标..." />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-2">
                       <Label>医生处置意见</Label>
-                      <Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} placeholder="临床复查或转诊建议..." className="min-h-[80px]" />
+                      <Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} placeholder="复查或转诊建议..." className="min-h-[80px]" />
                    </div>
                    <div className="space-y-2">
                       <Label>被通知人反馈</Label>
-                      <Textarea value={formData.ZYYCJGFKJG} onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})} placeholder="记录对方对结果的知晓与反馈..." className="min-h-[80px]" />
+                      <Textarea value={formData.ZYYCJGFKJG} onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})} placeholder="对方对结果的知晓反馈..." className="min-h-[80px]" />
                    </div>
                 </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleSubmitResult} disabled={submitting} className="w-full h-11 font-bold shadow-lg">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                   {editId ? '保存修正记录' : '确认登记并补全档案资料'}
+                   {editId ? '保存修正记录' : '确认登记并补全资料'}
                    {!editId && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </DialogFooter>
@@ -414,7 +414,7 @@ export default function AbnormalResultsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>联系电话 <span className="text-destructive">*</span></Label>
-                    <Input value={patientData.PHONE} onChange={e => setPatientData({...patientData, PHONE: e.target.value})} placeholder="患者或家属手机" />
+                    <Input value={patientData.PHONE} onChange={e => setPatientData({...patientData, PHONE: e.target.value})} placeholder="手机号" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -434,17 +434,17 @@ export default function AbnormalResultsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>身份证号 (用于跨年度身份唯一识别)</Label>
-                  <Input value={patientData.IDNO} maxLength={18} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="可选输入 18 位身份证号" className="font-mono" />
+                  <Label>身份证号</Label>
+                  <Input value={patientData.IDNO} maxLength={18} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="18 位身份证号" className="font-mono" />
                 </div>
               </div>
               <DialogFooter className="flex-col gap-3">
                 <Button onClick={handleSubmitPatient} disabled={submitting} className="w-full h-11 font-bold shadow-md">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                   保存并建立中心化索引
+                   保存并建立索引
                 </Button>
-                <Button variant="ghost" onClick={handleSkipPatient} className="w-full text-muted-foreground text-xs hover:text-primary">
-                  暂不录入资料，仅保留档案编号
+                <Button variant="ghost" onClick={handleSkipPatient} className="w-full text-muted-foreground text-xs">
+                  暂不录入资料，仅保留档案号
                 </Button>
               </DialogFooter>
             </>
