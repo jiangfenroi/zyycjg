@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, Eye, Loader2 } from 'lucide-react'
+import { Plus, Search, FileDown, Eye, Loader2, Link as LinkIcon } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { AbnormalResult } from '@/lib/types'
+import { AbnormalResult, FollowUpPath } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -28,6 +29,7 @@ import Link from 'next/link'
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
   const [results, setResults] = React.useState<AbnormalResult[]>([])
+  const [paths, setPaths] = React.useState<FollowUpPath[]>([])
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -45,6 +47,8 @@ export default function AbnormalResultsPage() {
     ZYYCJGTZSJ: '',
     WORKER: '',
     ZYYCJGBTZR: '',
+    PATH_ID: '',
+    NEXT_DATE: '',
     IS_HEALTH_EDU: true,
     IS_NOTIFIED: true,
   })
@@ -52,8 +56,12 @@ export default function AbnormalResultsPage() {
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const data = await DataService.getAbnormalResults()
-      setResults(data)
+      const [resData, pathData] = await Promise.all([
+        DataService.getAbnormalResults(),
+        DataService.getFollowUpPaths()
+      ])
+      setResults(resData)
+      setPaths(pathData)
     } catch (err) {
       toast({ variant: "destructive", title: "数据同步失败", description: "无法从中心数据库拉取记录" })
     } finally {
@@ -66,7 +74,6 @@ export default function AbnormalResultsPage() {
     loadData()
   }, [loadData])
 
-  // 每次打开弹窗时自动获取当前时间
   React.useEffect(() => {
     if (isDialogOpen) {
       const storedUser = localStorage.getItem('currentUser');
@@ -93,14 +100,12 @@ export default function AbnormalResultsPage() {
   const handleExport = () => {
     if (results.length === 0) return
     const headers = [
-      "档案编号", "体检编号", "姓名", "性别", "年龄", "联系电话", "体检日期", "分类", 
-      "重要异常结果详情", "是否通知", "是否健康宣教", "通知日期", "通知时间", "通知医生", 
-      "被通知人", "处置建议"
+      "档案编号", "体检编号", "姓名", "性别", "年龄", "分类", 
+      "重要异常结果详情", "随访路径", "预定下次随访", "通知医生", "通知日期"
     ];
     const rows = results.map(res => [
-      res.PERSONID, res.TJBHID || '', res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', res.PHONE || '-', res.OCCURDATE || '-', `${res.ZYYCJGFL}类`, 
-      `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.IS_NOTIFIED ? '是' : '否', res.IS_HEALTH_EDU ? '是' : '否',
-      res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR, `"${(res.ZYYCJGCZYJ || '').replace(/"/g, '""')}"`
+      res.PERSONID, res.TJBHID || '', res.PERSONNAME || '未知', res.SEX || '-', res.AGE || '-', `${res.ZYYCJGFL}类`, 
+      `"${(res.ZYYCJGXQ || '').replace(/"/g, '""')}"`, res.PATH_NAME || '-', res.NEXT_DATE || '-', res.WORKER, res.ZYYCJGTZRQ
     ]);
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -109,7 +114,7 @@ export default function AbnormalResultsPage() {
     link.href = url;
     link.download = `重要异常结果登记表_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    toast({ title: "报表导出成功", description: "已生成符合 Excel 标准的登记数据文件。" })
+    toast({ title: "报表导出成功" })
   }
 
   const handleSubmit = async () => {
@@ -148,7 +153,21 @@ export default function AbnormalResultsPage() {
                   <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
                 <div className="space-y-2"><Label>重要异常结果详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
-                <div className="space-y-2"><Label>处置建议</Label><Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>随访路径</Label>
+                    <Select value={formData.PATH_ID} onValueChange={v => setFormData({...formData, PATH_ID: v})}>
+                      <SelectTrigger><SelectValue placeholder="选择预定义的临床路径..." /></SelectTrigger>
+                      <SelectContent>
+                        {paths.map(p => <SelectItem key={p.ID} value={p.ID}>{p.NAME}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>预定下次随访日期</Label>
+                    <Input type="date" value={formData.NEXT_DATE} onChange={e => setFormData({...formData, NEXT_DATE: e.target.value})} />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>分类</Label>
@@ -165,10 +184,6 @@ export default function AbnormalResultsPage() {
                       <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(v) => setFormData({...formData, IS_NOTIFIED: !!v})} />
                       <Label htmlFor="notified">是否通知</Label>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="health" checked={formData.IS_HEALTH_EDU} onCheckedChange={(v) => setFormData({...formData, IS_HEALTH_EDU: !!v})} />
-                      <Label htmlFor="health">是否健康宣教</Label>
-                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -181,7 +196,7 @@ export default function AbnormalResultsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <Loader2 className="animate-spin" /> : "同步写入中心库"}</Button>
+                <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <Loader2 className="animate-spin" /> : "保存并生成随访预警"}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -203,42 +218,47 @@ export default function AbnormalResultsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[120px] sticky left-0 bg-muted/50 z-10 text-xs">档案编号</TableHead>
-                  <TableHead className="w-[120px] text-xs">体检编号</TableHead>
+                  <TableHead className="w-[120px] text-xs">档案编号</TableHead>
                   <TableHead className="w-[100px] text-xs">姓名</TableHead>
-                  <TableHead className="w-[60px] text-xs">性别</TableHead>
-                  <TableHead className="w-[110px] text-xs">登记日期</TableHead>
-                  <TableHead className="w-[90px] text-xs">登记时间</TableHead>
                   <TableHead className="w-[80px] text-xs">分类</TableHead>
-                  <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
-                  <TableHead className="w-[80px] text-xs">已通知</TableHead>
+                  <TableHead className="min-w-[200px] text-xs">异常详情</TableHead>
+                  <TableHead className="w-[150px] text-xs">随访路径</TableHead>
+                  <TableHead className="w-[120px] text-xs text-blue-600 font-bold">预定下次随访</TableHead>
+                  <TableHead className="w-[110px] text-xs">登记日期</TableHead>
                   <TableHead className="w-[100px] text-xs">通知医生</TableHead>
-                  <TableHead className="min-w-[150px] text-xs">处置建议</TableHead>
                   <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)] text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={12} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
-                  <TableRow key={res.ID} className="text-[10px] sm:text-xs">
-                    <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
-                    <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
+                  <TableRow key={res.ID} className="text-xs">
+                    <TableCell className="font-mono">{res.PERSONID}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
-                    <TableCell>{res.SEX || '-'}</TableCell>
-                    <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
-                    <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                    <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 border-blue-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
+                    <TableCell>
+                       {res.PATH_NAME ? (
+                         <div className="flex items-center gap-1">
+                           <span className="truncate max-w-[120px]">{res.PATH_NAME}</span>
+                           {res.PATH_URL && (
+                             <a href={res.PATH_URL} target="_blank" className="text-blue-500 hover:text-blue-700">
+                               <LinkIcon className="h-3 w-3" />
+                             </a>
+                           )}
+                         </div>
+                       ) : '-'}
+                    </TableCell>
+                    <TableCell className="font-mono text-blue-600 font-bold">{res.NEXT_DATE || '-'}</TableCell>
+                    <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
-                    <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
                       <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={12} className="text-center py-20 text-muted-foreground italic">未检索到记录</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-20 text-muted-foreground italic">未检索到记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

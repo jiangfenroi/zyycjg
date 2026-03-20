@@ -72,6 +72,13 @@ async function initDB(config) {
         CONF_KEY VARCHAR(50) PRIMARY KEY,
         CONF_VALUE TEXT
       )`,
+      `CREATE TABLE IF NOT EXISTS SP_PATHS (
+        ID VARCHAR(50) PRIMARY KEY,
+        NAME VARCHAR(200) NOT NULL,
+        URL TEXT,
+        DESCRIPTION TEXT,
+        CREATE_DATE DATE
+      )`,
       `CREATE TABLE IF NOT EXISTS SP_PERSON (
         PERSONID VARCHAR(50) PRIMARY KEY,
         PERSONNAME VARCHAR(50) NOT NULL,
@@ -95,6 +102,8 @@ async function initDB(config) {
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
+        PATH_ID VARCHAR(50),
+        NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1,
         IS_HEALTH_EDU TINYINT(1) DEFAULT 1
       )`,
@@ -128,6 +137,14 @@ async function initDB(config) {
 
     for (const sql of tables) {
       await dbConnection.execute(sql);
+    }
+
+    // 结构更新：检查 SP_ZYJG 是否有 PATH_ID
+    try {
+      await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN PATH_ID VARCHAR(50) AFTER ZYYCJGBTZR");
+      await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN NEXT_DATE DATE AFTER PATH_ID");
+    } catch (e) {
+      // 字段已存在
     }
 
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");

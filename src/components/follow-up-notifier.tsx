@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, Info } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, Info, Link as LinkIcon } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -26,9 +26,19 @@ export function FollowUpNotifier() {
         DataService.getAbnormalResults(),
         DataService.getFollowUps()
       ])
-      const pending = results.filter(r => 
-        !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
-      )
+      
+      const today = new Date().toISOString().split('T')[0]
+      
+      // 预警逻辑：到达 NEXT_DATE 且没有随访记录的
+      const pending = results.filter(r => {
+        const hasFollowUp = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
+        if (hasFollowUp) return false
+        
+        // 如果没有随访记录，看是否到了 NEXT_DATE
+        if (!r.NEXT_DATE) return true // 默认显示所有未随访项
+        return r.NEXT_DATE <= today
+      })
+      
       setTasks(pending)
     } catch (err) {
       console.error("Failed to load notification tasks", err)
@@ -60,9 +70,9 @@ export function FollowUpNotifier() {
       <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
         <div className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold flex items-center gap-2 text-destructive">
+            <h3 className="font-semibold flex items-center gap-2 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4" />
-              重要结果随访提醒
+              随访路径到期提醒
             </h3>
             <TooltipProvider>
               <Tooltip>
@@ -70,13 +80,13 @@ export function FollowUpNotifier() {
                   <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  展示所有尚未完成随访结案的重要异常记录
+                  展示所有已到达临床随访路径预定日期的重要异常记录
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {loading ? "正在同步中心数据库" : `当前有 ${count} 例结果尚未完成随访结案`}
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {loading ? "正在同步路径数据" : `当前有 ${count} 例结果已到达路径预警时间`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -90,20 +100,23 @@ export function FollowUpNotifier() {
                 className="flex flex-col p-3 rounded-md hover:bg-accent transition-colors border-b last:border-0"
               >
                 <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{task.ZYYCJGFL}类</Badge>
+                  <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
+                  <Badge variant="outline" className="text-[9px] h-4">{task.PATH_NAME || '未设路径'}</Badge>
                 </div>
-                <span className="text-xs text-muted-foreground mt-1 line-clamp-1">{task.ZYYCJGXQ}</span>
-                <span className="text-[10px] text-muted-foreground mt-1 bg-muted w-fit px-1.5 py-0.5 rounded">通知日期: {task.ZYYCJGTZRQ}</span>
+                <span className="text-[10px] text-muted-foreground mt-1 line-clamp-1 italic">"{task.ZYYCJGXQ}"</span>
+                <div className="flex justify-between items-center mt-2">
+                  <span className="text-[9px] font-bold text-destructive">预定日期: {task.NEXT_DATE || '即刻'}</span>
+                  {task.PATH_URL && <LinkIcon className="h-2.5 w-2.5 text-blue-500" />}
+                </div>
               </Link>
             )) : (
-              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无未处理的预警任务</div>
+              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期的路径随访任务</div>
             )}
           </div>
         </ScrollArea>
         <div className="p-2 border-t text-center bg-muted/10">
           <Button variant="ghost" size="sm" className="w-full text-xs font-semibold text-primary" asChild>
-            <Link href="/follow-ups">进入随访工作台</Link>
+            <Link href="/follow-ups">进入路径随访工作台</Link>
           </Button>
         </div>
       </PopoverContent>

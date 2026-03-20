@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, Calendar as CalendarIcon, ClipboardCheck, FileDown } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, FileDown, Link as LinkIcon, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -79,9 +79,17 @@ export default function FollowUpsPage() {
     }
   }, [selectedResult])
 
-  const pendingResults = abnormalResults.filter(res => 
-    !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
-  )
+  const today = new Date().toISOString().split('T')[0]
+
+  // 待随访逻辑：已过 NEXT_DATE 且没有随访记录的
+  const pendingResults = abnormalResults.filter(res => {
+    const hasFollowUp = followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
+    if (hasFollowUp) return false
+    
+    // 如果没有随访记录，看是否到了 NEXT_DATE
+    if (!res.NEXT_DATE) return true // 默认显示所有待办
+    return res.NEXT_DATE <= today
+  })
 
   const filteredPending = pendingResults.filter(res => {
     const searchLower = searchTerm.toLowerCase();
@@ -104,36 +112,18 @@ export default function FollowUpsPage() {
 
   const handleExportCompleted = () => {
     if (filteredCompleted.length === 0) return
-    const headers = [
-      "档案编号", "体检编号", "姓名", "性别", "年龄", "重要异常结果详情", 
-      "回访结果详情", "是否复查及进一步病理检查", "回访日期", "回访时间", "回访人", "下次回访时间"
-    ];
+    const headers = ["档案编号", "姓名", "回访详情", "回访日期", "回访人", "下次回访"];
     const rows = filteredCompleted.map(f => {
       const person = persons.find(p => p.PERSONID === f.PERSONID);
-      const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGTJBH);
-      return [
-        f.PERSONID, 
-        f.ZYYCJGTJBH || '', 
-        person?.PERSONNAME || '未知', 
-        person?.SEX || '-', 
-        person?.AGE || '-', 
-        `"${(result?.ZYYCJGXQ || '').replace(/"/g, '""')}"`, 
-        `"${(f.HFresult || '').replace(/"/g, '""')}"`, 
-        f.jcsf ? '是' : '否', 
-        f.SFTIME,
-        f.SFSJ || '-',
-        f.SFGZRY, 
-        f.XCSFTIME || '-'
-      ];
+      return [f.PERSONID, person?.PERSONNAME || '未知', `"${f.HFresult.replace(/"/g, '""')}"`, f.SFTIME, f.SFGZRY, f.XCSFTIME || '-'];
     });
     const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `随访记录表_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `随访结案表_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    toast({ title: "报表导出成功" })
   }
 
   const handleCompleteTask = async () => {
@@ -201,9 +191,9 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>姓名</TableHead>
-                      <TableHead>体检编号</TableHead>
-                      <TableHead className="min-w-[300px]">异常结果详情</TableHead>
-                      <TableHead>登记时间</TableHead>
+                      <TableHead>随访路径</TableHead>
+                      <TableHead className="text-blue-600 font-bold">路径预定日期</TableHead>
+                      <TableHead className="min-w-[250px]">异常结果摘要</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -213,9 +203,25 @@ export default function FollowUpsPage() {
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => (
                       <TableRow key={res.ID} className="text-xs">
                         <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
-                        <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
-                        <TableCell className="py-3">{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
+                        <TableCell>
+                          {res.PATH_NAME ? (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[10px]">{res.PATH_NAME}</Badge>
+                              {res.PATH_URL && (
+                                <a href={res.PATH_URL} target="_blank" className="text-blue-500 hover:scale-110 transition-transform">
+                                  <LinkIcon className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="font-mono text-blue-600 font-bold">
+                          <div className="flex items-center gap-1">
+                            {res.NEXT_DATE <= today && <AlertTriangle className="h-3 w-3 text-destructive animate-pulse" />}
+                            {res.NEXT_DATE || '-'}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                         <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 随访</Button></TableCell>
                       </TableRow>
                     )) : (
@@ -239,7 +245,6 @@ export default function FollowUpsPage() {
                         <TableHead>姓名</TableHead>
                         <TableHead>回访结果摘要</TableHead>
                         <TableHead>随访日期</TableHead>
-                        <TableHead>随访时间</TableHead>
                         <TableHead>随访人</TableHead>
                         <TableHead>下次回访</TableHead>
                       </TableRow>
@@ -252,7 +257,6 @@ export default function FollowUpsPage() {
                             <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
                             <TableCell className="max-w-[250px] truncate">{f.HFresult}</TableCell>
                             <TableCell className="font-mono">{f.SFTIME}</TableCell>
-                            <TableCell className="font-mono">{f.SFSJ || '-'}</TableCell>
                             <TableCell>{f.SFGZRY}</TableCell>
                             <TableCell className="font-mono text-blue-600 font-bold">{f.XCSFTIME || '-'}</TableCell>
                           </TableRow>
@@ -272,8 +276,15 @@ export default function FollowUpsPage() {
             <DialogTitle>随访结案登记</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="p-3 bg-muted/30 rounded text-xs space-y-1">
-              <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME}</span></p>
+            <div className="p-3 bg-muted/30 rounded text-xs space-y-2">
+              <div className="flex justify-between">
+                <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME}</span></p>
+                {selectedResult?.PATH_URL && (
+                   <a href={selectedResult.PATH_URL} target="_blank" className="flex items-center gap-1 text-blue-600 font-bold hover:underline">
+                     <LinkIcon className="h-3 w-3" /> 查看临床随访路径指南
+                   </a>
+                )}
+              </div>
               <p>异常结果：<span className="italic">"{selectedResult?.ZYYCJGXQ}"</span></p>
             </div>
             <div className="space-y-2">

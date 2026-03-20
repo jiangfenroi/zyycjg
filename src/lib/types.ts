@@ -11,6 +11,14 @@ export interface Person {
   OPTNAME?: string;
 }
 
+export interface FollowUpPath {
+  ID: string;
+  NAME: string;
+  URL?: string;
+  DESCRIPTION?: string;
+  CREATE_DATE: string;
+}
+
 export interface AbnormalResult {
   ID: string;
   PERSONID: string;
@@ -23,6 +31,8 @@ export interface AbnormalResult {
   ZYYCJGTZSJ: string;
   WORKER: string;
   ZYYCJGBTZR: string;
+  PATH_ID?: string;
+  NEXT_DATE?: string;
   IS_NOTIFIED: boolean;
   IS_HEALTH_EDU: boolean;
   PERSONNAME?: string;

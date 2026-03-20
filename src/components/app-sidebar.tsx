@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -12,7 +13,8 @@ import {
   UserCog,
   LogOut,
   Palette,
-  Clock
+  Clock,
+  Route
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -74,9 +76,6 @@ export function AppSidebar() {
     toast({ title: "已退出登录", description: "您的会话已安全结束。" })
   }
 
-  /**
-   * 转换本地路径为 app-file 协议以加载 Logo
-   */
   const getLogoUrl = () => {
     if (!settings.SYSTEM_LOGO_URL) return null;
     return `app-file://${settings.SYSTEM_LOGO_URL}`;
@@ -130,54 +129,69 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.ROLE === 'admin' && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">系统管理</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === '/settings/users'}
-                    tooltip="用户权限管理"
-                    className="h-11 px-4"
-                  >
-                    <Link href="/settings/users">
-                      <UserCog className="size-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === '/settings/logs'}
-                    tooltip="系统操作日志"
-                    className="h-11 px-4"
-                  >
-                    <Link href="/settings/logs">
-                      <Clock className="size-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">系统操作日志</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === '/settings/system'}
-                    tooltip="系统身份设置"
-                    className="h-11 px-4 text-secondary hover:text-secondary/80"
-                  >
-                    <Link href="/settings/system">
-                      <Palette className="size-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">系统身份设置</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">系统管理</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === '/settings/paths'}
+                  tooltip="随访路径配置"
+                  className="h-11 px-4"
+                >
+                  <Link href="/settings/paths">
+                    <Route className="size-5" />
+                    <span className="group-data-[collapsible=icon]:hidden">随访路径配置</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {user?.ROLE === 'admin' && (
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === '/settings/users'}
+                      tooltip="用户权限管理"
+                      className="h-11 px-4"
+                    >
+                      <Link href="/settings/users">
+                        <UserCog className="size-5" />
+                        <span className="group-data-[collapsible=icon]:hidden">用户权限管理</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === '/settings/logs'}
+                      tooltip="系统操作日志"
+                      className="h-11 px-4"
+                    >
+                      <Link href="/settings/logs">
+                        <Clock className="size-5" />
+                        <span className="group-data-[collapsible=icon]:hidden">系统操作日志</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === '/settings/system'}
+                      tooltip="系统身份设置"
+                      className="h-11 px-4 text-secondary hover:text-secondary/80"
+                    >
+                      <Link href="/settings/system">
+                        <Palette className="size-5" />
+                        <span className="group-data-[collapsible=icon]:hidden">系统身份设置</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-sidebar-border/50">
         <div className="flex items-center justify-between group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-4">
