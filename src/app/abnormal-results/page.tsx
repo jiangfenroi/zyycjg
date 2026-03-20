@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { AbnormalResult } from '@/lib/types'
+import { AbnormalResult, Person } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -97,13 +97,32 @@ export default function AbnormalResultsPage() {
       return
     }
     setSubmitting(true)
-    const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
-    if (success) {
-      toast({ title: "登记成功", description: "数据已录入至中心远程库" })
-      setIsDialogOpen(false)
-      loadData()
+    try {
+      // 检查档案是否存在，不存在则自动创建
+      const patients = await DataService.getPatients()
+      const exists = patients.some(p => p.PERSONID === formData.PERSONID)
+      if (!exists) {
+        await DataService.addPatient({
+          PERSONID: formData.PERSONID,
+          PERSONNAME: '新登记患者',
+          SEX: '男',
+          AGE: 0,
+          PHONE: '待补充',
+          OCCURDATE: new Date().toISOString().split('T')[0],
+          OPTNAME: formData.WORKER
+        } as Person)
+        toast({ title: "自动建档", description: "该编号不存在，系统已自动创建基础档案" })
+      }
+
+      const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
+      if (success) {
+        toast({ title: "登记成功", description: "数据已录入至中心远程库" })
+        setIsDialogOpen(false)
+        loadData()
+      }
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   if (!isMounted) return null
@@ -120,9 +139,9 @@ export default function AbnormalResultsPage() {
             <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
             <DialogContent className="max-w-4xl">
               <DialogHeader><DialogTitle>重要异常结果中心化登记</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-4 py-4 text-sm">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号，若不存在将自动创建档案" /></div>
                   <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
                 <div className="space-y-2"><Label>异常详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
@@ -178,7 +197,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="min-w-[250px]">异常详情</TableHead>
                   <TableHead className="w-[120px] text-destructive font-bold">预定随访</TableHead>
                   <TableHead className="w-[110px]">登记日期</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">详情</TableHead>
+                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">档案</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

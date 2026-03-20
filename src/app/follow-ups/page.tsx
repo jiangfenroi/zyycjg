@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, FileDown, Link as LinkIcon, AlertTriangle } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, Link as LinkIcon, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { Person, AbnormalResult, FollowUp } from '@/lib/types'
+import Link from 'next/link'
 
 export default function FollowUpsPage() {
   const { toast } = useToast()
@@ -163,10 +164,10 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>患者</TableHead>
-                      <TableHead>执行路径</TableHead>
                       <TableHead className="text-destructive font-bold">预定触发日期</TableHead>
                       <TableHead className="min-w-[250px]">异常详情</TableHead>
-                      <TableHead className="text-right">管理操作</TableHead>
+                      <TableHead className="text-right">档案</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -175,18 +176,6 @@ export default function FollowUpsPage() {
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => (
                       <TableRow key={res.ID} className="text-xs">
                         <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
-                        <TableCell>
-                          {res.PATH_NAME ? (
-                            <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700">{res.PATH_NAME}</Badge>
-                              {res.PATH_URL && (
-                                <a href={res.PATH_URL} target="_blank" className="text-blue-500 hover:scale-110 transition-transform">
-                                  <LinkIcon className="h-3 w-3" />
-                                </a>
-                              )}
-                            </div>
-                          ) : '未指定路径'}
-                        </TableCell>
                         <TableCell className="font-mono text-destructive font-bold">
                           <div className="flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3 animate-pulse" />
@@ -194,7 +183,12 @@ export default function FollowUpsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button></TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
+                        </TableCell>
                       </TableRow>
                     )) : (
                       <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
@@ -217,6 +211,7 @@ export default function FollowUpsPage() {
                       <TableHead>回访结论</TableHead>
                       <TableHead>结案时间</TableHead>
                       <TableHead>经办人</TableHead>
+                      <TableHead className="text-right">档案</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -228,6 +223,9 @@ export default function FollowUpsPage() {
                           <TableCell className="max-w-[400px] truncate">{f.HFresult}</TableCell>
                           <TableCell className="font-mono">{f.SFTIME} {f.SFSJ}</TableCell>
                           <TableCell>{f.SFGZRY}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="sm" asChild><Link href={`/patients/${f.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                          </TableCell>
                         </TableRow>
                       )
                     })}
@@ -243,7 +241,7 @@ export default function FollowUpsPage() {
           <DialogHeader><DialogTitle>随访闭环结案登记</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
-              <p>关联路径：<span className="font-bold">{selectedResult?.PATH_NAME || '无'}</span></p>
+              <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME || '未知'}</span></p>
               <p>异常摘要：<span className="text-muted-foreground">"{selectedResult?.ZYYCJGXQ}"</span></p>
             </div>
             <div className="space-y-2">

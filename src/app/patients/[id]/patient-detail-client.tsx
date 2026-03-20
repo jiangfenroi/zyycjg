@@ -17,7 +17,8 @@ import {
   Loader2,
   Eye,
   Trash2,
-  Calendar as CalendarIcon
+  PlusCircle,
+  CheckCircle2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,8 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DataService } from '@/services/data-service'
 import { PatientDocument, AbnormalResult, FollowUp, Person } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
@@ -46,6 +49,17 @@ export function PatientDetailClient({ id }: { id: string }) {
   const [uploadType, setUploadType] = React.useState<'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'>('PE_REPORT')
   const [uploadDate, setUploadDate] = React.useState('')
   const [uploading, setUploading] = React.useState(false)
+  
+  const [isFollowUpOpen, setIsFollowUpOpen] = React.useState(false)
+  const [followUpSubmitting, setFollowUpSubmitting] = React.useState(false)
+  const [followUpForm, setFollowUpForm] = React.useState({
+    HFresult: '',
+    SFTIME: '',
+    SFSJ: '',
+    SFGZRY: '',
+    jcsf: false,
+    ZYYCJGTJBH: ''
+  })
   
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null)
 
@@ -75,6 +89,21 @@ export function PatientDetailClient({ id }: { id: string }) {
     setUploadDate(new Date().toISOString().split('T')[0])
   }, [loadAllData])
 
+  React.useEffect(() => {
+    if (isFollowUpOpen) {
+      const storedUser = localStorage.getItem('currentUser');
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
+      setFollowUpForm({
+        HFresult: '',
+        SFTIME: new Date().toISOString().split('T')[0],
+        SFSJ: new Date().toTimeString().slice(0, 5),
+        SFGZRY: realName,
+        jcsf: false,
+        ZYYCJGTJBH: results[0]?.TJBHID || ''
+      })
+    }
+  }, [isFollowUpOpen, results])
+
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
   if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在于中心库中。</div>
 
@@ -83,11 +112,9 @@ export function PatientDetailClient({ id }: { id: string }) {
     try {
       const success = await DataService.uploadDocument(id, uploadType, uploadDate)
       if (success) {
-        toast({ title: "报告同步成功", description: "附件已存储于中心分层目录，并关联至电子病历。" })
+        toast({ title: "报告同步成功", description: "附件已存储于中心分层目录。" })
         setIsUploadOpen(false)
         loadAllData()
-      } else {
-        toast({ variant: "destructive", title: "上传取消或路径错误" })
       }
     } catch (err: any) {
       toast({ variant: "destructive", title: "物理同步失败", description: err.message })
@@ -96,16 +123,38 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
   }
 
+  const handleAddFollowUp = async () => {
+    if (!followUpForm.HFresult) {
+      toast({ variant: "destructive", title: "校验失败", description: "请填写回访结论" })
+      return
+    }
+    setFollowUpSubmitting(true)
+    try {
+      const success = await DataService.addFollowUp({
+        ID: `F${Date.now()}`,
+        PERSONID: id,
+        ...followUpForm
+      } as FollowUp)
+      if (success) {
+        toast({ title: "随访结案成功" })
+        setIsFollowUpOpen(false)
+        loadAllData()
+      }
+    } finally {
+      setFollowUpSubmitting(false)
+    }
+  }
+
   const handleDownload = async (doc: PatientDocument) => {
     const success = await DataService.downloadDocument(doc.FILE_URL, doc.FILENAME);
-    if (success) toast({ title: "另存为成功", description: `报告已导出至选定目录。` });
+    if (success) toast({ title: "导出成功" });
   }
 
   const handleDeleteDoc = async (doc: PatientDocument) => {
-    if (!confirm(`确定要从物理中心库和数据库中永久删除报告 ${doc.FILENAME} 吗？`)) return;
+    if (!confirm(`确定要永久删除报告 ${doc.FILENAME} 吗？`)) return;
     const success = await DataService.deleteDocument(doc.ID, doc.FILE_URL);
     if (success) {
-      toast({ title: "附件已彻底移除" });
+      toast({ title: "附件已移除" });
       loadAllData();
     }
   }
@@ -139,9 +188,9 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
                 <span>{person.UNITNAME || '无单位登记信息'}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground">中心存储映射: {id}</span>
+              <div className="flex items-center gap-3 text-sm font-mono text-[10px] text-muted-foreground">
+                <Activity className="h-4 w-4" />
+                <span>建档: {person.OCCURDATE}</span>
               </div>
             </div>
             <div className="pt-6 border-t flex flex-col gap-2">
@@ -187,7 +236,12 @@ export function PatientDetailClient({ id }: { id: string }) {
               </Card>
             </TabsContent>
 
-            <TabsContent value="followup" className="mt-4">
+            <TabsContent value="followup" className="mt-4 space-y-4">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setIsFollowUpOpen(true)}>
+                  <PlusCircle className="mr-2 h-4 w-4" /> 登记随访结案
+                </Button>
+              </div>
                <Card>
                 <CardContent className="p-0">
                   <Table>
@@ -264,25 +318,60 @@ export function PatientDetailClient({ id }: { id: string }) {
               <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>报告分类 (将自动分拣至对应子目录)</Label>
+              <Label>报告分类</Label>
               <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PE_REPORT">体检报告 (总检汇总)</SelectItem>
-                  <SelectItem value="IMAGING">医学影像报告 (PACS)</SelectItem>
+                  <SelectItem value="PE_REPORT">体检报告</SelectItem>
+                  <SelectItem value="IMAGING">医学影像报告</SelectItem>
                   <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="text-[10px] text-muted-foreground bg-blue-50/50 p-3 rounded border border-blue-100 flex gap-2">
-              <Activity className="h-4 w-4 text-primary shrink-0" />
-              <p>系统将自动按 [患者ID] / [报告分类] / [日期_类别_文件名] 逻辑在物理服务器中建立多级目录。</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
             <Button onClick={handleUpload} disabled={uploading}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "浏览本地并同步上传"}
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步上传"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isFollowUpOpen} onOpenChange={setIsFollowUpOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>登记随访闭环 - {person.PERSONNAME}</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4 text-sm">
+            <div className="space-y-2">
+              <Label>关联体检流水号</Label>
+              <Select value={followUpForm.ZYYCJGTJBH} onValueChange={v => setFollowUpForm({...followUpForm, ZYYCJGTJBH: v})}>
+                <SelectTrigger><SelectValue placeholder="选择对应的体检流水" /></SelectTrigger>
+                <SelectContent>
+                  {results.map(r => (
+                    <SelectItem key={r.ID} value={r.TJBHID || ''}>{r.TJBHID} ({r.ZYYCJGFL}类)</SelectItem>
+                  ))}
+                  {results.length === 0 && <SelectItem value="NONE">无关联异常登记</SelectItem>}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>回访结论详情</Label>
+              <Textarea value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} placeholder="记录沟通结果..." />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+              <div className="space-y-2"><Label>经办人</Label><Input value={followUpForm.SFGZRY} readOnly className="bg-muted" /></div>
+            </div>
+            <div className="flex items-center space-x-2 p-2 bg-blue-50/50 rounded">
+                <Checkbox id="jcsf_detail" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
+                <Label htmlFor="jcsf_detail">已完成必要的复查</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFollowUpOpen(false)}>取消</Button>
+            <Button onClick={handleAddFollowUp} disabled={followUpSubmitting}>
+              {followUpSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              确认提交结案
             </Button>
           </DialogFooter>
         </DialogContent>
