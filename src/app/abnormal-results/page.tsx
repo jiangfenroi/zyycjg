@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, Eye, Loader2 } from 'lucide-react'
+import { Plus, Search, Eye, Loader2, FileUp, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,9 @@ export default function AbnormalResultsPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
   
+  // 文件上传状态
+  const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
+
   const [formData, setFormData] = React.useState({
     PERSONID: '',
     TJBHID: '',
@@ -78,6 +81,7 @@ export default function AbnormalResultsPage() {
         ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
         WORKER: realName
       }))
+      setSelectedFiles([])
     }
   }, [isDialogOpen])
 
@@ -91,6 +95,17 @@ export default function AbnormalResultsPage() {
     );
   })
 
+  const handleSelectFiles = async () => {
+    const files = await DataService.selectLocalFiles(true);
+    if (files && files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   const handleSubmit = async () => {
     if (!formData.PERSONID || !formData.ZYYCJGXQ) {
       toast({ variant: "destructive", title: "校验失败", description: "档案编号及异常详情为必填项" })
@@ -98,7 +113,7 @@ export default function AbnormalResultsPage() {
     }
     setSubmitting(true)
     try {
-      // 检查档案是否存在，不存在则自动创建，仅存储必要字段
+      // 1. 检查档案是否存在，不存在则自动创建
       const patients = await DataService.getPatients()
       const exists = patients.some(p => p.PERSONID === formData.PERSONID)
       if (!exists) {
@@ -111,17 +126,29 @@ export default function AbnormalResultsPage() {
           OCCURDATE: new Date().toISOString().split('T')[0],
           OPTNAME: formData.WORKER
         } as Person)
-        toast({ title: "自动建档", description: "系统已为该编号创建基础档案" })
       }
 
-      // 存储异常结果，仅包含 SP_ZYJG 表定义字段
+      // 2. 存储异常结果流水
+      const resultId = `R${Date.now()}`;
       const success = await DataService.addAbnormalResult({ 
         ...formData, 
-        ID: `R${Date.now()}` 
+        ID: resultId 
       } as AbnormalResult)
       
       if (success) {
-        toast({ title: "登记成功", description: "流水已同步至中心远程库" })
+        // 3. 处理多文件上传
+        if (selectedFiles.length > 0) {
+          toast({ title: "同步处理中", description: `正在同步 ${selectedFiles.length} 个附件至中心库...` });
+          for (const file of selectedFiles) {
+            try {
+              await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
+            } catch (err: any) {
+              toast({ variant: "destructive", title: "附件同步异常", description: `${file.name}: ${err.message}` });
+            }
+          }
+        }
+
+        toast({ title: "登记成功", description: "流水及附件已同步至中心远程库" })
         setIsDialogOpen(false)
         loadData()
       }
@@ -137,19 +164,19 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">记录全院临床发现的重要异常流水</p>
+          <p className="text-muted-foreground mt-1">记录全院临床发现的重要异常流水并同步体检报告</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>重要异常结果中心化登记</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4 text-sm">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号，若不存在将自动创建档案" /></div>
+                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" /></div>
                   <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
                 </div>
-                <div className="space-y-2"><Label>异常详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} /></div>
+                <div className="space-y-2"><Label>异常详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-destructive font-bold">预定下次随访日期</Label>
@@ -163,6 +190,26 @@ export default function AbnormalResultsPage() {
                     </Select>
                   </div>
                 </div>
+                
+                <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
+                  <div className="flex justify-between items-center">
+                    <Label className="font-bold flex items-center gap-2"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
+                    <Button variant="outline" size="sm" onClick={handleSelectFiles}>选择本地文件</Button>
+                  </div>
+                  {selectedFiles.length > 0 ? (
+                    <div className="grid gap-2">
+                      {selectedFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
+                          <span className="truncate flex-1 mr-2">{file.name}</span>
+                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(idx)}><X className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-xs text-muted-foreground italic">暂无待同步附件</p>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2"><Label>经办人员</Label><Input value={formData.WORKER} readOnly className="bg-muted" /></div>
                   <div className="flex items-center gap-2 pt-8 col-span-2">
@@ -173,7 +220,8 @@ export default function AbnormalResultsPage() {
               </div>
               <DialogFooter>
                 <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12">
-                   {submitting ? <Loader2 className="animate-spin" /> : "同步至中心库"}
+                   {submitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                   确认登记并同步中心库
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -145,7 +145,6 @@ async function initDB(config) {
 }
 
 function createWindow(startPath = '/login') {
-  // 修复图标定位逻辑，确保在各环境下均能加载
   const iconPath = isDev 
     ? path.join(app.getAppPath(), 'public', 'favicon.ico') 
     : path.join(app.getAppPath(), 'out', 'favicon.ico');
@@ -223,16 +222,21 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
 });
 
 /**
- * 选择本地文件
+ * 选择本地文件 - 支持多选
  */
-ipcMain.handle('select-pdf', async () => {
+ipcMain.handle('select-pdf', async (event, multi = false) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
-    properties: ['openFile'],
+    properties: multi ? ['openFile', 'multiSelections'] : ['openFile'],
     filters: [{ name: 'PDF 报告', extensions: ['pdf'] }]
   });
   if (canceled || filePaths.length === 0) return { success: false };
-  const source = filePaths[0];
-  return { success: true, path: source, name: path.basename(source) };
+  
+  const files = filePaths.map(p => ({
+    path: p,
+    name: path.basename(p)
+  }));
+
+  return { success: true, files: files };
 });
 
 /**

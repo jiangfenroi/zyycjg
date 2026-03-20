@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, Eye, Link as LinkIcon, AlertTriangle } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,11 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
@@ -36,6 +37,10 @@ export default function FollowUpsPage() {
   const [searchTerm, setSearchTerm] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
+
+  // 附件上传状态
+  const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
+  const [uploadType, setUploadType] = React.useState<'IMAGING' | 'PATHOLOGY' | 'PE_REPORT'>('IMAGING')
 
   const [followUpForm, setFollowUpForm] = React.useState({
     HFresult: '',
@@ -77,6 +82,8 @@ export default function FollowUpsPage() {
         SFSJ: new Date().toTimeString().slice(0, 5),
         SFGZRY: realName 
       }))
+      setSelectedFiles([])
+      setUploadType('IMAGING')
     }
   }, [selectedResult])
 
@@ -106,6 +113,17 @@ export default function FollowUpsPage() {
     )
   })
 
+  const handleSelectFiles = async () => {
+    const files = await DataService.selectLocalFiles(true);
+    if (files && files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   const handleCompleteTask = async () => {
     if (!selectedResult || !followUpForm.HFresult) {
       toast({ variant: "destructive", title: "校验失败", description: "随访记录详情为必填项" })
@@ -113,6 +131,7 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
+      // 1. 提交随访结案数据
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -126,7 +145,19 @@ export default function FollowUpsPage() {
       })
 
       if (success) {
-        toast({ title: "随访已结案" })
+        // 2. 处理多文件附件同步（检查/病历等）
+        if (selectedFiles.length > 0) {
+          toast({ title: "同步处理中", description: `正在同步 ${selectedFiles.length} 个复查附件...` });
+          for (const file of selectedFiles) {
+            try {
+              await DataService.uploadDocument(file.path, selectedResult.PERSONID, uploadType, followUpForm.SFTIME);
+            } catch (err: any) {
+              toast({ variant: "destructive", title: "附件同步异常", description: `${file.name}: ${err.message}` });
+            }
+          }
+        }
+
+        toast({ title: "随访已结案并同步附件" })
         setSelectedResult(null)
         loadData()
       }
@@ -176,11 +207,8 @@ export default function FollowUpsPage() {
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => (
                       <TableRow key={res.ID} className="text-xs">
                         <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
-                        <TableCell className="font-mono text-destructive font-bold">
-                          <div className="flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3 animate-pulse" />
-                            {res.NEXT_DATE || '-'}
-                          </div>
+                        <TableCell className="font-mono text-destructive font-bold text-xs">
+                          {res.NEXT_DATE || '-'}
                         </TableCell>
                         <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                         <TableCell className="text-right">
@@ -237,7 +265,7 @@ export default function FollowUpsPage() {
       </Tabs>
 
       <Dialog open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>随访闭环结案登记</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
@@ -246,8 +274,38 @@ export default function FollowUpsPage() {
             </div>
             <div className="space-y-2">
               <Label>随访回访结果详情</Label>
-              <Textarea placeholder="请详细记录与患者的沟通结果及处置方案..." className="min-h-[120px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+              <Textarea placeholder="请详细记录与患者的沟通结果及处置方案..." className="min-h-[100px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
+
+            <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
+              <div className="flex justify-between items-center">
+                <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 同步检查结果/病历附件 (PDF)</Label>
+                <div className="flex gap-2">
+                   <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
+                      <SelectTrigger className="h-8 w-24 text-[10px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="IMAGING">影像报告</SelectItem>
+                        <SelectItem value="PATHOLOGY">病理报告</SelectItem>
+                        <SelectItem value="PE_REPORT">体检报告</SelectItem>
+                      </SelectContent>
+                   </Select>
+                   <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={handleSelectFiles}>选择文件</Button>
+                </div>
+              </div>
+              {selectedFiles.length > 0 ? (
+                <div className="grid gap-2">
+                  {selectedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
+                      <span className="truncate flex-1 mr-2">{file.name}</span>
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(idx)}><X className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-[10px] text-muted-foreground italic">暂无复查附件</p>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
                <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
                <div className="space-y-2"><Label>结案时间</Label><Input type="time" value={followUpForm.SFSJ} onChange={e => setFollowUpForm({...followUpForm, SFSJ: e.target.value})} /></div>
@@ -259,7 +317,10 @@ export default function FollowUpsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
-            <Button onClick={handleCompleteTask} disabled={submitting}>确认提交至中心库</Button>
+            <Button onClick={handleCompleteTask} disabled={submitting}>
+              {submitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              确认提交结案并同步附件
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

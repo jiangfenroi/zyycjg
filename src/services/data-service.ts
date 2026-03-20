@@ -10,7 +10,7 @@ declare global {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
       log: (level: string, message: string) => Promise<void>;
-      selectPDF: () => Promise<{ success: boolean; path?: string; name?: string }>;
+      selectPDF: (multi?: boolean) => Promise<{ success: boolean; files?: {path: string, name: string}[] }>;
       confirmUpload: (sourcePath: string, personId: string, type: string, customDate: string | undefined, storagePath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
@@ -188,14 +188,14 @@ export const DataService = {
     return personId ? MOCK_DOCS.filter(d => d.PERSONID === personId) : MOCK_DOCS;
   },
 
-  async selectLocalFile(): Promise<{ path: string; name: string } | null> {
+  async selectLocalFiles(multi = true): Promise<{ path: string; name: string }[]> {
     if (isElectron) {
-      const res = await window.electronAPI.selectPDF();
-      if (res.success && res.path) {
-        return { path: res.path, name: res.name || '' };
+      const res = await window.electronAPI.selectPDF(multi);
+      if (res.success && res.files) {
+        return res.files;
       }
     }
-    return null;
+    return [];
   },
 
   async uploadDocument(sourcePath: string, personId: string, type: string, customDate?: string): Promise<boolean> {
@@ -232,7 +232,6 @@ export const DataService = {
   async deleteDocument(id: string, filePath: string): Promise<boolean> {
     if (isElectron) {
       const deleteResult = await window.electronAPI.deleteFile(filePath);
-      // 物理文件删除失败（可能已被移动）也允许清理数据库记录，确保存根一致
       const dbResult = await window.electronAPI.query('DELETE FROM SP_DOCUMENTS WHERE ID = ?', [id]);
       if (dbResult.success) await this.addLog('管理员', `销毁报告附件索引: ${filePath.split(/[\\/]/).pop()}`, 'system');
       return dbResult.success;
