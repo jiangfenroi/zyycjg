@@ -32,7 +32,7 @@ function writeLog(level, message) {
   }
 }
 
-writeLog('INFO', '系统启动，执行兼容性检查与内核初始化');
+writeLog('INFO', '系统启动，执行内核初始化与兼容性检查');
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }
@@ -46,18 +46,18 @@ async function initDB(config) {
       try { await dbConnection.end(); } catch (e) {}
     }
 
-    writeLog('INFO', `尝试接入远程 MySQL: ${config.host}:${config.port}`);
+    writeLog('INFO', `尝试接入远程中心数据库: ${config.host}:${config.port}`);
 
     dbConnection = await mysql.createConnection({
       host: config.host,
-      port: parseInt(config.port) || 3306,
+      port: parseInt(config.port) || 10699,
       user: config.user,
       password: config.password,
       database: config.database,
       connectTimeout: 15000
     });
 
-    writeLog('INFO', '数据库连接成功，执行 Schema 自动化同步');
+    writeLog('INFO', '中心数据库连接成功，同步 Schema 结构');
 
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
@@ -131,7 +131,6 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 初始化配置
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
@@ -139,16 +138,22 @@ async function initDB(config) {
     writeLog('INFO', '数据表结构检查完成');
     return { success: true };
   } catch (err) {
-    writeLog('ERROR', '核心连接异常: ' + err.message);
+    writeLog('ERROR', '核心数据库接入异常: ' + err.message);
     return { success: false, error: err.message };
   }
 }
 
 function createWindow(startPath = '/login') {
+  // 动态处理图标路径，兼容开发与生产环境
+  const iconPath = isDev 
+    ? path.join(__dirname, '../public/favicon.ico') 
+    : path.join(__dirname, '../out/favicon.ico');
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
     show: false,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -162,7 +167,7 @@ function createWindow(startPath = '/login') {
 
   win.once('ready-to-show', () => {
     win.show();
-    writeLog('INFO', '主窗口就绪');
+    writeLog('INFO', `主窗口就绪，路由: ${startPath}`);
   });
 
   return win;
@@ -176,7 +181,7 @@ ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    writeLog('INFO', '数据库配置更新成功');
+    writeLog('INFO', '远程数据库参数更新成功');
     return { success: true };
   }
   return { success: false, error: result.error };
@@ -209,16 +214,13 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       [username, password]
     );
     if (rows.length > 0) return { success: true, user: rows[0] };
-    return { success: false, error: '凭据无效' };
+    return { success: false, error: '无效的身份凭据' };
   } catch (err) {
-    writeLog('ERROR', '登录异常: ' + err.message);
+    writeLog('ERROR', '认证异常: ' + err.message);
     return { success: false, error: err.message };
   }
 });
 
-/**
- * 物理文件上传处理器：将文件拷贝至中心化存储路径
- */
 ipcMain.handle('file-upload', async (event, { personId, type, customDate, storagePath }) => {
   try {
     const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -246,7 +248,7 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate, storag
       } 
     };
   } catch (err) {
-    writeLog('ERROR', '文件上传失败: ' + err.message);
+    writeLog('ERROR', '附件上传失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -264,7 +266,7 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
     }
     return { success: false };
   } catch (err) {
-    writeLog('ERROR', '文件另存为失败: ' + err.message);
+    writeLog('ERROR', '附件另存为失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });

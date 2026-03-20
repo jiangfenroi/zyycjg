@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Palette, Save, Loader2, Info, Upload, Image as ImageIcon, X, FolderOpen, ShieldAlert, Key } from 'lucide-react'
+import { Palette, Save, Loader2, Upload, ShieldAlert, Key, FolderOpen, Database } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,7 +15,6 @@ export default function SystemSettingsPage() {
   const { toast } = useToast()
   const [loading, setLoading] = React.useState(true)
   const [submitting, setSubmitting] = React.useState(false)
-  const [uploading, setUploading] = React.useState(false)
   const [adminPassword, setAdminPassword] = React.useState('')
   const [currentUser, setCurrentUser] = React.useState<any>(null)
   
@@ -45,9 +44,9 @@ export default function SystemSettingsPage() {
     setSubmitting(true)
     const success = await DataService.updateSystemSettings(settings)
     if (success) {
-      toast({ title: "设置已同步", description: "全院配置已更新。" })
+      toast({ title: "全院配置已更新", description: "设置已同步至中心数据库。" })
     } else {
-      toast({ variant: "destructive", title: "更新失败", description: "请检查数据库连接" })
+      toast({ variant: "destructive", title: "同步失败", description: "请检查数据库连接状态" })
     }
     setSubmitting(false)
   }
@@ -61,25 +60,10 @@ export default function SystemSettingsPage() {
     setSubmitting(true)
     const success = await DataService.resetPassword(currentUser.ID, 'admin', adminPassword)
     if (success) {
-      toast({ title: "管理员密码已更新", description: "下次登录请使用新密码。" })
+      toast({ title: "Admin 凭据已更新", description: "下次登录请使用新密码。" })
       setAdminPassword('')
     }
     setSubmitting(false)
-  }
-
-  const handleLogoUpload = async () => {
-    setUploading(true)
-    try {
-      const result = await DataService.uploadDocument('SYSTEM', 'LOGO')
-      if (typeof result === 'string') {
-        setSettings({ ...settings, SYSTEM_LOGO_URL: result })
-        toast({ title: "Logo 上传成功" })
-      }
-    } catch (err) {
-      toast({ variant: "destructive", title: "上传失败" })
-    } finally {
-      setUploading(false)
-    }
   }
 
   if (loading) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
@@ -87,8 +71,8 @@ export default function SystemSettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-primary">全院系统设置</h1>
-        <p className="text-muted-foreground mt-1">管理全院统一的品牌、中心存储路径及管理员安全。</p>
+        <h1 className="text-3xl font-bold tracking-tight text-primary">全院系统配置</h1>
+        <p className="text-muted-foreground mt-1">管理品牌标识、中心存储路径及管理员安全权限。</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -96,40 +80,20 @@ export default function SystemSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Palette className="h-5 w-5 text-primary" />
-              品牌与外观
+              品牌定制
             </CardTitle>
-            <CardDescription>配置同步至中心库，全院客户端通用。</CardDescription>
+            <CardDescription>设置同步至中心库，全院终端通用。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label>系统显示名称</Label>
+              <Label>医院系统显示名称</Label>
               <Input 
                 value={settings.SYSTEM_NAME} 
                 onChange={e => setSettings({...settings, SYSTEM_NAME: e.target.value})}
               />
             </div>
-            
-            <div className="space-y-4">
-              <Label>系统标识图片</Label>
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-20 bg-muted rounded-xl flex items-center justify-center border-2 border-dashed border-primary/20 overflow-hidden">
-                  {settings.SYSTEM_LOGO_URL ? (
-                    <img src={`app-file://${settings.SYSTEM_LOGO_URL}`} className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="h-8 w-8 opacity-30" />
-                  )}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <p className="text-[10px] text-muted-foreground">建议透明背景图片</p>
-                  <Button variant="outline" size="sm" onClick={handleLogoUpload} disabled={uploading}>
-                    {uploading ? <Loader2 className="animate-spin" /> : <Upload className="h-4 w-4 mr-1" />} 上传图片
-                  </Button>
-                </div>
-              </div>
-            </div>
-
             <Button className="w-full" onClick={handleSave} disabled={submitting}>
-              <Save className="mr-2 h-4 w-4" /> 保存全局配置
+              <Save className="mr-2 h-4 w-4" /> 保存全局品牌
             </Button>
           </CardContent>
         </Card>
@@ -140,34 +104,34 @@ export default function SystemSettingsPage() {
               <FolderOpen className="h-5 w-5 text-secondary" />
               中心附件存储路径
             </CardTitle>
-            <CardDescription>配置全院统一的 PDF 及影像扫描件物理存储位置。</CardDescription>
+            <CardDescription>配置全院统一的 PDF 报告物理存储位置。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label>全院物理存储路径</Label>
+              <Label>全院物理存储 UNC 路径</Label>
               <Input 
                 placeholder="例如: \\SERVER_IP\MediStorage" 
                 value={settings.STORAGE_PATH}
                 onChange={e => setSettings({...settings, STORAGE_PATH: e.target.value})}
               />
               <p className="text-[10px] text-muted-foreground bg-slate-50 p-2 rounded border">
-                提示：建议使用 UNC 共享路径。请确保运行该程序的 Windows 账户对该路径具有读写权限。
+                提示：建议使用共享路径。请确保运行程序的 Windows 账户具有读写权限。
               </p>
             </div>
             <Button variant="secondary" className="w-full" onClick={handleSave} disabled={submitting}>
-               <Save className="mr-2 h-4 w-4" /> 更新存储路径
+               <Save className="mr-2 h-4 w-4" /> 更新全院路径
             </Button>
           </CardContent>
         </Card>
 
-        {currentUser?.USERNAME === 'admin' && (
+        {currentUser?.ROLE === 'admin' && (
           <Card className="md:col-span-2 border-destructive/20 bg-destructive/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <ShieldAlert className="h-5 w-5" />
                 管理员安全中心
               </CardTitle>
-              <CardDescription>管理超级管理员 admin 的登录凭据。</CardDescription>
+              <CardDescription>管理超级管理员账户的登录凭据。</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-end gap-4">

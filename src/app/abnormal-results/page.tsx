@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, FileDown, Eye, Loader2 } from 'lucide-react'
+import { Plus, Search, Eye, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,17 +13,17 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/table"
-import { Badge } from '@/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/dialog'
-import { Label } from '@/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/select'
-import { Textarea } from '@/textarea'
+} from "@/components/ui/table"
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { AbnormalResult } from '@/lib/types'
-import { ScrollArea, ScrollBar } from '@/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
-import { Checkbox } from '@/checkbox'
+import { Checkbox } from '@/components/ui/checkbox'
 import Link from 'next/link'
 
 export default function AbnormalResultsPage() {
@@ -99,7 +99,7 @@ export default function AbnormalResultsPage() {
     setSubmitting(true)
     const success = await DataService.addAbnormalResult({ ...formData, ID: `R${Date.now()}` } as AbnormalResult)
     if (success) {
-      toast({ title: "登记成功", description: "数据已同步至中心服务器" })
+      toast({ title: "登记成功", description: "数据已录入至中心远程库" })
       setIsDialogOpen(false)
       loadData()
     }
@@ -113,7 +113,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">全院中心化数据同步工作台</p>
+          <p className="text-muted-foreground mt-1">记录全院临床发现的重要异常流水</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -141,9 +141,9 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2"><Label>经办人员</Label><Input value={formData.WORKER} readOnly className="bg-muted" /></div>
-                  <div className="flex items-center gap-2 pt-8">
+                  <div className="flex items-center gap-2 pt-8 col-span-2">
                     <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(v) => setFormData({...formData, IS_NOTIFIED: !!v})} />
-                    <Label htmlFor="notified">已完成首诊通知</Label>
+                    <Label htmlFor="notified">已完成首诊通知及健康宣教</Label>
                   </div>
                 </div>
               </div>
@@ -176,9 +176,9 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[100px]">姓名</TableHead>
                   <TableHead className="w-[80px]">分类</TableHead>
                   <TableHead className="min-w-[250px]">异常详情</TableHead>
-                  <TableHead className="w-[120px] text-destructive font-bold">预定随访期</TableHead>
+                  <TableHead className="w-[120px] text-destructive font-bold">预定随访</TableHead>
                   <TableHead className="w-[110px]">登记日期</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">查看</TableHead>
+                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">详情</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -197,7 +197,7 @@ export default function AbnormalResultsPage() {
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground">远程中心库暂无记录</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground">暂无登记流水记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

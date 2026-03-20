@@ -7,7 +7,8 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 /**
- * 核心认证与水合加固包装器
+ * 核心认证与静默水合包装器
+ * 彻底修复 Hydration Mismatch: 在挂载前不渲染任何业务文本
  */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -25,11 +26,7 @@ export function AuthWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router])
 
-  /**
-   * 彻底解决水合冲突：
-   * 在组件挂载（Mounted）之前，不再渲染任何带有业务文本的内容。
-   * 服务器端和客户端首屏渲染将输出完全一致的静态动画容器。
-   */
+  // 首屏渲染仅输出静态动画容器，不输出任何文本，确保服务端/客户端渲染内容绝对一致
   if (!mounted) {
     return (
       <div className="bg-background flex items-center justify-center min-h-screen w-full">

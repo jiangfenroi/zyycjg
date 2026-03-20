@@ -84,7 +84,8 @@
     "files": [
       "out/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "public/favicon.ico"
     ]
   }
 }
