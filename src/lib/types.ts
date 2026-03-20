@@ -11,6 +11,7 @@ export interface Person {
   OPTNAME?: string;
   SOURCE?: 'manual' | 'import';
   LAST_UPDATE?: string;
+  STATUS?: 'alive' | 'deceased' | 'lost';
 }
 
 export interface AbnormalResult {
@@ -31,6 +32,7 @@ export interface AbnormalResult {
   SEX?: '男' | '女';
   AGE?: number;
   PHONE?: string;
+  STATUS?: 'alive' | 'deceased' | 'lost';
 }
 
 export interface FollowUp {

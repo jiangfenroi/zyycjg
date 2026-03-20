@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw, CalendarCheck } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -96,16 +96,17 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 待处理随访逻辑升级：包含 T+7 和年度复查逻辑
+  // 待处理随访逻辑升级：包含 T+7 和年度复查逻辑，且过滤已死亡患者
   const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
+    // 过滤掉已死亡的患者
+    if (res.STATUS === 'deceased') return false;
+
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     const hasInitialFollowUp = recordFollowUps.length > 0;
     const oneYearMark = addYears(res.ZYYCJGTZRQ, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
 
-    // 逻辑 A: 初始随访未做，且达到 T+7 时间点
     const isInitialPending = !hasInitialFollowUp && (res.NEXT_DATE && res.NEXT_DATE <= today);
-    // 逻辑 B: 达到一年时间点，且该周年后未进行结案
     const isAnnualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
     return isInitialPending || isAnnualPending;
@@ -176,7 +177,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · T+7 与年度复查双引擎</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · 过滤已死亡档案</p>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>

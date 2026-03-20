@@ -185,19 +185,19 @@ export const DataService = {
           return { success: true }; 
         }
         
-        const sql = `UPDATE SP_PERSON SET PERSONNAME=?, SEX=?, AGE=?, PHONE=?, UNITNAME=?, OCCURDATE=?, OPTNAME=?, SOURCE=?, IDNO=? WHERE PERSONID=?`;
+        const sql = `UPDATE SP_PERSON SET PERSONNAME=?, SEX=?, AGE=?, PHONE=?, UNITNAME=?, OCCURDATE=?, OPTNAME=?, SOURCE=?, IDNO=?, STATUS=? WHERE PERSONID=?`;
         const res = await window.electronAPI.query(sql, [
           person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
-          person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统', person.SOURCE || 'manual', person.IDNO || null, person.PERSONID
+          person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统', person.SOURCE || 'manual', person.IDNO || null, person.STATUS || 'alive', person.PERSONID
         ]);
         return res;
       }
 
-      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO, SOURCE) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO, SOURCE, STATUS) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         person.PERSONID, person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
-        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null, person.SOURCE || 'manual'
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null, person.SOURCE || 'manual', person.STATUS || 'alive'
       ]);
       return result;
     }
@@ -206,7 +206,7 @@ export const DataService = {
 
   async getAbnormalResults(): Promise<AbnormalResult[]> {
     if (isElectron) {
-      const sql = `SELECT r.*, p.PERSONNAME FROM SP_ZYJG r LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID ORDER BY r.ZYYCJGTZRQ DESC`;
+      const sql = `SELECT r.*, p.PERSONNAME, p.STATUS FROM SP_ZYJG r LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID ORDER BY r.ZYYCJGTZRQ DESC`;
       const result = await window.electronAPI.query(sql);
       if (result.success) return result.data.map((r: any) => ({ ...r, IS_NOTIFIED: !!r.IS_NOTIFIED }));
     }

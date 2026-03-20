@@ -8,7 +8,6 @@ import {
   ExternalLink, 
   FileText, 
   User, 
-  MapPin, 
   Briefcase, 
   Phone,
   Download,
@@ -19,7 +18,10 @@ import {
   Trash2,
   PlusCircle,
   CheckCircle2,
-  FileSearch
+  FileSearch,
+  UserMinus,
+  UserCheck,
+  Heart
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -107,6 +109,15 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
   }, [isFollowUpOpen, results])
 
+  const handleUpdateStatus = async (status: 'alive' | 'deceased' | 'lost') => {
+    if (!person) return
+    const success = await DataService.addPatient({ ...person, STATUS: status })
+    if (success) {
+      toast({ title: "状态已同步" })
+      loadAllData()
+    }
+  }
+
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
   if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在于中心库中。</div>
 
@@ -184,6 +195,7 @@ export function PatientDetailClient({ id }: { id: string }) {
         </Button>
         <h1 className="text-2xl font-bold text-primary">全院电子病历档案</h1>
         <Badge variant="outline" className="bg-white font-mono">{id}</Badge>
+        {person.STATUS === 'deceased' && <Badge variant="destructive" className="animate-pulse">已死亡 · 随访计划已停办</Badge>}
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -195,8 +207,22 @@ export function PatientDetailClient({ id }: { id: string }) {
             <CardTitle className="text-xl">{person.PERSONNAME}</CardTitle>
             <CardDescription>{person.SEX} · {person.AGE}岁</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <div className="space-y-3">
+          <CardContent className="space-y-6 pt-4">
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+                <Label className="text-[10px] text-muted-foreground uppercase font-bold">档案生命周期状态</Label>
+                <Select value={person.STATUS || 'alive'} onValueChange={handleUpdateStatus}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alive" className="text-emerald-600"><div className="flex items-center gap-2"><Heart className="h-3 w-3" /> 正常/存活</div></SelectItem>
+                    <SelectItem value="deceased" className="text-destructive"><div className="flex items-center gap-2"><UserMinus className="h-3 w-3" /> 已死亡</div></SelectItem>
+                    <SelectItem value="lost" className="text-amber-600"><div className="flex items-center gap-2"><UserCheck className="h-3 w-3" /> 联系方式改变</div></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center gap-3 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground" />
                 <span>{person.PHONE}</span>
@@ -255,7 +281,7 @@ export function PatientDetailClient({ id }: { id: string }) {
 
             <TabsContent value="followup" className="mt-4 space-y-4">
               <div className="flex justify-end">
-                <Button size="sm" onClick={() => setIsFollowUpOpen(true)}>
+                <Button size="sm" onClick={() => setIsFollowUpOpen(true)} disabled={person.STATUS === 'deceased'}>
                   <PlusCircle className="mr-2 h-4 w-4" /> 登记随访结案
                 </Button>
               </div>

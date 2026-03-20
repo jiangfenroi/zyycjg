@@ -51,12 +51,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Dashboard data fetch error:", err)
     } finally {
+      setIsClient(true)
       setLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
-    setIsClient(true)
     loadDashboardData()
   }, [loadDashboardData])
 
@@ -66,16 +66,17 @@ export default function Dashboard() {
     const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
     const today = new Date().toISOString().split('T')[0]
     
-    // 待处理随访逻辑：包含 A 类和 B 类，支持 T+7 和年度自动提醒
+    // 待处理随访逻辑：包含 A 类和 B 类，支持 T+7 和年度自动提醒，且过滤死亡档案
     const pending = results.filter(r => {
+      // 关键过滤：若患者已死亡，则不计入待随访任务
+      if (r.STATUS === 'deceased') return false;
+
       const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
       const hasInitialFollowUp = recordFollowUps.length > 0;
       const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
       const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
 
-      // 情况 1: 初始随访未做且已到 T+7 日期
       const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
-      // 情况 2: 已满一年，且本年度（一周年后）未进行新的随访结案
       const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
       return initialPending || annualPending;
@@ -141,7 +142,7 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: "全院建档量", value: stats.totalPatients, icon: Users, color: "primary", label: "中心库档案总数" },
-          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "A/B 类及年度到期" },
+          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "已过滤死亡档案" },
           { title: "随访闭环率", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "secondary", label: `累计结案 ${stats.completedFollowUps} 例`, detail: true },
           { title: "异常结果流水", value: stats.totalResults, icon: TrendingUp, color: "amber-500", label: "历史登记总量" }
         ].map((item, idx) => (

@@ -67,6 +67,7 @@ async function initDB(config) {
         OCCURDATE DATE,
         OPTNAME VARCHAR(50),
         SOURCE VARCHAR(20) DEFAULT 'manual',
+        STATUS VARCHAR(20) DEFAULT 'alive',
         LAST_UPDATE TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`,
       `CREATE TABLE IF NOT EXISTS SP_ZYJG (
@@ -115,6 +116,11 @@ async function initDB(config) {
     for (const sql of tables) {
       await dbConnection.execute(sql);
     }
+
+    // 检查并添加 STATUS 列（如果不存在）
+    try {
+      await dbConnection.execute("ALTER TABLE SP_PERSON ADD COLUMN IF NOT EXISTS STATUS VARCHAR(20) DEFAULT 'alive'");
+    } catch (e) {}
 
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
@@ -214,10 +220,10 @@ ipcMain.handle('upload-system-asset', async (event, { sourcePath, storagePath, a
 
     const ext = path.extname(sourcePath);
     const fileName = `${assetType}${ext}`;
-    const destPath = path.join(assetDir, fileName);
+    const assetFilePath = path.join(assetDir, fileName);
     
-    fs.copyFileSync(sourcePath, destPath);
-    return { success: true, filePath: destPath };
+    fs.copyFileSync(sourcePath, assetFilePath);
+    return { success: true, filePath: assetFilePath };
   } catch (err) {
     return { success: false, error: err.message };
   }

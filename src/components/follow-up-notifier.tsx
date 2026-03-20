@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, RefreshCw, UserMinus } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -37,12 +37,14 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       const pending = results.filter(r => {
+        // 核心逻辑：过滤已死亡的患者
+        if (r.STATUS === 'deceased') return false;
+
         const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
         const hasInitialFollowUp = recordFollowUps.length > 0;
         const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
         const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
 
-        // 年度逻辑与 T+7 逻辑并行：A类与B类同等对待
         const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
         const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
 

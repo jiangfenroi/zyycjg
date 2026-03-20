@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Plus, FileUp, MoreVertical, Eye, Loader2, RefreshCw, Fingerprint } from 'lucide-react'
+import { Search, Plus, Eye, Loader2, RefreshCw, Fingerprint, UserMinus, UserCheck, Heart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,6 +30,17 @@ import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { Badge } from '@/components/ui/badge'
 
+const StatusBadge = ({ status }: { status?: string }) => {
+  switch (status) {
+    case 'deceased':
+      return <Badge variant="destructive" className="bg-slate-500 text-[9px] px-1.5 py-0 h-4 flex items-center gap-1"><UserMinus className="h-2.5 w-2.5" /> 已死亡</Badge>
+    case 'lost':
+      return <Badge variant="secondary" className="bg-amber-500 text-white text-[9px] px-1.5 py-0 h-4 flex items-center gap-1"><UserCheck className="h-2.5 w-2.5" /> 无法联系</Badge>
+    default:
+      return <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50 text-[9px] px-1.5 py-0 h-4 flex items-center gap-1"><Heart className="h-2.5 w-2.5" /> 正常</Badge>
+  }
+}
+
 export default function PatientsPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = React.useState('')
@@ -47,6 +58,7 @@ export default function PatientsPage() {
     IDNO: '',
     UNITNAME: '',
     OCCURDATE: '',
+    STATUS: 'alive'
   })
 
   const fetchData = React.useCallback(async (silent = false) => {
@@ -106,6 +118,7 @@ export default function PatientsPage() {
           IDNO: '',
           UNITNAME: '',
           OCCURDATE: new Date().toISOString().split('T')[0],
+          STATUS: 'alive'
         });
       } else {
         toast({ variant: "destructive", title: "失败", description: res.error });
@@ -150,8 +163,19 @@ export default function PatientsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2"><Label>初始年龄</Label><Input type="number" value={formData.AGE} onChange={e => setFormData({...formData, AGE: parseInt(e.target.value) || 0})} /></div>
-                  <div className="space-y-2"><Label>建档日期</Label><Input type="date" value={formData.OCCURDATE} onChange={e => setFormData({...formData, OCCURDATE: e.target.value})} /></div>
+                  <div className="space-y-2">
+                    <Label>当前状态</Label>
+                    <Select value={formData.STATUS} onValueChange={v => setFormData({...formData, STATUS: v as any})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="alive">正常</SelectItem>
+                        <SelectItem value="deceased">已死亡</SelectItem>
+                        <SelectItem value="lost">无法联系</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                <div className="space-y-2"><Label>建档日期</Label><Input type="date" value={formData.OCCURDATE} onChange={e => setFormData({...formData, OCCURDATE: e.target.value})} /></div>
                 <div className="space-y-2"><Label>单位信息</Label><Input value={formData.UNITNAME} onChange={e => setFormData({...formData, UNITNAME: e.target.value})} /></div>
               </div>
               <DialogFooter>
@@ -175,7 +199,7 @@ export default function PatientsPage() {
               <TableRow>
                 <TableHead>档案编号</TableHead>
                 <TableHead>身份信息</TableHead>
-                <TableHead>基本资料</TableHead>
+                <TableHead>状态/资料</TableHead>
                 <TableHead>联系电话</TableHead>
                 <TableHead>来源</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -199,9 +223,12 @@ export default function PatientsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex gap-2 items-center text-xs">
-                      <Badge variant="outline" className="px-1.5 py-0 h-5">{person.SEX}</Badge>
-                      <span className="font-bold">{person.AGE} 岁</span>
+                    <div className="flex flex-col gap-1.5 items-start">
+                      <StatusBadge status={person.STATUS} />
+                      <div className="flex gap-2 items-center text-[10px]">
+                        <Badge variant="outline" className="px-1 py-0 h-4">{person.SEX}</Badge>
+                        <span className="font-bold">{person.AGE} 岁</span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-xs font-mono">{person.PHONE}</TableCell>
