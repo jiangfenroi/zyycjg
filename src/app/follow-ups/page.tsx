@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw, CalendarCheck } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,14 @@ import { useToast } from '@/hooks/use-toast'
 import { DataService } from '@/services/data-service'
 import { Person, AbnormalResult, FollowUp } from '@/lib/types'
 import Link from 'next/link'
+
+const addYears = (dateStr: string, years: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString().split('T')[0];
+};
 
 export default function FollowUpsPage() {
   const { toast } = useToast()
@@ -87,11 +96,19 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
+  // 待处理随访逻辑升级：包含 T+7 和年度复查逻辑
   const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
-    const hasFollowUp = followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
-    if (hasFollowUp) return false
-    if (!res.NEXT_DATE) return true 
-    return res.NEXT_DATE <= today
+    const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
+    const hasInitialFollowUp = recordFollowUps.length > 0;
+    const oneYearMark = addYears(res.ZYYCJGTZRQ, 1);
+    const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+
+    // 逻辑 A: 初始随访未做，且达到 T+7 时间点
+    const isInitialPending = !hasInitialFollowUp && (res.NEXT_DATE && res.NEXT_DATE <= today);
+    // 逻辑 B: 达到一年时间点，且该周年后未进行结案
+    const isAnnualPending = today >= oneYearMark && !hasAnnualFollowUp;
+
+    return isInitialPending || isAnnualPending;
   }), [abnormalResults, followUps, today])
 
   const filteredPending = React.useMemo(() => pendingResults.filter(res => {
@@ -159,7 +176,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
-          <p className="text-muted-foreground mt-1">临床路径驱动的任务管理引擎</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · T+7 与年度复查双引擎</p>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -174,7 +191,7 @@ export default function FollowUpsPage() {
 
       <Tabs defaultValue="pending">
         <TabsList>
-          <TabsTrigger value="pending">待处理任务</TabsTrigger>
+          <TabsTrigger value="pending">待处理任务 ({filteredPending.length})</TabsTrigger>
           <TabsTrigger value="completed">历史结案流水</TabsTrigger>
         </TabsList>
 
@@ -186,28 +203,38 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>患者</TableHead>
-                      <TableHead className="text-destructive font-bold">预定触发日期</TableHead>
+                      <TableHead className="text-destructive font-bold">触发预警时间</TableHead>
+                      <TableHead>预警类型</TableHead>
                       <TableHead className="min-w-[250px]">异常详情</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading && abnormalResults.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredPending.length > 0 ? filteredPending.map((res) => (
-                      <TableRow key={res.ID} className="text-xs">
-                        <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
-                        <TableCell className="font-mono text-destructive font-bold text-xs">
-                          {res.NEXT_DATE || '-'}
-                        </TableCell>
-                        <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="text-right flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
-                          <Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
-                        </TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    ) : filteredPending.length > 0 ? filteredPending.map((res) => {
+                      const oneYearMark = addYears(res.ZYYCJGTZRQ, 1);
+                      const isAnnual = today >= oneYearMark;
+                      return (
+                        <TableRow key={res.ID} className="text-xs">
+                          <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
+                          <TableCell className="font-mono text-destructive font-bold text-xs">
+                            {isAnnual ? oneYearMark : (res.NEXT_DATE || '-')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={isAnnual ? "destructive" : "secondary"} className="text-[10px]">
+                              {isAnnual ? "年度复查" : "初次随访"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                          <TableCell className="text-right flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                            <Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }) : (
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>

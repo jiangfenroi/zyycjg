@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, Info, RefreshCw } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -13,7 +14,14 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import Link from 'next/link'
 import { DataService } from '@/services/data-service'
 import { AbnormalResult } from '@/lib/types'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+
+const addYears = (dateStr: string, years: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString().split('T')[0];
+};
 
 export function FollowUpNotifier() {
   const [tasks, setTasks] = React.useState<AbnormalResult[]>([])
@@ -29,10 +37,16 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       const pending = results.filter(r => {
-        const hasFollowUp = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
-        if (hasFollowUp) return false
-        if (!r.NEXT_DATE) return false 
-        return r.NEXT_DATE <= today
+        const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
+        const hasInitialFollowUp = recordFollowUps.length > 0;
+        const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
+        const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+
+        // 年度逻辑与 T+7 逻辑并行：A类与B类同等对待
+        const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
+        const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
+
+        return initialPending || annualPending;
       })
       
       setTasks(pending)
@@ -45,7 +59,6 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    // 降低压力：每 5 分钟同步一次
     const timer = setInterval(() => loadTasks(true), 300000)
     return () => clearInterval(timer)
   }, [loadTasks])
@@ -81,15 +94,23 @@ export function FollowUpNotifier() {
           <div className="p-2 space-y-1">
             {loading && tasks.length === 0 ? (
               <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" /></div>
-            ) : tasks.length > 0 ? tasks.map((task) => (
-              <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0">
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="outline" className="text-[9px] bg-blue-50">待复查</Badge>
-                </div>
-                <span className="text-[9px] font-bold text-destructive mt-1.5">预定日期: {task.NEXT_DATE}</span>
-              </Link>
-            )) : (
+            ) : tasks.length > 0 ? tasks.map((task) => {
+              const today = new Date().toISOString().split('T')[0];
+              const isAnnual = today >= addYears(task.ZYYCJGTZRQ, 1);
+              return (
+                <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0">
+                  <div className="flex justify-between items-start">
+                    <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
+                    <Badge variant={isAnnual ? "destructive" : "outline"} className="text-[9px] bg-blue-50">
+                      {isAnnual ? '年度复查' : '待复查'}
+                    </Badge>
+                  </div>
+                  <span className="text-[9px] font-bold text-destructive mt-1.5">
+                    {isAnnual ? `周年日期: ${addYears(task.ZYYCJGTZRQ, 1)}` : `预定日期: ${task.NEXT_DATE}`}
+                  </span>
+                </Link>
+              );
+            }) : (
               <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期任务</div>
             )}
           </div>

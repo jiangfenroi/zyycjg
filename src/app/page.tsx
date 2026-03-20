@@ -22,6 +22,14 @@ import {
 } from "recharts"
 import { DataService } from "@/services/data-service"
 
+const addYears = (dateStr: string, years: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setFullYear(date.getFullYear() + years);
+  return date.toISOString().split('T')[0];
+};
+
 export default function Dashboard() {
   const [isClient, setIsClient] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
@@ -58,11 +66,19 @@ export default function Dashboard() {
     const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
     const today = new Date().toISOString().split('T')[0]
     
-    // 待处理随访逻辑：包含 A 类和 B 类，只要预定日期已到且未结案
+    // 待处理随访逻辑：包含 A 类和 B 类，支持 T+7 和年度自动提醒
     const pending = results.filter(r => {
-      const isCompleted = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
-      if (isCompleted) return false;
-      return r.NEXT_DATE && r.NEXT_DATE <= today;
+      const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
+      const hasInitialFollowUp = recordFollowUps.length > 0;
+      const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
+      const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+
+      // 情况 1: 初始随访未做且已到 T+7 日期
+      const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
+      // 情况 2: 已满一年，且本年度（一周年后）未进行新的随访结案
+      const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
+
+      return initialPending || annualPending;
     }).length
     
     return {
@@ -125,7 +141,7 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: "全院建档量", value: stats.totalPatients, icon: Users, color: "primary", label: "中心库档案总数" },
-          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "A/B 类到期未结案" },
+          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "A/B 类及年度到期" },
           { title: "随访闭环率", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "secondary", label: `累计结案 ${stats.completedFollowUps} 例`, detail: true },
           { title: "异常结果流水", value: stats.totalResults, icon: TrendingUp, color: "amber-500", label: "历史登记总量" }
         ].map((item, idx) => (
