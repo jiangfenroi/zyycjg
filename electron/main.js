@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 /**
- * 环境兼容性与稳定性加固 (针对 Windows 8.1 及离线环境)
+ * 环境兼容性与稳定性加固 (针对 Windows 8.1 及内网离线环境)
  */
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('no-sandbox');
@@ -107,7 +107,7 @@ async function initDB(config) {
         ZYYCJGTZRQ DATE,
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
-        ZYYCJGBTZR (50),
+        ZYYCJGBTZR VARCHAR(50),
         ZYYCJGJKXJ TINYINT(1) DEFAULT 1,
         NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1
@@ -190,6 +190,7 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbConnection.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
+    writeLog('ERROR', `SQL执行异常: ${err.message} [SQL: ${sql}]`);
     return { success: false, error: err.message };
   }
 });
@@ -279,21 +280,23 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
 ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 app.whenReady().then(() => {
-  // 注册 APP 协议用于加载静态资源
+  // 注册协议处理，增强 SPA 路由兼容性
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
     if (url.startsWith('/')) url = url.slice(1);
+    
     const cleanPath = url.split('#')[0].split('?')[0];
-    const filePath = path.join(app.getAppPath(), 'out', cleanPath);
-    if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
-      callback({ path: path.normalize(filePath) });
-    } else {
-      callback({ path: path.normalize(path.join(app.getAppPath(), 'out', 'index.html')) });
+    let filePath = path.join(app.getAppPath(), 'out', cleanPath);
+    
+    // 如果文件不存在或请求的是目录，则重定向到 index.html 以处理 Next.js 客户端路由
+    if (!fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory()) {
+      filePath = path.join(app.getAppPath(), 'out', 'index.html');
     }
+    
+    callback({ path: path.normalize(filePath) });
   });
 
-  // 注册 APP-FILE 协议用于访问本地共享存储文件
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
     callback({ path: path.normalize(filePath) });
@@ -307,6 +310,7 @@ function createWindow() {
     width: 1440,
     height: 900,
     show: false,
+    backgroundColor: '#f8fafc',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -315,10 +319,12 @@ function createWindow() {
     }
   });
 
-  // 离线加固：优先加载静态入口
-  const url = isDev ? `http://localhost:9002/login` : `app://./index.html#/login`;
+  const url = isDev ? `http://localhost:9002/login` : `app://./login/index.html`;
   win.loadURL(url);
   win.once('ready-to-show', () => win.show());
+  
+  if (isDev) win.webContents.openDevTools();
+  
   return win;
 }
 

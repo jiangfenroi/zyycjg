@@ -1,4 +1,6 @@
 
+"use client"
+
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
@@ -9,7 +11,7 @@ const MOBILE_BREAKPOINT = 768
  * 采用 window.matchMedia 监听视口变化，这是 Next.js 和 Electron 环境下最稳定、合规的方案。
  */
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = React.useState<boolean>(false)
 
   React.useEffect(() => {
     // 采用 matchMedia 代替 navigator.userAgent
@@ -27,5 +29,5 @@ export function useIsMobile() {
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }
