@@ -192,11 +192,11 @@ export default function GlobalManagementPage() {
                   </div>
                   <div className="bg-primary/5 border border-primary/10 p-3 rounded-lg flex items-start gap-2">
                     <BookOpen className="h-4 w-4 text-primary mt-0.5" />
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    <div className="text-[10px] text-muted-foreground leading-relaxed">
                       系统会自动将 <code>{"${id}"}</code> 替换为实际的患者 ID。<br />
                       示例：<code>http://PACS_SERVER/view?id={"${id}"}</code><br />
                       配置后，所有终端均会同步此调阅地址。
-                    </p>
+                    </div>
                   </div>
                 </div>
                 <Button onClick={handleSaveBasic} disabled={submitting}>

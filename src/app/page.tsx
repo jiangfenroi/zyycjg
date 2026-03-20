@@ -58,12 +58,12 @@ export default function Dashboard() {
     } catch (err) {
       console.error("全院数据同步异常", err)
     } finally {
-      setIsClient(true)
       setLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
+    setIsClient(true)
     loadDashboardData()
   }, [loadDashboardData])
 
@@ -80,7 +80,8 @@ export default function Dashboard() {
       
       // 初次随访 (T[通知] + 7)
       const hasInitialFollowUp = recordFollowUps.length > 0;
-      const initialPending = !hasInitialFollowUp && (r.NEXT_DATE || r.ZYYCJGTZRQ) <= today;
+      const initialTargetDate = r.NEXT_DATE || r.ZYYCJGTZRQ;
+      const initialPending = !hasInitialFollowUp && initialTargetDate <= today;
 
       // 年度复查 (T[体检] + 365)
       const peDate = DataService.getPEDateFromID(r.TJBHID || '', r.ZYYCJGTZRQ);
@@ -127,7 +128,23 @@ export default function Dashboard() {
     { name: "B类 (常规)", value: stats.bClassResults, color: "hsl(var(--secondary))" },
   ], [stats])
 
-  if (!isClient) return null
+  if (!isClient) {
+    return (
+      <div className="space-y-8 p-4 md:p-8">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
+        </div>
+        <div className="grid gap-6 md:grid-cols-7">
+          <Skeleton className="md:col-span-4 h-[400px]" />
+          <Skeleton className="md:col-span-3 h-[400px]" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
