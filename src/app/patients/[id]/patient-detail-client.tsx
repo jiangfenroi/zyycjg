@@ -27,7 +27,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -207,7 +207,6 @@ export function PatientDetailClient({ id }: { id: string }) {
     }
     setFollowUpSubmitting(true)
     try {
-      // 同步更新主表的 NEXT_DATE
       const selectedRes = results.find(r => r.TJBHID === followUpForm.ZYYCJGTJBH);
       if (selectedRes && followUpForm.XCSFTIME) {
         await DataService.updateNextFollowUpDate(selectedRes.ID, followUpForm.XCSFTIME);
@@ -265,15 +264,15 @@ export function PatientDetailClient({ id }: { id: string }) {
           <CardContent className="space-y-6 pt-4">
             <div className="space-y-4">
               <div className="p-3 bg-muted/30 rounded-lg space-y-2">
-                <Label className="text-[10px] text-muted-foreground uppercase font-bold">档案生命周期状态</Label>
+                <Label className="text-[10px] text-muted-foreground uppercase font-bold">档案状态管理</Label>
                 <Select value={person.STATUS || 'alive'} onValueChange={handleUpdateStatus}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="alive" className="text-emerald-600"><div className="flex items-center gap-2"><Heart className="h-3 w-3" /> 正常/存活</div></SelectItem>
+                    <SelectItem value="alive" className="text-emerald-600"><div className="flex items-center gap-2"><Heart className="h-3 w-3" /> 正常</div></SelectItem>
                     <SelectItem value="deceased" className="text-destructive"><div className="flex items-center gap-2"><UserMinus className="h-3 w-3" /> 已死亡</div></SelectItem>
-                    <SelectItem value="lost" className="text-amber-600"><div className="flex items-center gap-2"><UserCheck className="h-3 w-3" /> 联系方式改变</div></SelectItem>
+                    <SelectItem value="lost" className="text-amber-600"><div className="flex items-center gap-2"><UserCheck className="h-3 w-3" /> 无法联系</div></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -286,14 +285,10 @@ export function PatientDetailClient({ id }: { id: string }) {
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
                 <span>{person.UNITNAME || '无单位登记信息'}</span>
               </div>
-              <div className="flex items-center gap-3 text-sm font-mono text-[10px] text-muted-foreground">
-                <Activity className="h-4 w-4" />
-                <span>建档: {person.OCCURDATE}</span>
-              </div>
             </div>
             <div className="pt-6 border-t flex flex-col gap-2">
-              <Button variant="outline" className="w-full justify-start hover:bg-primary/5 hover:text-primary transition-colors" onClick={handlePACSClose}>
-                <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 医学影像原始查询
+              <Button variant="outline" className="w-full justify-start" onClick={handlePACSClose}>
+                <ExternalLink className="mr-2 h-4 w-4 text-primary" /> PACS 影像原始查询
               </Button>
             </div>
           </CardContent>
@@ -302,9 +297,9 @@ export function PatientDetailClient({ id }: { id: string }) {
         <div className="md:col-span-2 space-y-6">
           <Tabs defaultValue="abnormal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="abnormal">重要异常结果 {results.length}</TabsTrigger>
-              <TabsTrigger value="followup">随访闭环历史 {followUps.length}</TabsTrigger>
-              <TabsTrigger value="files">电子报告中心 {docs.length}</TabsTrigger>
+              <TabsTrigger value="abnormal">异常登记 ({results.length})</TabsTrigger>
+              <TabsTrigger value="followup">随访历史 ({followUps.length})</TabsTrigger>
+              <TabsTrigger value="files">报告中心 ({docs.length})</TabsTrigger>
             </TabsList>
             
             <TabsContent value="abnormal" className="mt-4">
@@ -315,7 +310,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                       <TableHead>体检流水号</TableHead>
                       <TableHead>风险分类</TableHead>
                       <TableHead>登记日期</TableHead>
-                      <TableHead>详情描述</TableHead>
+                      <TableHead>详情</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {results.length > 0 ? results.map(r => (
@@ -347,7 +342,7 @@ export function PatientDetailClient({ id }: { id: string }) {
                       <TableHead>关联体检号</TableHead>
                       <TableHead>结案日期</TableHead>
                       <TableHead>回访结论摘要</TableHead>
-                      <TableHead>核查情况</TableHead>
+                      <TableHead>核查</TableHead>
                     </TableRow></TableHeader>
                     <TableBody>
                       {followUps.length > 0 ? followUps.map(f => (
@@ -357,12 +352,12 @@ export function PatientDetailClient({ id }: { id: string }) {
                           <TableCell className="max-w-[300px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell>
                              <Badge variant={f.jcsf ? "default" : "outline"} className="text-[10px]">
-                               {f.jcsf ? '已完成复查' : '尚未复查'}
+                               {f.jcsf ? '已完成' : '未完成'}
                              </Badge>
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无到期随访结案记录</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground italic">暂无随访记录</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -373,33 +368,30 @@ export function PatientDetailClient({ id }: { id: string }) {
             <TabsContent value="files" className="mt-4 space-y-4">
               <div className="flex justify-end">
                 <Button size="sm" onClick={() => setIsUploadOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" /> 物理同步新报告
+                  <Upload className="mr-2 h-4 w-4" /> 同步新报告
                 </Button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {docs.length > 0 ? docs.map(doc => (
-                  <Card key={doc.ID} className="flex items-center p-4 gap-4 hover:shadow-md transition-shadow">
-                    <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
-                    </div>
+                  <Card key={doc.ID} className="flex items-center p-4 gap-4">
                     <div className="flex-1 overflow-hidden">
-                      <p className="text-xs font-bold truncate" title={doc.FILENAME}>{doc.FILENAME}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{doc.UPLOAD_DATE} · {doc.TYPE === 'IMAGING' ? '医学影像' : doc.TYPE === 'PATHOLOGY' ? '病理报告' : '体检报告'}</p>
+                      <p className="text-xs font-bold truncate">{doc.FILENAME}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{doc.UPLOAD_DATE}</p>
                     </div>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewUrl(`app-file://${doc.FILE_URL}`)}>
                         <Eye className="h-4 w-4 text-primary" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDownload(doc)}>
-                        <Download className="h-4 w-4 text-secondary" />
+                        <Download className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/5" onClick={() => handleDeleteDoc(doc)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDoc(doc)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </Card>
                 )) : (
-                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground text-xs">中心库暂无关联附件报告。</div>
+                  <div className="col-span-2 text-center py-12 border-2 border-dashed rounded-lg text-muted-foreground text-xs">暂无关联附件报告。</div>
                 )}
               </div>
             </TabsContent>
@@ -407,56 +399,18 @@ export function PatientDetailClient({ id }: { id: string }) {
         </div>
       </div>
 
-      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>同步病历报告至中心库 - {person.PERSONNAME}</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4 text-sm">
-            <div className="space-y-2">
-              <Label>1. 选择本地 PDF 文件</Label>
-              <Button variant="outline" className="w-full text-xs h-10" onClick={handleSelectFile}>
-                <FileSearch className="mr-2 h-4 w-4" /> {selectedFileName || "浏览本地文件..."}
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>报告日期</Label>
-                <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>报告分类</Label>
-                <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PE_REPORT">体检报告</SelectItem>
-                    <SelectItem value="IMAGING">医学影像报告</SelectItem>
-                    <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
-            <Button onClick={handleUpload} disabled={uploading || !selectedFilePath}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "开始同步"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={isFollowUpOpen} onOpenChange={setIsFollowUpOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>登记随访闭环 - {person.PERSONNAME}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>登记随访结案 - {person.PERSONNAME}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4 text-sm">
             <div className="space-y-2">
               <Label>关联体检流水号</Label>
               <Select value={followUpForm.ZYYCJGTJBH} onValueChange={v => setFollowUpForm({...followUpForm, ZYYCJGTJBH: v})}>
-                <SelectTrigger><SelectValue placeholder="选择对应的体检流水" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="选择流水" /></SelectTrigger>
                 <SelectContent>
                   {results.map(r => (
-                    <SelectItem key={r.ID} value={r.TJBHID || ''}>{r.TJBHID} ({r.ZYYCJGFL}类)</SelectItem>
+                    <SelectItem key={r.ID} value={r.TJBHID || ''}>{r.TJBHID}</SelectItem>
                   ))}
-                  {results.length === 0 && <SelectItem value="NONE">无关联异常登记</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -491,35 +445,19 @@ export function PatientDetailClient({ id }: { id: string }) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
-              <div className="space-y-2"><Label>经办人</Label><Input value={followUpForm.SFGZRY} readOnly className="bg-muted" /></div>
-            </div>
-            <div className="flex items-center space-x-2 p-2 bg-blue-50/50 rounded">
+              <div className="flex items-center space-x-2 pt-8">
                 <Checkbox id="jcsf_detail" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                <Label htmlFor="jcsf_detail">已完成必要的复查</Label>
+                <Label htmlFor="jcsf_detail">已完成复查</Label>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsFollowUpOpen(false)}>取消</Button>
             <Button onClick={handleAddFollowUp} disabled={followUpSubmitting}>
               {followUpSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              确认提交结案
+              确认提交
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="p-4 border-b flex justify-between items-center bg-muted/20">
-            <h3 className="font-bold text-primary text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              全院共享中心存储库 PDF 在线预览
-            </h3>
-            <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>关闭预览</Button>
-          </div>
-          <div className="flex-1 w-full h-full bg-slate-100 overflow-hidden">
-             {previewUrl && <iframe src={`${previewUrl}#toolbar=0`} className="w-full h-full border-none" title="PDF Preview" />}
-          </div>
         </DialogContent>
       </Dialog>
     </div>

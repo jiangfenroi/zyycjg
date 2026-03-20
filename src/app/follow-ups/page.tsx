@@ -15,7 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/tabs"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
@@ -118,13 +118,14 @@ export default function FollowUpsPage() {
 
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     
-    // 逻辑 1：初次随访或手动调整日期 (NEXT_DATE 优先)
-    // 如果已经有过随访，则初次 T+7 逻辑失效
+    // 逻辑：如果在初次随访周期内（或任何时候）已经有过随访，则初次预警任务不再显示
     const hasAnyFollowUp = recordFollowUps.length > 0;
-    const initialTargetDate = res.NEXT_DATE || addYears(res.ZYYCJGTZRQ, 0); 
+    
+    // 1. 初次随访 (T[通知] + 7 或 手动设置的 NEXT_DATE)
+    const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
-    // 逻辑 2：年度复查 (T[体检日期] + 365)
+    // 2. 年度复查 (T[体检日期] + 365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
     const oneYearMark = addYears(peDate, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
@@ -194,7 +195,6 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
-      // 如果录入了下次随访时间，同步更新主表的 NEXT_DATE
       if (followUpForm.XCSFTIME) {
         await DataService.updateNextFollowUpDate(selectedResult.ID, followUpForm.XCSFTIME);
       }
@@ -287,7 +287,7 @@ export default function FollowUpsPage() {
                           <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                           <TableCell className="text-right flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="查看详情"><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整日期"><Edit2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整计划日期"><Edit2 className="h-4 w-4" /></Button>
                             <Button size="sm" onClick={() => setSelectedResult(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
                           </TableCell>
                         </TableRow>
@@ -338,7 +338,6 @@ export default function FollowUpsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* 修改随访计划日期弹窗 */}
       <Dialog open={!!editDateResult} onOpenChange={(open) => !open && setEditDateResult(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>调整随访计划日期</DialogTitle></DialogHeader>
@@ -347,7 +346,7 @@ export default function FollowUpsPage() {
               <Label>下次随访预定日期</Label>
               <Input type="date" value={newNextDate} onChange={e => setNewNextDate(e.target.value)} />
             </div>
-            <p className="text-[10px] text-muted-foreground italic">修改后，任务预警时间将物理更新为新日期。</p>
+            <p className="text-[10px] text-muted-foreground italic">修改后，任务预警时间将根据新日期重新计算。</p>
           </div>
           <DialogFooter>
              <Button variant="outline" onClick={() => setEditDateResult(null)}>取消</Button>
@@ -356,7 +355,6 @@ export default function FollowUpsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 随访结案弹窗 */}
       <Dialog open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>随访闭环结案登记</DialogTitle></DialogHeader>

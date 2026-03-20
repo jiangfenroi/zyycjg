@@ -134,7 +134,6 @@ export default function AbnormalResultsPage() {
     setSubmitting(true)
     try {
       if (!editId) {
-        // 新增逻辑
         const patients = await DataService.getPatients()
         const exists = patients.some(p => p.PERSONID === formData.PERSONID)
         if (!exists) {
@@ -161,16 +160,15 @@ export default function AbnormalResultsPage() {
               await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
             }
           }
-          toast({ title: "登记成功", description: "记录及附件已同步" })
+          toast({ title: "登记成功" })
         }
       } else {
-        // 编辑逻辑
         const success = await DataService.updateAbnormalResult({
           ...formData,
           ID: editId
         } as AbnormalResult)
         if (success) {
-          toast({ title: "修改成功", description: "业务流水已物理更新" })
+          toast({ title: "修改成功" })
         }
       }
       setIsDialogOpen(false)
@@ -192,7 +190,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，基于体检日期 (T+365) 与通知日期 (T+7) 双核预警</p>
+          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，基于体检日期与通知日期双核预警</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -266,7 +264,7 @@ export default function AbnormalResultsPage() {
               </div>
               <div className="space-y-2">
                 <Label>体检编号</Label>
-                <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="如 202501020001" />
+                <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="例如 202501020001" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -291,30 +289,11 @@ export default function AbnormalResultsPage() {
               </div>
             </div>
             <div className="space-y-2"><Label>异常详情摘要</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
-            
-            {!editId && (
-              <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
-                <div className="flex justify-between items-center">
-                  <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleSelectFiles}>选择本地文件</Button>
-                </div>
-                {selectedFiles.length > 0 && (
-                  <div className="grid gap-2">
-                    {selectedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
-                        <span className="truncate flex-1 mr-2">{file.name}</span>
-                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button onClick={handleSubmit} disabled={submitting} className="w-full h-11">
                {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-               {editId ? '保存修改并同步' : '确认登记并同步中心库'}
+               {editId ? '保存修改' : '确认登记'}
             </Button>
           </DialogFooter>
         </DialogContent>
