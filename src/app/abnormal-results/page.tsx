@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, Eye, Loader2, FileUp, X, RefreshCw, Edit2, UserPlus, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Plus, Search, Eye, Loader2, RefreshCw, Edit2, UserPlus, CheckCircle2, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -57,9 +57,9 @@ export default function AbnormalResultsPage() {
     ZYYCJGTZSJ: '',
     WORKER: '',
     ZYYCJGBTZR: '',
-    ZYYCJGJKXJ: true, // 默认宣教
+    ZYYCJGJKXJ: true,
     NEXT_DATE: '',
-    IS_NOTIFIED: true, // 默认已通知
+    IS_NOTIFIED: true,
   })
 
   const [patientData, setPatientData] = React.useState<Partial<Person>>({
@@ -105,9 +105,9 @@ export default function AbnormalResultsPage() {
       ZYYCJGTZSJ: nowTime,
       WORKER: realName,
       ZYYCJGBTZR: '',
-      ZYYCJGJKXJ: true, // 默认勾选
+      ZYYCJGJKXJ: true,
       NEXT_DATE: addDays(today, 7),
-      IS_NOTIFIED: true // 默认勾选
+      IS_NOTIFIED: true
     })
     setPatientData({ PERSONNAME: '', SEX: '男', AGE: 0, PHONE: '', IDNO: '' })
     setIsDialogOpen(true)
@@ -142,7 +142,6 @@ export default function AbnormalResultsPage() {
         })
         
         if (success) {
-          // 检查患者是否存在，预填资料完善页
           const patients = await DataService.getPatients();
           const existingPatient = patients.find(p => p.PERSONID === formData.PERSONID);
           if (existingPatient) {
@@ -270,7 +269,7 @@ export default function AbnormalResultsPage() {
                     <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
                     <TableCell className="sticky right-0 bg-background text-right flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(res)} title="编辑记录"><Edit2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(res)} title="编辑流水"><Edit2 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`} title="查看详情"><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
@@ -288,7 +287,7 @@ export default function AbnormalResultsPage() {
         <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto">
           {dialogStep === 'result' ? (
             <>
-              <DialogHeader><DialogTitle>{editId ? '编辑业务流水' : '新增重要异常登记'}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editId ? '编辑异常登记流水' : '新增重要异常登记'}</DialogTitle></DialogHeader>
               <div className="grid gap-6 py-4 text-sm">
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-4">
@@ -340,7 +339,7 @@ export default function AbnormalResultsPage() {
                       <div className="flex items-center justify-between p-2 border rounded-md bg-muted/20">
                          <div className="flex flex-col gap-1">
                             <Label className="text-xs font-bold">闭环标记</Label>
-                            <span className="text-[10px] text-muted-foreground italic">标记是否已通知及执行宣教</span>
+                            <span className="text-[10px] text-muted-foreground italic">标记处理状态</span>
                          </div>
                          <div className="flex gap-4">
                             <div className="flex items-center gap-2">
@@ -358,24 +357,24 @@ export default function AbnormalResultsPage() {
 
                 <div className="space-y-2">
                   <Label>异常情况描述摘要 <span className="text-destructive">*</span></Label>
-                  <Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[80px]" placeholder="详细记录检查发现的异常指标..." />
+                  <Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[80px]" placeholder="记录检查发现的异常指标..." />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
                    <div className="space-y-2">
                       <Label>医生处置意见</Label>
-                      <Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} placeholder="临床建议：复查、转诊等..." className="min-h-[80px]" />
+                      <Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} placeholder="复查、转诊建议..." className="min-h-[80px]" />
                    </div>
                    <div className="space-y-2">
                       <Label>被通知人反馈</Label>
-                      <Textarea value={formData.ZYYCJGFKJG} onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})} placeholder="记录对方对通知的回复信息..." className="min-h-[80px]" />
+                      <Textarea value={formData.ZYYCJGFKJG} onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})} placeholder="对方回复信息..." className="min-h-[80px]" />
                    </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleSubmitResult} disabled={submitting} className="w-full h-11">
+                <Button onClick={handleSubmitResult} disabled={submitting} className="w-full h-11 font-bold">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                   {editId ? '保存业务修改' : '确认登记并跳转资料补全'}
+                   {editId ? '保存业务流水' : '确认登记并完善基本资料'}
                    {!editId && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </DialogFooter>
@@ -385,7 +384,7 @@ export default function AbnormalResultsPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-primary" />
-                  完善患者基本档案 ({formData.PERSONID})
+                  完善患者中心档案 ({formData.PERSONID})
                 </DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-6 text-sm">
@@ -417,16 +416,16 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>身份证号 (可选)</Label>
-                  <Input value={patientData.IDNO} maxLength={18} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="18位身份证号，用于自动年龄校对" />
+                  <Input value={patientData.IDNO} maxLength={18} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="18位身份证号" />
                 </div>
               </div>
               <DialogFooter className="flex-col gap-3">
-                <Button onClick={handleSubmitPatient} disabled={submitting} className="w-full h-11">
+                <Button onClick={handleSubmitPatient} disabled={submitting} className="w-full h-11 font-bold">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                   保存中心档案并完成
+                   保存中心库资料并结案
                 </Button>
                 <Button variant="ghost" onClick={handleSkipPatient} className="w-full text-muted-foreground text-xs">
-                  以后再补录资料，直接结束
+                  稍后补录资料，直接结束当前流程
                 </Button>
               </DialogFooter>
             </>

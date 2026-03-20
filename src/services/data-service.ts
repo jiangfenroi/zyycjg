@@ -25,7 +25,6 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 let cachedSettings: SystemSettings | null = null;
 
 export const DataService = {
-  // 从体检编号中解析体检日期 (YYYYMMDDXXXX)
   getPEDateFromID(tjbhid: string, fallback: string): string {
     if (!tjbhid || tjbhid.length < 8) return fallback;
     const y = tjbhid.substring(0, 4);
@@ -36,7 +35,6 @@ export const DataService = {
     return isNaN(date.getTime()) ? fallback : dateStr;
   },
 
-  // 年龄计算核心逻辑
   calculateCurrentAge(person: Person): number {
     const today = new Date();
     if (person.IDNO && person.IDNO.length === 18) {

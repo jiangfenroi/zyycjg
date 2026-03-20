@@ -67,7 +67,6 @@ async function initDB(config) {
       connectTimeout: 15000
     });
 
-    // 核心业务表结构初始化与优化
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -107,7 +106,7 @@ async function initDB(config) {
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
-        ZYYCJGJKXJ TINYINT(1) DEFAULT 0,
+        ZYYCJGJKXJ TINYINT(1) DEFAULT 1,
         NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1
       )`,
@@ -143,7 +142,6 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 初始化默认配置
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', '重')");
@@ -156,7 +154,6 @@ async function initDB(config) {
   }
 }
 
-// IPC 通信处理器
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
@@ -279,7 +276,6 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
 ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
 
 app.whenReady().then(() => {
-  // 静态协议注册
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
@@ -293,7 +289,6 @@ app.whenReady().then(() => {
     }
   });
 
-  // 本地文件协议注册
   protocol.registerFileProtocol('app-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('app-file://', ''));
     callback({ path: path.normalize(filePath) });

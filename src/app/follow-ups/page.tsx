@@ -92,40 +92,19 @@ export default function FollowUpsPage() {
     loadData()
   }, [loadData])
 
-  React.useEffect(() => {
-    if (selectedResult) {
-      const storedUser = localStorage.getItem('currentUser');
-      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
-      setFollowUpForm(prev => ({ 
-        ...prev, 
-        HFresult: '',
-        SFTIME: new Date().toISOString().split('T')[0],
-        SFSJ: new Date().toTimeString().slice(0, 5),
-        SFGZRY: realName,
-        XCSFTIME: '',
-        jcsf: false,
-        calculationBase: 'today'
-      }))
-      setSelectedFiles([])
-      setUploadType('IMAGING')
-    }
-  }, [selectedResult])
-
   const today = new Date().toISOString().split('T')[0]
 
   const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
     if (res.STATUS === 'deceased') return false;
 
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
-    
-    // 逻辑：如果在初次随访周期内（或任何时候）已经有过随访，则初次预警任务不再显示
     const hasAnyFollowUp = recordFollowUps.length > 0;
     
-    // 1. 初次随访 (T[通知] + 7 或 手动设置的 NEXT_DATE)
+    // 1. 初次随访 (T+7) 逻辑优化：若已随访则闭环任务
     const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
-    // 2. 年度复查 (T[体检日期] + 365)
+    // 2. 年度复查 (T+365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
     const oneYearMark = addYears(peDate, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
@@ -155,7 +134,7 @@ export default function FollowUpsPage() {
     try {
       const success = await DataService.updateNextFollowUpDate(editDateResult.ID, newNextDate);
       if (success) {
-        toast({ title: "随访计划已更新" });
+        toast({ title: "随访计划已调整" });
         setEditDateResult(null);
         loadData(true);
       }
@@ -164,33 +143,9 @@ export default function FollowUpsPage() {
     }
   }
 
-  const filteredPending = React.useMemo(() => pendingResults.filter(res => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (res.PERSONNAME || '').toLowerCase().includes(searchLower) || 
-      res.PERSONID.toLowerCase().includes(searchLower)
-    )
-  }), [pendingResults, searchTerm])
-
-  const filteredCompleted = React.useMemo(() => followUps.filter(f => {
-    const searchLower = searchTerm.toLowerCase();
-    const person = persons.find(p => p.PERSONID === f.PERSONID)
-    return (
-      (person?.PERSONNAME || '').toLowerCase().includes(searchLower) || 
-      f.PERSONID.toLowerCase().includes(searchLower)
-    )
-  }), [followUps, persons, searchTerm])
-
-  const handleSelectFiles = async () => {
-    const files = await DataService.selectLocalFiles(true);
-    if (files && files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
-    }
-  }
-
   const handleCompleteTask = async () => {
     if (!selectedResult || !followUpForm.HFresult) {
-      toast({ variant: "destructive", title: "校验失败", description: "随访记录详情为必填项" })
+      toast({ variant: "destructive", title: "校验失败", description: "随访结论不能为空" })
       return
     }
     setSubmitting(true)
@@ -226,6 +181,22 @@ export default function FollowUpsPage() {
     }
   }
 
+  const handleOpenEntry = (res: AbnormalResult) => {
+    const storedUser = localStorage.getItem('currentUser');
+    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
+    setSelectedResult(res);
+    setFollowUpForm({ 
+      HFresult: '',
+      SFTIME: today,
+      SFSJ: new Date().toTimeString().slice(0, 5),
+      SFGZRY: realName,
+      XCSFTIME: '',
+      jcsf: false,
+      calculationBase: 'today'
+    });
+    setSelectedFiles([]);
+  };
+
   if (!isMounted) return null
 
   return (
@@ -233,7 +204,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · 死亡档案自动停办</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床闭环路径驱动中心</p>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -248,7 +219,7 @@ export default function FollowUpsPage() {
 
       <Tabs defaultValue="pending">
         <TabsList>
-          <TabsTrigger value="pending">待处理任务 ({filteredPending.length})</TabsTrigger>
+          <TabsTrigger value="pending">待处理任务 ({pendingResults.length})</TabsTrigger>
           <TabsTrigger value="completed">历史结案流水</TabsTrigger>
         </TabsList>
 
@@ -260,40 +231,39 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>患者</TableHead>
-                      <TableHead className="text-destructive font-bold">触发预警时间</TableHead>
+                      <TableHead className="text-destructive font-bold">触发预警日期</TableHead>
                       <TableHead>预警类型</TableHead>
-                      <TableHead className="min-w-[250px]">异常详情</TableHead>
-                      <TableHead className="text-right">操作</TableHead>
+                      <TableHead className="min-w-[250px]">异常详情摘要</TableHead>
+                      <TableHead className="text-right">临床操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading && abnormalResults.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : filteredPending.length > 0 ? filteredPending.map((res) => {
+                    ) : pendingResults.length > 0 ? pendingResults.map((res) => {
                       const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
                       const oneYearMark = addYears(peDate, 1);
                       const isAnnual = today >= oneYearMark;
                       return (
                         <TableRow key={res.ID} className="text-xs">
                           <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
-                          <TableCell className="font-mono text-destructive font-bold text-xs">
-                            {isAnnual ? oneYearMark : (res.NEXT_DATE || '-')}
+                          <TableCell className="font-mono text-destructive font-bold">
+                            {isAnnual ? oneYearMark : (res.NEXT_DATE || res.ZYYCJGTZRQ)}
                           </TableCell>
                           <TableCell>
                             <Badge variant={isAnnual ? "destructive" : "secondary"} className="text-[10px]">
-                              {isAnnual ? "年度复查" : "随访提醒"}
+                              {isAnnual ? "年度复查" : "初次随访"}
                             </Badge>
                           </TableCell>
                           <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                           <TableCell className="text-right flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild title="查看详情"><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整计划日期"><Edit2 className="h-4 w-4" /></Button>
-                            <Button size="sm" onClick={() => setSelectedResult(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
+                            <Button size="sm" onClick={() => handleOpenEntry(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记结案</Button>
                           </TableCell>
                         </TableRow>
                       );
                     }) : (
-                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">当前无到期待处理任务</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -310,14 +280,14 @@ export default function FollowUpsPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>患者</TableHead>
-                      <TableHead>回访结论</TableHead>
+                      <TableHead>回访结论摘要</TableHead>
                       <TableHead>结案时间</TableHead>
                       <TableHead>经办人</TableHead>
-                      <TableHead className="text-right">档案</TableHead>
+                      <TableHead className="text-right">详情</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCompleted.map((f) => {
+                    {followUps.map((f) => {
                       const person = persons.find(p => p.PERSONID === f.PERSONID)
                       return (
                         <TableRow key={f.ID} className="text-xs">
@@ -340,13 +310,13 @@ export default function FollowUpsPage() {
 
       <Dialog open={!!editDateResult} onOpenChange={(open) => !open && setEditDateResult(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>调整随访计划日期</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>调整随访计划</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label>下次随访预定日期</Label>
+              <Label>下一次随访预定日期</Label>
               <Input type="date" value={newNextDate} onChange={e => setNewNextDate(e.target.value)} />
             </div>
-            <p className="text-[10px] text-muted-foreground italic">修改后，任务预警时间将根据新日期重新计算。</p>
+            <p className="text-[10px] text-muted-foreground italic">修改后任务将根据新日期重新出现在预警列表中。</p>
           </div>
           <DialogFooter>
              <Button variant="outline" onClick={() => setEditDateResult(null)}>取消</Button>
@@ -365,8 +335,8 @@ export default function FollowUpsPage() {
             </div>
             
             <div className="space-y-2">
-              <Label>随访回访结果详情</Label>
-              <Textarea placeholder="请详细记录与患者的沟通结果及处置方案..." className="min-h-[80px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+              <Label>回访结论详情</Label>
+              <Textarea placeholder="请详细记录沟通结果及后续处置..." className="min-h-[80px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
 
             <div className="grid grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
@@ -394,7 +364,7 @@ export default function FollowUpsPage() {
 
             <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
               <div className="flex justify-between items-center">
-                <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 同步检查结果/病历附件</Label>
+                <Label className="font-bold flex items-center gap-2 text-xs">同步报告/附件</Label>
                 <div className="flex gap-2">
                    <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
                       <SelectTrigger className="h-8 w-24 text-[10px]"><SelectValue /></SelectTrigger>
@@ -404,7 +374,10 @@ export default function FollowUpsPage() {
                         <SelectItem value="PE_REPORT">体检报告</SelectItem>
                       </SelectContent>
                    </Select>
-                   <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={handleSelectFiles}>选择文件</Button>
+                   <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={async () => {
+                     const files = await DataService.selectLocalFiles(true);
+                     if (files) setSelectedFiles(prev => [...prev, ...files]);
+                   }}>选择文件</Button>
                 </div>
               </div>
               {selectedFiles.length > 0 && (
