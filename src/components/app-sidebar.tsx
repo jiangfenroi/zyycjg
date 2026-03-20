@@ -11,7 +11,8 @@ import {
   UserCog,
   LogOut,
   Palette,
-  Clock
+  Clock,
+  Settings
 } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
@@ -118,13 +119,13 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === '/settings/users'}
-                      tooltip="人员权限"
+                      isActive={pathname === '/settings/system'}
+                      tooltip="全院管理中心"
                       className="h-11 px-4"
                     >
-                      <Link href="/settings/users">
-                        <UserCog className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">人员权限</span>
+                      <Link href="/settings/system">
+                        <Settings className="size-5" />
+                        <span className="group-data-[collapsible=icon]:hidden">全院管理中心</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -132,25 +133,12 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === '/settings/logs'}
-                      tooltip="全量审计"
-                      className="h-11 px-4"
+                      tooltip="全量审计日志"
+                      className="h-11 px-4 text-muted-foreground"
                     >
                       <Link href="/settings/logs">
                         <Clock className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">全量审计</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === '/settings/system'}
-                      tooltip="全院统一配置"
-                      className="h-11 px-4 text-secondary hover:text-secondary/80"
-                    >
-                      <Link href="/settings/system">
-                        <Palette className="size-5" />
-                        <span className="group-data-[collapsible=icon]:hidden">全院统一配置</span>
+                        <span className="group-data-[collapsible=icon]:hidden">全量审计日志</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
