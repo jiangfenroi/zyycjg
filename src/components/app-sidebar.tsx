@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,35 +24,36 @@ export function AppSidebar() {
   const [settings, setSettings] = React.useState<any>(null)
 
   const loadSettings = React.useCallback(async (force = false) => {
-    if (!force && settings) return;
-    const data = await DataService.getSystemSettings()
-    setSettings(data)
-  }, [settings])
+    try {
+      const data = await DataService.getSystemSettings(force)
+      setSettings(data)
+    } catch (e) {
+      console.error("Failed to load settings in sidebar")
+    }
+  }, [])
 
   React.useEffect(() => {
     const storedUser = localStorage.getItem('currentUser')
-    if (storedUser) setUser(JSON.parse(storedUser))
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
+    }
     loadSettings()
   }, [loadSettings])
-
-  React.useEffect(() => {
-    if (!settings) loadSettings();
-  }, [pathname, settings, loadSettings]);
 
   const displaySettings = settings || { SYSTEM_NAME: '重要异常结果管理系统', SYSTEM_LOGO_TEXT: '重' };
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="h-16 flex items-center px-6 border-b border-sidebar-border/50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl overflow-hidden shadow-sm">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-9 h-9 bg-secondary rounded-lg flex items-center justify-center text-secondary-foreground font-bold text-xl overflow-hidden shadow-sm shrink-0">
             {displaySettings.SYSTEM_LOGO_URL ? (
               <img src={`app-file://${displaySettings.SYSTEM_LOGO_URL}`} alt="Logo" className="w-full h-full object-cover" />
             ) : (
               displaySettings.SYSTEM_LOGO_TEXT
             )}
           </div>
-          <span className="font-bold text-sm tracking-tight group-data-[collapsible=icon]:hidden truncate max-w-[150px]">
+          <span className="font-bold text-sm tracking-tight group-data-[collapsible=icon]:hidden truncate">
             {displaySettings.SYSTEM_NAME}
           </span>
         </div>
@@ -80,13 +82,19 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname.startsWith('/settings/system')} tooltip="全院配置" className="h-11 px-4 transition-colors">
-                    <Link href="/settings/system"><Settings className="size-5" /><span>全院管理中心</span></Link>
+                  <SidebarMenuButton asChild isActive={pathname.startsWith('/settings/system')} tooltip="全院管理" className="h-11 px-4 transition-colors">
+                    <Link href="/settings/system">
+                      <Settings className="size-5" />
+                      <span>全院管理中心</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={pathname === '/settings/logs'} tooltip="审计日志" className="h-11 px-4 transition-colors">
-                    <Link href="/settings/logs"><Clock className="size-5" /><span>全量审计日志</span></Link>
+                    <Link href="/settings/logs">
+                      <Clock className="size-5" />
+                      <span>全量审计日志</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -101,11 +109,11 @@ export function AppSidebar() {
            <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs shadow-inner">
-                {user?.REAL_NAME?.charAt(0)}
+                {user?.REAL_NAME?.charAt(0) || 'U'}
               </div>
               <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-                <span className="text-xs font-bold truncate">{user?.REAL_NAME}</span>
-                <span className="text-[10px] opacity-50 uppercase font-mono">{user?.ROLE}</span>
+                <span className="text-xs font-bold truncate max-w-[80px]">{user?.REAL_NAME || '未登录'}</span>
+                <span className="text-[10px] opacity-50 uppercase font-mono">{user?.ROLE || 'Guest'}</span>
               </div>
             </div>
             <button 
