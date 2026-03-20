@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DataService } from "@/services/data-service"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function LoginPage() {
@@ -184,9 +183,7 @@ export default function LoginPage() {
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "立即登录系统"}
               </Button>
               
-              <div className="flex items-center justify-between w-full pt-4 border-t">
-                <ThemeToggle />
-                
+              <div className="flex items-center justify-end w-full pt-4 border-t">
                 <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
                   <DialogTrigger asChild>
                     <Button variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
