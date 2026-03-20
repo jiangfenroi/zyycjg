@@ -131,8 +131,12 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
+    // 初始化全局配置
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', 'M')");
+    
+    // 初始化默认管理员
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 
     writeLog('INFO', '数据表结构检查完成');
@@ -230,6 +234,10 @@ ipcMain.handle('file-upload', async (event, { personId, type, customDate, storag
 
     if (canceled || filePaths.length === 0) return { success: false };
 
+    if (!storagePath || !fs.existsSync(storagePath)) {
+      return { success: false, error: '中心存储路径不存在或不可用' };
+    }
+
     const source = filePaths[0];
     const fileName = `${personId}_${type}_${Date.now()}.pdf`;
     const destDir = path.join(storagePath, personId);
@@ -261,6 +269,9 @@ ipcMain.handle('file-save', async (event, { sourcePath, fileName }) => {
     });
 
     if (filePath) {
+      if (!fs.existsSync(sourcePath)) {
+        return { success: false, error: '源文件已移动或丢失' };
+      }
       fs.copyFileSync(sourcePath, filePath);
       return { success: true };
     }

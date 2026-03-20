@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Palette, Save, Loader2, Upload, ShieldAlert, Key, FolderOpen, Database } from 'lucide-react'
+import { Palette, Save, Loader2, ShieldAlert, Key, FolderOpen } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,10 +58,12 @@ export default function SystemSettingsPage() {
     }
     
     setSubmitting(true)
-    const success = await DataService.resetPassword(currentUser.ID, 'admin', adminPassword)
+    const success = await DataService.resetPassword(currentUser.ID, currentUser.USERNAME, adminPassword)
     if (success) {
-      toast({ title: "Admin 凭据已更新", description: "下次登录请使用新密码。" })
+      toast({ title: "管理员凭据已更新", description: "下次登录请使用新密码。" })
       setAdminPassword('')
+    } else {
+      toast({ variant: "destructive", title: "更新失败" })
     }
     setSubmitting(false)
   }
@@ -72,7 +74,7 @@ export default function SystemSettingsPage() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">全院系统配置</h1>
-        <p className="text-muted-foreground mt-1">管理品牌标识、中心存储路径及管理员安全权限。</p>
+        <p className="text-muted-foreground mt-1">管理品牌标识、全院统一附件存储路径及管理员安全权限。</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -82,7 +84,7 @@ export default function SystemSettingsPage() {
               <Palette className="h-5 w-5 text-primary" />
               品牌定制
             </CardTitle>
-            <CardDescription>设置同步至中心库，全院终端通用。</CardDescription>
+            <CardDescription>配置存储于中心数据库，全院各终端自动同步生效。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -92,8 +94,16 @@ export default function SystemSettingsPage() {
                 onChange={e => setSettings({...settings, SYSTEM_NAME: e.target.value})}
               />
             </div>
+            <div className="space-y-2">
+              <Label>标志文字</Label>
+              <Input 
+                value={settings.SYSTEM_LOGO_TEXT} 
+                maxLength={1}
+                onChange={e => setSettings({...settings, SYSTEM_LOGO_TEXT: e.target.value})}
+              />
+            </div>
             <Button className="w-full" onClick={handleSave} disabled={submitting}>
-              <Save className="mr-2 h-4 w-4" /> 保存全局品牌
+              <Save className="mr-2 h-4 w-4" /> 同步全局品牌
             </Button>
           </CardContent>
         </Card>
@@ -104,7 +114,7 @@ export default function SystemSettingsPage() {
               <FolderOpen className="h-5 w-5 text-secondary" />
               中心附件存储路径
             </CardTitle>
-            <CardDescription>配置全院统一的 PDF 报告物理存储位置。</CardDescription>
+            <CardDescription>配置全院统一的 PDF 报告及影像扫描件物理存储位置。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -115,11 +125,11 @@ export default function SystemSettingsPage() {
                 onChange={e => setSettings({...settings, STORAGE_PATH: e.target.value})}
               />
               <p className="text-[10px] text-muted-foreground bg-slate-50 p-2 rounded border">
-                提示：建议使用共享路径。请确保运行程序的 Windows 账户具有读写权限。
+                提示：建议使用 Windows 网络共享路径。请确保运行程序的系统账户具有读写权限。
               </p>
             </div>
             <Button variant="secondary" className="w-full" onClick={handleSave} disabled={submitting}>
-               <Save className="mr-2 h-4 w-4" /> 更新全院路径
+               <Save className="mr-2 h-4 w-4" /> 更新全院存储路径
             </Button>
           </CardContent>
         </Card>
@@ -129,14 +139,14 @@ export default function SystemSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <ShieldAlert className="h-5 w-5" />
-                管理员安全中心
+                安全管理中心
               </CardTitle>
-              <CardDescription>管理超级管理员账户的登录凭据。</CardDescription>
+              <CardDescription>重置当前管理员账户的登录凭据。</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-end gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label>重置 Admin 登录密码</Label>
+                  <Label>设置新管理员密码</Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input 
@@ -149,7 +159,7 @@ export default function SystemSettingsPage() {
                   </div>
                 </div>
                 <Button variant="destructive" onClick={handlePasswordUpdate} disabled={submitting}>
-                  立即更新管理员密码
+                  立即保存新密码
                 </Button>
               </div>
             </CardContent>

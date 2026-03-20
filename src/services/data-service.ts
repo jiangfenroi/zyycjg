@@ -44,7 +44,7 @@ export const DataService = {
       );
       const results = await Promise.all(promises);
       const success = results.every(r => r.success);
-      if (success) await this.addLog('管理员', '同步更新全局配置', 'system');
+      if (success) await this.addLog('系统管理员', '同步更新全局配置', 'system');
       return success;
     }
     return true;
@@ -140,7 +140,7 @@ export const DataService = {
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFSJ, SFGZRY, jcsf, XCSFTIME) 
+      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFRESULT, SFTIME, SFSJ, SFGZRY, jcsf, XCSFTIME) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFSJ || '', followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
@@ -166,16 +166,17 @@ export const DataService = {
       const storagePath = settings.STORAGE_PATH;
       
       if (!storagePath) {
-        throw new Error('未配置中心存储路径');
+        throw new Error('未配置中心存储路径，请联系管理员在设置中配置');
       }
 
       const uploadResult = await window.electronAPI.uploadFile({ personId, type, customDate, storagePath });
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
-        if (personId === 'SYSTEM') return fileUrl;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
         const dbResult = await window.electronAPI.query(sql, [personId, type, fileName, uploadDate, fileUrl]);
         return dbResult.success;
+      } else if (uploadResult.error) {
+        throw new Error(uploadResult.error);
       }
     }
     return false;
@@ -210,7 +211,7 @@ export const DataService = {
   async deleteUser(id: number, username: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
-      if (result.success) await this.addLog('管理员', `销号: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `销号: ${username}`, 'system');
       return result.success;
     }
     return false;
@@ -219,7 +220,7 @@ export const DataService = {
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
     if (isElectron) {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
-      if (result.success) await this.addLog('管理员', `安全重置密码: ${username}`, 'system');
+      if (result.success) await this.addLog('系统管理员', `安全重置密码: ${username}`, 'system');
       return result.success;
     }
     return false;
