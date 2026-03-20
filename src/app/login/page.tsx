@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -24,10 +23,10 @@ export default function LoginPage() {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   const [isElectron, setIsElectron] = React.useState(false)
 
-  // UI 零缓存逻辑：数据库配置状态始终为空，仅在提交时使用，绝不从本地回显已保存的参数
+  // UI 零缓存逻辑：数据库配置状态始终为空，绝不从本地回显已保存的参数
   const [dbConfig, setDbConfig] = React.useState({
     host: '',
-    port: '10699',
+    port: '',
     user: '',
     password: '',
     database: ''
@@ -37,6 +36,13 @@ export default function LoginPage() {
     setIsElectron(typeof window !== 'undefined' && !!window.electronAPI)
     DataService.getSystemSettings().then(setSettings)
   }, [])
+
+  // 每次打开弹窗时重置输入状态，确保不缓存任何信息
+  React.useEffect(() => {
+    if (isSettingsOpen) {
+      setDbConfig({ host: '', port: '', user: '', password: '', database: '' })
+    }
+  }, [isSettingsOpen])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +63,6 @@ export default function LoginPage() {
           toast({ variant: "destructive", title: "登录失败", description: result.error })
         }
       } else {
-        // Web 预览模式逻辑
         if (username === 'admin' && password === '123456') {
           const mockUser = { ID: 0, USERNAME: 'admin', REAL_NAME: '演示管理员', ROLE: 'admin' }
           localStorage.setItem('currentUser', JSON.stringify(mockUser))
@@ -88,8 +93,7 @@ export default function LoginPage() {
         if (result.success) {
           toast({ title: "接入成功", description: "远程数据库已接入" })
           setIsSettingsOpen(false)
-          // 提交后强制重置 UI 状态
-          setDbConfig({ host: '', port: '10699', user: '', password: '', database: '' })
+          setDbConfig({ host: '', port: '', user: '', password: '', database: '' })
           const newSettings = await DataService.getSystemSettings(true)
           setSettings(newSettings)
         } else {
@@ -176,26 +180,26 @@ export default function LoginPage() {
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
                         <Label className="text-xs">服务器主机</Label>
-                        <Input placeholder="127.0.0.1" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                        <Input placeholder="例如：127.0.0.1" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">数据库名</Label>
-                          <Input value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                          <Input placeholder="例如：meditrack_db" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">端口</Label>
-                          <Input value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                          <Input placeholder="例如：10699" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">访问账号</Label>
-                          <Input value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                          <Input placeholder="例如：root" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">访问密码</Label>
-                          <Input type="password" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
+                          <Input type="password" placeholder="请输入访问密码" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
                         </div>
                       </div>
                     </div>
