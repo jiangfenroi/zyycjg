@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DataService } from "@/services/data-service"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -77,45 +77,36 @@ export default function LoginPage() {
 
   const bgStyle = settings?.LOGIN_BG_URL 
     ? { backgroundImage: `url(app-file://${settings.LOGIN_BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : {};
+    : { backgroundColor: '#f8fafc' };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-950" style={bgStyle}>
-      {/* 增强型视觉遮罩，解决背景图刺眼问题 */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-md z-0"></div>
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-slate-50" style={bgStyle}>
+      {/* 玻璃拟态遮罩 - 恢复为轻量感 */}
+      <div className="absolute inset-0 bg-white/20 backdrop-blur-[2px] z-0"></div>
       
-      {/* 装饰性光影 */}
-      {!settings?.LOGIN_BG_URL && (
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[140px]"></div>
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/10 rounded-full blur-[140px]"></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-transparent to-slate-900/50"></div>
-        </div>
-      )}
-
       <div className="w-full max-w-md space-y-8 relative z-10 p-6 animate-in fade-in zoom-in duration-500">
         <div className="flex flex-col items-center text-center space-y-4">
-          <div className="w-24 h-24 bg-white p-1 rounded-3xl shadow-2xl flex items-center justify-center overflow-hidden border-4 border-white/20">
+          <div className="w-20 h-20 bg-white p-1 rounded-2xl shadow-xl flex items-center justify-center overflow-hidden">
             {settings?.SYSTEM_LOGO_URL ? (
               <img src={`app-file://${settings.SYSTEM_LOGO_URL}`} className="w-full h-full object-contain" alt="Logo" />
             ) : (
-              <div className="w-full h-full bg-primary flex items-center justify-center rounded-2xl">
-                <ShieldCheck className="h-12 w-12 text-white" />
+              <div className="w-full h-full bg-primary flex items-center justify-center rounded-xl">
+                <ShieldCheck className="h-10 w-10 text-white" />
               </div>
             )}
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight text-white drop-shadow-xl">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 drop-shadow-sm">
               {settings?.SYSTEM_NAME || "重要异常结果管理系统"}
             </h1>
-            <p className="text-white/60 text-sm font-medium tracking-widest uppercase">全院中心化数据库管理平台</p>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">医疗中心化数据库管理平台</p>
           </div>
         </div>
 
-        <Card className="shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-white/95 backdrop-blur-xl border-none">
+        <Card className="shadow-2xl bg-white/95 backdrop-blur-xl border-none">
           <CardHeader>
-            <CardTitle className="text-xl">用户身份验证</CardTitle>
-            <CardDescription>请输入您的工号和安全密码进行登录</CardDescription>
+            <CardTitle className="text-xl">用户登录</CardTitle>
+            <CardDescription>请输入工号和安全密码</CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-5">
@@ -134,41 +125,43 @@ export default function LoginPage() {
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col space-y-6">
-              <Button type="submit" className="w-full h-12 text-base font-bold shadow-lg shadow-primary/20" disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "立即进入系统"}
+            <CardFooter className="flex flex-col space-y-4">
+              <Button type="submit" className="w-full h-11 text-sm font-bold shadow-lg" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "立即登录系统"}
               </Button>
               
-              <div className="flex justify-center w-full pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between w-full pt-4 border-t">
+                <ThemeToggle />
+                
                 <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                      <Server className="mr-2 h-3.5 w-3.5" /> 数据库连接配置
+                    <Button variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
+                      <Server className="mr-1 h-3 w-3" /> 数据库配置
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
+                  <DialogContent className="sm:max-w-[400px]">
                     <DialogHeader>
-                      <DialogTitle>中心库接入配置</DialogTitle>
+                      <DialogTitle>数据库接入配置</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">服务器主机 (Host)</Label>
-                        <Input placeholder="172.17.16.x" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                        <Label className="text-xs">服务器地址</Label>
+                        <Input placeholder="127.0.0.1" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <Label className="text-xs">端口</Label>
-                          <Input placeholder="10699" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                          <Input value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">数据库名</Label>
-                          <Input placeholder="meditrack_db" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                          <Input value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
                         </div>
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleDbSetup} disabled={dbLoading} className="w-full h-11">
-                        {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "保存并测试连接"}
+                      <Button onClick={handleDbSetup} disabled={dbLoading} className="w-full">
+                        {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "保存并连接"}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -178,8 +171,8 @@ export default function LoginPage() {
           </form>
         </Card>
 
-        <div className="text-center text-white/30 text-[10px] tracking-widest font-mono">
-          SYSTEM VERSION 1.2.0-CENTERED / &copy; 2024 重要异常结果管理系统
+        <div className="text-center text-slate-400 text-[10px] tracking-widest font-mono">
+          &copy; 2024 重要异常结果管理系统
         </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -15,6 +14,13 @@ export default function RootLayout({
   // 启动时触发年龄自动核查流水
   React.useEffect(() => {
     DataService.performMonthlyAgeAudit();
+    
+    // 初始化主题
+    const savedTheme = localStorage.getItem('app-theme') || 'normal';
+    document.documentElement.classList.remove('dark', 'eye-care');
+    if (savedTheme !== 'normal') {
+      document.documentElement.classList.add(savedTheme);
+    }
   }, []);
 
   return (

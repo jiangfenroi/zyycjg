@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -7,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarGroup, SidebarGroupLabel, SidebarGroupContent } from "@/components/ui/sidebar"
 import { DataService } from "@/services/data-service"
+import { ThemeToggle } from "./theme-toggle"
 
 const navigation = [
   { name: "全院工作台", href: "/", icon: LayoutDashboard },
@@ -22,7 +22,6 @@ export function AppSidebar() {
   const [user, setUser] = React.useState<any>(null)
   const [settings, setSettings] = React.useState<any>(null)
 
-  // 优化：仅在必要时加载设置，或使用缓存
   const loadSettings = React.useCallback(async (force = false) => {
     if (!force && settings) return;
     const data = await DataService.getSystemSettings()
@@ -35,7 +34,6 @@ export function AppSidebar() {
     loadSettings()
   }, [loadSettings])
 
-  // 监听 pathname 变化时，如果设置为空则加载
   React.useEffect(() => {
     if (!settings) loadSettings();
   }, [pathname, settings, loadSettings]);
@@ -78,7 +76,7 @@ export function AppSidebar() {
 
         {user?.ROLE === 'admin' && (
           <SidebarGroup>
-            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">管理中心</SidebarGroupLabel>
+            <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden text-[10px] font-bold">管理中心</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
@@ -96,24 +94,28 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t border-sidebar-border/50">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs shadow-inner">
-              {user?.REAL_NAME?.charAt(0)}
+      <SidebarFooter className="p-4 border-t border-sidebar-border/50 space-y-4">
+        <div className="flex flex-col gap-3 group-data-[collapsible=icon]:items-center">
+           <ThemeToggle className="group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:w-9" />
+           
+           <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs shadow-inner">
+                {user?.REAL_NAME?.charAt(0)}
+              </div>
+              <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
+                <span className="text-xs font-bold truncate">{user?.REAL_NAME}</span>
+                <span className="text-[10px] opacity-50 uppercase font-mono">{user?.ROLE}</span>
+              </div>
             </div>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
-              <span className="text-xs font-bold truncate">{user?.REAL_NAME}</span>
-              <span className="text-[10px] opacity-50 uppercase font-mono">{user?.ROLE}</span>
-            </div>
+            <button 
+              onClick={() => { localStorage.removeItem('currentUser'); router.push('/login'); }} 
+              className="p-1.5 hover:bg-destructive/10 rounded-md text-destructive transition-colors ml-2"
+              title="退出系统"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          <button 
-            onClick={() => { localStorage.removeItem('currentUser'); router.push('/login'); }} 
-            className="p-1.5 hover:bg-destructive/10 rounded-md text-destructive transition-colors ml-2"
-            title="退出系统"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
         </div>
       </SidebarFooter>
     </Sidebar>
