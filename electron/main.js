@@ -62,7 +62,7 @@ async function initDB(config) {
         SEX VARCHAR(10) NOT NULL,
         AGE INT,
         PHONE VARCHAR(20),
-        IDNO VARCHAR(18),
+        IDNO VARCHAR(18) UNIQUE,
         UNITNAME VARCHAR(200),
         OCCURDATE DATE,
         OPTNAME VARCHAR(50)
@@ -204,9 +204,6 @@ ipcMain.handle('select-pdf', async (event, multi = false) => {
   return { success: true, files: filePaths.map(p => ({ path: p, name: path.basename(p) })) };
 });
 
-/**
- * 系统资产上传处理 (Logo, 背景图)
- */
 ipcMain.handle('upload-system-asset', async (event, { sourcePath, storagePath, assetType }) => {
   try {
     if (!storagePath || !fs.existsSync(storagePath)) return { success: false, error: '存储路径无效' };

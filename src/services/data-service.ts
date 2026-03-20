@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
@@ -97,17 +98,44 @@ export const DataService = {
     return [];
   },
 
-  async addPatient(person: Person): Promise<boolean> {
+  async checkPatientExists(personId: string, idNo?: string): Promise<{ exists: boolean; field?: string }> {
+    if (!isElectron) return { exists: false };
+    
+    const [idRes] = await Promise.all([
+      window.electronAPI.query('SELECT PERSONID FROM SP_PERSON WHERE PERSONID = ?', [personId])
+    ]);
+    
+    if (idRes.success && idRes.data && idRes.data.length > 0) {
+      return { exists: true, field: '档案编号' };
+    }
+
+    if (idNo) {
+      const idNoRes = await window.electronAPI.query('SELECT PERSONID FROM SP_PERSON WHERE IDNO = ?', [idNo]);
+      if (idNoRes.success && idNoRes.data && idNoRes.data.length > 0) {
+        return { exists: true, field: '身份证号' };
+      }
+    }
+
+    return { exists: false };
+  },
+
+  async addPatient(person: Person): Promise<{ success: boolean; error?: string }> {
     if (isElectron) {
+      // 在插入前进行最后一次查重校验
+      const check = await this.checkPatientExists(person.PERSONID, person.IDNO);
+      if (check.exists) {
+        return { success: false, error: `${check.field} 已存在，请勿重复创建` };
+      }
+
       const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
-        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || ''
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null
       ]);
-      return result.success;
+      return result;
     }
-    return false;
+    return { success: false, error: '环境限制' };
   },
 
   async getAbnormalResults(): Promise<AbnormalResult[]> {
