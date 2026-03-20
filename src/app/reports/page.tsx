@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -207,11 +208,19 @@ export default function ReportsPage() {
                     return (
                       <TableRow key={doc.ID} className="text-xs">
                         <TableCell className="font-medium max-w-[180px] truncate" title={doc.FILENAME}>{doc.FILENAME}</TableCell>
-                        <TableCell><Link href={`/patients/${doc.PERSONID}`} className="hover:underline text-primary font-bold">{person?.PERSONNAME || '未知'}</Link></TableCell>
+                        <TableCell>
+                          <Link href={`/patients/detail?id=${doc.PERSONID}`} className="hover:underline text-primary font-bold">
+                            {person?.PERSONNAME || '未知'}
+                          </Link>
+                        </TableCell>
                         <TableCell><Badge variant="outline" className="text-[9px]">{doc.TYPE}</Badge></TableCell>
                         <TableCell className="text-muted-foreground">{doc.UPLOAD_DATE}</TableCell>
                         <TableCell className="text-right flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" asChild><Link href={`/patients/${doc.PERSONID}`}><Eye className="h-4" /></Link></Button>
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link href={`/patients/detail?id=${doc.PERSONID}`}>
+                              <Eye className="h-4" />
+                            </Link>
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => DataService.downloadDocument(doc.FILE_URL, doc.FILENAME)}><Download className="h-4" /></Button>
                           <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(doc)}><Trash2 className="h-4" /></Button>
                         </TableCell>

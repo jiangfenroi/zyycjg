@@ -241,7 +241,11 @@ export default function PatientsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild><Link href={`/patients/${person.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/patients/detail?id=${person.PERSONID}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               )) : (

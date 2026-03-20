@@ -1,15 +1,21 @@
+
 import * as React from 'react'
-import { PatientDetailClient } from './patient-detail-client'
 
 /**
- * 为支持 Electron 打包（静态导出），此处返回空数组。
- * 所有的患者详情将交由客户端组件 PatientDetailClient 在运行时从远程数据库动态拉取。
+ * 静态导出模式下，动态路由必须提供 generateStaticParams。
+ * 由于我们已迁移至 /patients/detail?id= 模式，
+ * 此处提供一个占位符以消除 Next.js 构建错误。
  */
-export async function generateStaticParams() {
-  return []
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return [{ id: 'static-placeholder' }];
 }
 
-export default async function PatientDetailPage(props: { params: Promise<{ id: string }> }) {
-  const { id } = await props.params
-  return <PatientDetailClient id={id} />
+export default function StaticPlaceholderPage() {
+  return (
+    <div className="p-20 text-center text-muted-foreground text-xs italic">
+      正在重定向至中心化档案视图...
+    </div>
+  );
 }

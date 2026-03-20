@@ -143,7 +143,6 @@ export default function AbnormalResultsPage() {
         })
         
         if (success) {
-          // 尝试静默检查档案是否存在
           try {
             const patients = await DataService.getPatients();
             const existingPatient = patients.find(p => p.PERSONID === formData.PERSONID);
@@ -281,7 +280,7 @@ export default function AbnormalResultsPage() {
                   <TableRow key={res.ID} className="text-[11px] h-11 hover:bg-muted/10 transition-colors">
                     <TableCell className="font-mono text-muted-foreground">{res.PERSONID}</TableCell>
                     <TableCell className="font-bold text-primary">
-                      <Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '待补齐'}</Link>
+                      <Link href={`/patients/detail?id=${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '待补齐'}</Link>
                     </TableCell>
                     <TableCell className="font-mono text-muted-foreground">{res.TJBHID || '-'}</TableCell>
                     <TableCell><Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${res.ZYYCJGFL === 'A' ? 'border-primary text-primary' : ''}`}>{res.ZYYCJGFL}类</Badge></TableCell>
@@ -290,7 +289,11 @@ export default function AbnormalResultsPage() {
                     <TableCell>{res.WORKER}</TableCell>
                     <TableCell className="sticky right-0 bg-background/95 backdrop-blur text-right flex gap-1 justify-end">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => handleOpenEdit(res)} title="编辑业务流水"><Edit2 className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`} title="查看完整档案"><Eye className="h-3.5 w-3.5" /></Link></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                        <Link href={`/patients/detail?id=${res.PERSONID}`} title="查看完整档案">
+                          <Eye className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
                     </TableCell>
                   </TableRow>
                 )) : (

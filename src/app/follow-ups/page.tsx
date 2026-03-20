@@ -102,11 +102,9 @@ export default function FollowUpsPage() {
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     const hasAnyFollowUp = recordFollowUps.length > 0;
     
-    // 1. 初次随访 (通知日期 + 7) 逻辑：若周期内已有随访则自动闭环
     const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
-    // 2. 年度复查 (体检日期 + 365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
     const oneYearMark = addYears(peDate, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
@@ -303,12 +301,20 @@ export default function FollowUpsPage() {
                       const person = persons.find(p => p.PERSONID === f.PERSONID)
                       return (
                         <TableRow key={f.ID} className="text-xs">
-                          <TableCell className="font-medium text-primary"><Link href={`/patients/${f.PERSONID}`} className="hover:underline">{person?.PERSONNAME || '未知'}</Link></TableCell>
+                          <TableCell className="font-medium text-primary">
+                            <Link href={`/patients/detail?id=${f.PERSONID}`} className="hover:underline">
+                              {person?.PERSONNAME || '未知'}
+                            </Link>
+                          </TableCell>
                           <TableCell className="max-w-[400px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell className="font-mono">{f.SFTIME} {f.SFSJ}</TableCell>
                           <TableCell>{f.SFGZRY}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="sm" asChild><Link href={`/patients/${f.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/patients/detail?id=${f.PERSONID}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
                           </TableCell>
                         </TableRow>
                       )
