@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, HelpCircle, Activity } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, Activity } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -20,7 +20,6 @@ import {
   CartesianGrid
 } from "recharts"
 import { DataService } from "@/services/data-service"
-import { TooltipProvider, Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 
 export default function Dashboard() {
   const [isClient, setIsClient] = React.useState(false)
@@ -49,6 +48,7 @@ export default function Dashboard() {
         const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
         const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
         
+        // 待随访：登记了异常但未结案的流水
         const pending = results.filter(r => !followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)).length
 
         setStats({
@@ -60,16 +60,13 @@ export default function Dashboard() {
           totalResults: results.length
         })
 
+        // 构建统计趋势
         const months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
         const currentYear = new Date().getFullYear().toString()
         
         const monthlyStats = months.map(m => {
           const monthLabel = `${parseInt(m)}月`
-          const resultsInMonth = results.filter(r => {
-            const date = r.ZYYCJGTZRQ || ""
-            return date.includes(`-${m}-`) || date.startsWith(`${currentYear}/${m}/`) || date.includes(`/${m}/`)
-          })
-          
+          const resultsInMonth = results.filter(r => (r.ZYYCJGTZRQ || "").includes(`-${m}-`))
           const completedInMonth = resultsInMonth.filter(r => 
             followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
           ).length
@@ -81,8 +78,10 @@ export default function Dashboard() {
           }
         })
 
-        setTrendData(monthlyStats.slice(0, 6))
+        setTrendData(monthlyStats.slice(-6))
 
+      } catch (err) {
+        console.error("Dashboard data load error:", err)
       } finally {
         setLoading(false)
       }
@@ -95,15 +94,15 @@ export default function Dashboard() {
     : 0
 
   const categoryData = [
-    { name: "A类", value: stats.aClassResults, color: "hsl(var(--primary))", description: "重要的异常结果" },
-    { name: "B类", value: stats.bClassResults, color: "hsl(var(--secondary))", description: "重要的异常结果" },
+    { name: "A类", value: stats.aClassResults, color: "hsl(var(--primary))" },
+    { name: "B类", value: stats.bClassResults, color: "hsl(var(--secondary))" },
   ]
 
   if (!isClient || loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2 font-medium">正在同步中心数据库</span>
+        <span className="ml-2 font-medium">正在读取远程 MySQL 统计数据</span>
       </div>
     )
   }
@@ -113,12 +112,12 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台</h1>
-          <p className="text-muted-foreground mt-1">数据实时概览</p>
+          <p className="text-muted-foreground mt-1">医疗数据中心实时概览</p>
         </div>
         <div className="flex items-center gap-3">
           <FollowUpNotifier />
           <Button variant="outline" size="sm" asChild className="hidden sm:flex">
-            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 快速档案搜索</Link>
+            <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 快速档案检索</Link>
           </Button>
         </div>
       </div>
@@ -174,7 +173,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <BarChart3 className="h-4 w-4" />
-              随访趋势
+              随访结案趋势 (近6个月)
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[320px] pt-4">
@@ -188,13 +187,11 @@ export default function Dashboard() {
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
-                      const rate = data.total > 0 ? Math.round((data.count / data.total) * 100) : 0;
                       return (
                         <div className="bg-background border p-3 rounded-lg shadow-xl text-xs space-y-1">
                           <p className="font-bold border-b pb-1 mb-1">{data.month}</p>
                           <p className="text-primary flex justify-between gap-4"><span>已随访:</span> <span>{data.count} 例</span></p>
                           <p className="text-muted-foreground flex justify-between gap-4"><span>异常总数:</span> <span>{data.total} 例</span></p>
-                          <p className="font-bold text-secondary flex justify-between gap-4 pt-1 border-t"><span>随访率:</span> <span>{rate}%</span></p>
                         </div>
                       );
                     }
@@ -211,7 +208,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2 font-bold text-primary">
               <PieChart className="h-4 w-4" />
-              异常分类
+              异常结果分类分布
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[320px] flex flex-col items-center justify-center pt-4">
@@ -234,10 +231,9 @@ export default function Dashboard() {
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
-                        <div className="bg-background border p-2 rounded-lg shadow-xl text-xs max-w-[200px]">
+                        <div className="bg-background border p-2 rounded-lg shadow-xl text-xs">
                           <p className="font-bold" style={{ color: payload[0].payload.color }}>{payload[0].name}</p>
-                          <p className="text-foreground mt-1">{payload[0].payload.description}</p>
-                          <p className="font-bold mt-2">数量: {payload[0].value} 例</p>
+                          <p className="font-bold mt-1">数量: {payload[0].value} 例</p>
                         </div>
                       );
                     }
