@@ -174,19 +174,23 @@ export const DataService = {
                    LEFT JOIN SP_PERSON p ON r.PERSONID = p.PERSONID 
                    ORDER BY r.ZYYCJGTZRQ DESC`;
       const result = await window.electronAPI.query(sql);
-      if (result.success) return result.data.map((r: any) => ({ ...r, IS_NOTIFIED: !!r.IS_NOTIFIED }));
+      if (result.success) return result.data.map((r: any) => ({ 
+        ...r, 
+        IS_NOTIFIED: !!r.IS_NOTIFIED,
+        ZYYCJGJKXJ: !!r.ZYYCJGJKXJ
+      }));
     }
     return [];
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, NEXT_DATE, IS_NOTIFIED) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, ZYYCJGJKXJ, NEXT_DATE, IS_NOTIFIED) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0
+        res.WORKER, res.ZYYCJGBTZR || '', res.ZYYCJGJKXJ ? 1 : 0, res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `登记异常结果: ${res.PERSONID} - ${res.ZYYCJGXQ.substring(0, 20)}...`, 'alert');
@@ -199,12 +203,12 @@ export const DataService = {
   async updateAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
       const sql = `UPDATE SP_ZYJG SET 
-                   TJBHID = ?, ZYYCJGXQ = ?, ZYYCJGFL = ?, ZYYCJGTZRQ = ?, 
-                   ZYYCJGTZSJ = ?, NEXT_DATE = ?, IS_NOTIFIED = ? 
+                   TJBHID = ?, ZYYCJGXQ = ?, ZYYCJGFL = ?, ZYYCJGCZYJ = ?, ZYYCJGFKJG = ?, ZYYCJGTZRQ = ?, 
+                   ZYYCJGTZSJ = ?, WORKER = ?, ZYYCJGBTZR = ?, ZYYCJGJKXJ = ?, NEXT_DATE = ?, IS_NOTIFIED = ? 
                    WHERE ID = ?`;
       const result = await window.electronAPI.query(sql, [
-        res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, res.ZYYCJGTZRQ, 
-        res.ZYYCJGTZSJ, res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.ID
+        res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, 
+        res.ZYYCJGTZSJ, res.WORKER, res.ZYYCJGBTZR || '', res.ZYYCJGJKXJ ? 1 : 0, res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.ID
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `修改异常结果: ${res.PERSONID} (记录ID: ${res.ID})`, 'update');

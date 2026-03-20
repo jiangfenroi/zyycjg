@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 import { AbnormalResult, Person } from '@/lib/types'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
@@ -44,19 +45,19 @@ export default function AbnormalResultsPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [editId, setEditId] = React.useState<string | null>(null)
   
-  const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
-
-  const [formData, setFormData] = React.useState({
+  const [formData, setFormData] = React.useState<AbnormalResult>({
+    ID: '',
     PERSONID: '',
     TJBHID: '',
     ZYYCJGXQ: '',
-    ZYYCJGFL: 'A' as 'A' | 'B',
+    ZYYCJGFL: 'A',
     ZYYCJGCZYJ: '', 
     ZYYCJGFKJG: '',
     ZYYCJGTZRQ: '',
     ZYYCJGTZSJ: '',
     WORKER: '',
     ZYYCJGBTZR: '',
+    ZYYCJGJKXJ: false,
     NEXT_DATE: '',
     IS_NOTIFIED: true,
   })
@@ -91,7 +92,9 @@ export default function AbnormalResultsPage() {
     const storedUser = localStorage.getItem('currentUser');
     const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
     const today = new Date().toISOString().split('T')[0];
+    const nowTime = new Date().toTimeString().slice(0, 5);
     setFormData({
+      ID: '',
       PERSONID: '',
       TJBHID: '',
       ZYYCJGXQ: '',
@@ -99,14 +102,14 @@ export default function AbnormalResultsPage() {
       ZYYCJGCZYJ: '', 
       ZYYCJGFKJG: '',
       ZYYCJGTZRQ: today,
-      ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+      ZYYCJGTZSJ: nowTime,
       WORKER: realName,
       ZYYCJGBTZR: '',
+      ZYYCJGJKXJ: false,
       NEXT_DATE: addDays(today, 7),
       IS_NOTIFIED: true
     })
     setPatientData({ PERSONNAME: '', SEX: '男', AGE: 0, PHONE: '', IDNO: '' })
-    setSelectedFiles([])
     setIsDialogOpen(true)
   }
 
@@ -114,20 +117,13 @@ export default function AbnormalResultsPage() {
     setEditId(res.ID)
     setDialogStep('result')
     setFormData({
-      PERSONID: res.PERSONID,
+      ...res,
       TJBHID: res.TJBHID || '',
-      ZYYCJGXQ: res.ZYYCJGXQ,
-      ZYYCJGFL: res.ZYYCJGFL,
       ZYYCJGCZYJ: res.ZYYCJGCZYJ || '', 
       ZYYCJGFKJG: res.ZYYCJGFKJG || '',
-      ZYYCJGTZRQ: res.ZYYCJGTZRQ,
-      ZYYCJGTZSJ: res.ZYYCJGTZSJ,
-      WORKER: res.WORKER,
       ZYYCJGBTZR: res.ZYYCJGBTZR || '',
-      NEXT_DATE: res.NEXT_DATE || addDays(res.ZYYCJGTZRQ, 7),
-      IS_NOTIFIED: res.IS_NOTIFIED
+      NEXT_DATE: res.NEXT_DATE || addDays(res.ZYYCJGTZRQ, 7)
     })
-    setSelectedFiles([])
     setIsDialogOpen(true)
   }
 
@@ -139,20 +135,13 @@ export default function AbnormalResultsPage() {
     setSubmitting(true)
     try {
       if (!editId) {
-        // 新增逻辑
         const resultId = `R${Date.now()}`;
         const success = await DataService.addAbnormalResult({ 
           ...formData, 
           ID: resultId 
-        } as AbnormalResult)
+        })
         
         if (success) {
-          if (selectedFiles.length > 0) {
-            for (const file of selectedFiles) {
-              await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
-            }
-          }
-          
           // 检查患者是否存在，预填资料完善页
           const patients = await DataService.getPatients();
           const existingPatient = patients.find(p => p.PERSONID === formData.PERSONID);
@@ -167,14 +156,13 @@ export default function AbnormalResultsPage() {
           }
           
           toast({ title: "结果登记成功", description: "请完善患者基本资料" })
-          setDialogStep('patient') // 转入资料录入阶段
+          setDialogStep('patient')
         }
       } else {
-        // 修改逻辑
         const success = await DataService.updateAbnormalResult({
           ...formData,
           ID: editId
-        } as AbnormalResult)
+        })
         if (success) {
           toast({ title: "修改成功" })
           setIsDialogOpen(false)
@@ -231,7 +219,7 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，基于通知日期驱动初次随访与年度复查</p>
+          <p className="text-muted-foreground mt-1 text-sm">全流程临床闭环记录 · 物理入库中心化管理</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -257,8 +245,9 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[100px] text-xs">姓名</TableHead>
                   <TableHead className="w-[120px] text-xs">体检编号</TableHead>
                   <TableHead className="w-[80px] text-xs">分类</TableHead>
-                  <TableHead className="min-w-[200px] text-xs">异常详情</TableHead>
+                  <TableHead className="min-w-[150px] text-xs">异常摘要</TableHead>
                   <TableHead className="w-[110px] text-xs">通知日期</TableHead>
+                  <TableHead className="w-[90px] text-xs">通知人</TableHead>
                   <TableHead className="w-[100px] sticky right-0 bg-background text-right text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
@@ -266,7 +255,7 @@ export default function AbnormalResultsPage() {
                 {loading ? (
                   [...Array(6)].map((_, i) => (
                     <TableRow key={i}>
-                      {[...Array(7)].map((_, j) => (
+                      {[...Array(8)].map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
@@ -277,15 +266,16 @@ export default function AbnormalResultsPage() {
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '待补全'}</Link></TableCell>
                     <TableCell className="font-mono text-muted-foreground">{res.TJBHID || '-'}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-[9px] px-1.5 py-0">{res.ZYYCJGFL}类</Badge></TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ}</TableCell>
+                    <TableCell>{res.WORKER}</TableCell>
                     <TableCell className="sticky right-0 bg-background text-right flex gap-1 justify-end">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(res)} title="编辑记录"><Edit2 className="h-3.5 w-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`} title="查看详情"><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground text-xs italic">暂无登记流水记录</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center py-20 text-muted-foreground text-xs italic">暂无登记流水记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -295,48 +285,97 @@ export default function AbnormalResultsPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto">
           {dialogStep === 'result' ? (
             <>
-              <DialogHeader><DialogTitle>{editId ? '编辑业务流水' : '中心化业务登记'}</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>档案编号</Label>
-                    <Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" disabled={!!editId} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>体检编号</Label>
-                    <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="例如 202501020001" />
-                  </div>
+              <DialogHeader><DialogTitle>{editId ? '编辑业务流水' : '新增重要异常登记'}</DialogTitle></DialogHeader>
+              <div className="grid gap-6 py-4 text-sm">
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>档案编号 <span className="text-destructive">*</span></Label>
+                        <Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入档案 ID" disabled={!!editId} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>体检流水号</Label>
+                        <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="202501010001" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>结果分类</Label>
+                          <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="A">A类 (即时)</SelectItem><SelectItem value="B">B类 (常规)</SelectItem></SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>通知人</Label>
+                          <Input value={formData.WORKER} onChange={e => setFormData({...formData, WORKER: e.target.value})} placeholder="经办人员" />
+                        </div>
+                      </div>
+                   </div>
+                   <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>被通知人姓名</Label>
+                        <Input value={formData.ZYYCJGBTZR} onChange={e => setFormData({...formData, ZYYCJGBTZR: e.target.value})} placeholder="家属或本人" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>通知日期</Label>
+                          <Input 
+                            type="date" 
+                            value={formData.ZYYCJGTZRQ} 
+                            onChange={e => setFormData({
+                              ...formData, 
+                              ZYYCJGTZRQ: e.target.value,
+                              NEXT_DATE: addDays(e.target.value, 7) 
+                            })} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>通知时间</Label>
+                          <Input type="time" value={formData.ZYYCJGTZSJ} onChange={e => setFormData({...formData, ZYYCJGTZSJ: e.target.value})} />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-2 border rounded-md bg-muted/20">
+                         <div className="flex flex-col gap-1">
+                            <Label className="text-xs font-bold">闭环标记</Label>
+                            <span className="text-[10px] text-muted-foreground italic">标记是否已通知及执行宣教</span>
+                         </div>
+                         <div className="flex gap-4">
+                            <div className="flex items-center gap-2">
+                               <Label className="text-[10px]">已通知</Label>
+                               <Switch checked={formData.IS_NOTIFIED} onCheckedChange={v => setFormData({...formData, IS_NOTIFIED: v})} />
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <Label className="text-[10px]">已宣教</Label>
+                               <Switch checked={formData.ZYYCJGJKXJ} onCheckedChange={v => setFormData({...formData, ZYYCJGJKXJ: v})} />
+                            </div>
+                         </div>
+                      </div>
+                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>通知日期</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.ZYYCJGTZRQ} 
-                      onChange={e => setFormData({
-                        ...formData, 
-                        ZYYCJGTZRQ: e.target.value,
-                        NEXT_DATE: addDays(e.target.value, 7) 
-                      })} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>结果分类</Label>
-                    <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="A">A类 (即时)</SelectItem><SelectItem value="B">B类 (常规)</SelectItem></SelectContent>
-                    </Select>
-                  </div>
+
+                <div className="space-y-2">
+                  <Label>异常情况描述摘要 <span className="text-destructive">*</span></Label>
+                  <Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[80px]" placeholder="详细记录检查发现的异常指标..." />
                 </div>
-                <div className="space-y-2"><Label>异常详情摘要</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
+
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                      <Label>医生处置意见</Label>
+                      <Textarea value={formData.ZYYCJGCZYJ} onChange={e => setFormData({...formData, ZYYCJGCZYJ: e.target.value})} placeholder="临床建议：复查、转诊等..." className="min-h-[80px]" />
+                   </div>
+                   <div className="space-y-2">
+                      <Label>被通知人反馈</Label>
+                      <Textarea value={formData.ZYYCJGFKJG} onChange={e => setFormData({...formData, ZYYCJGFKJG: e.target.value})} placeholder="记录对方对通知的回复信息..." className="min-h-[80px]" />
+                   </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleSubmitResult} disabled={submitting} className="w-full h-11">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                   {editId ? '保存修改' : '确认登记并完善资料'}
+                   {editId ? '保存业务修改' : '确认登记并跳转资料补全'}
                    {!editId && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </DialogFooter>
@@ -346,7 +385,7 @@ export default function AbnormalResultsPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-primary" />
-                  完善患者基本资料 ({formData.PERSONID})
+                  完善患者基本档案 ({formData.PERSONID})
                 </DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-6 text-sm">
@@ -378,16 +417,16 @@ export default function AbnormalResultsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>身份证号 (可选)</Label>
-                  <Input value={patientData.IDNO} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="输入身份证号以实现自动年龄计算" />
+                  <Input value={patientData.IDNO} maxLength={18} onChange={e => setPatientData({...patientData, IDNO: e.target.value})} placeholder="18位身份证号，用于自动年龄校对" />
                 </div>
               </div>
               <DialogFooter className="flex-col gap-3">
                 <Button onClick={handleSubmitPatient} disabled={submitting} className="w-full h-11">
                    {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                   保存资料并完成
+                   保存中心档案并完成
                 </Button>
                 <Button variant="ghost" onClick={handleSkipPatient} className="w-full text-muted-foreground text-xs">
-                  暂时跳过，之后补录
+                  以后再补录资料，直接结束
                 </Button>
               </DialogFooter>
             </>

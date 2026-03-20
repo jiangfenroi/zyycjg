@@ -67,7 +67,7 @@ async function initDB(config) {
       connectTimeout: 15000
     });
 
-    // 核心业务表结构初始化
+    // 核心业务表结构初始化与优化
     const tables = [
       `CREATE TABLE IF NOT EXISTS SP_USERS (
         ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -107,6 +107,7 @@ async function initDB(config) {
         ZYYCJGTZSJ VARCHAR(20),
         WORKER VARCHAR(50),
         ZYYCJGBTZR VARCHAR(50),
+        ZYYCJGJKXJ TINYINT(1) DEFAULT 0,
         NEXT_DATE DATE,
         IS_NOTIFIED TINYINT(1) DEFAULT 1
       )`,

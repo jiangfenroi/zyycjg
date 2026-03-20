@@ -26,6 +26,7 @@ export interface AbnormalResult {
   ZYYCJGTZSJ: string;
   WORKER: string;
   ZYYCJGBTZR: string;
+  ZYYCJGJKXJ: boolean;
   NEXT_DATE?: string;
   IS_NOTIFIED: boolean;
   PERSONNAME?: string;
