@@ -5,6 +5,7 @@ import { Plus, Search, Eye, Loader2, FileUp, X, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -24,7 +25,6 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
 import Link from 'next/link'
 
-// 随访日期推算辅助函数：默认 7 天后
 const addDays = (dateStr: string, days: number) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
@@ -40,7 +40,6 @@ export default function AbnormalResultsPage() {
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
-  const [isMounted, setIsMounted] = React.useState(false)
   
   const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
 
@@ -72,7 +71,6 @@ export default function AbnormalResultsPage() {
   }, [toast])
 
   React.useEffect(() => {
-    setIsMounted(true)
     loadData()
   }, [loadData])
 
@@ -135,7 +133,7 @@ export default function AbnormalResultsPage() {
 
         toast({ title: "登记成功", description: "记录及附件已同步" })
         setIsDialogOpen(false)
-        loadData(true) // 操作后静默刷新
+        loadData(true)
       }
     } finally {
       setSubmitting(false)
@@ -145,18 +143,16 @@ export default function AbnormalResultsPage() {
   const filteredResults = React.useMemo(() => {
     const s = searchTerm.toLowerCase();
     return results.filter(res => 
-      res.PERSONID.toLowerCase().includes(s) || (res.PERSONNAME || '').includes(s)
+      res.PERSONID.toLowerCase().includes(s) || (res.PERSONNAME || '').toLowerCase().includes(s)
     )
   }, [results, searchTerm])
 
-  if (!isMounted) return null
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 fade-in">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">临床发现流水记录，自动推算 7 天随访周期</p>
+          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，自动推算 7 天随访周期</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -199,8 +195,8 @@ export default function AbnormalResultsPage() {
                 
                 <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
                   <div className="flex justify-between items-center">
-                    <Label className="font-bold flex items-center gap-2"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
-                    <Button variant="outline" size="sm" onClick={handleSelectFiles}>选择本地文件</Button>
+                    <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleSelectFiles}>选择本地文件</Button>
                   </div>
                   {selectedFiles.length > 0 && (
                     <div className="grid gap-2">
@@ -215,8 +211,8 @@ export default function AbnormalResultsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12">
-                   {submitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                <Button onClick={handleSubmit} disabled={submitting} className="w-full h-11">
+                   {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
                    确认登记并同步中心库
                 </Button>
               </DialogFooter>
@@ -229,7 +225,7 @@ export default function AbnormalResultsPage() {
         <CardHeader className="pb-3 border-b">
           <div className="relative w-80">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="检索姓名、编号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <Input placeholder="检索姓名、编号..." className="pl-8 h-9 text-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -237,32 +233,38 @@ export default function AbnormalResultsPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[120px]">档案编号</TableHead>
-                  <TableHead className="w-[100px]">姓名</TableHead>
-                  <TableHead className="w-[80px]">分类</TableHead>
-                  <TableHead className="min-w-[250px]">异常详情</TableHead>
-                  <TableHead className="w-[120px] text-destructive font-bold">预定随访</TableHead>
-                  <TableHead className="w-[110px]">登记日期</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">操作</TableHead>
+                  <TableHead className="w-[120px] text-xs">档案编号</TableHead>
+                  <TableHead className="w-[100px] text-xs">姓名</TableHead>
+                  <TableHead className="w-[80px] text-xs">分类</TableHead>
+                  <TableHead className="min-w-[250px] text-xs">异常详情</TableHead>
+                  <TableHead className="w-[120px] text-xs text-destructive font-bold">预定随访</TableHead>
+                  <TableHead className="w-[110px] text-xs">登记日期</TableHead>
+                  <TableHead className="w-[60px] sticky right-0 bg-background text-right text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={7} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  [...Array(6)].map((_, i) => (
+                    <TableRow key={i}>
+                      {[...Array(7)].map((_, j) => (
+                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
-                  <TableRow key={res.ID} className="text-xs">
+                  <TableRow key={res.ID} className="text-[11px] h-11">
                     <TableCell className="font-mono">{res.PERSONID}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
-                    <TableCell><Badge variant="secondary" className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className="text-[9px] px-1.5 py-0">{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell className="font-mono text-destructive font-bold">{res.NEXT_DATE || '-'}</TableCell>
-                    <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ}</TableCell>
                     <TableCell className="sticky right-0 bg-background text-right">
-                      <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground">暂无登记流水记录</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center py-20 text-muted-foreground text-xs italic">暂无登记流水记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

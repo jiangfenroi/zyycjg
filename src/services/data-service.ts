@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
@@ -21,13 +20,13 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-export const DataService = {
-  /**
-   * 彻底移除所有模拟数据和 localStorage 逻辑。
-   * 系统现在仅通过 Electron 原生 API 与远程数据库交互。
-   */
+// 增加简单的内存缓存，提升侧边栏和配置页的响应速度
+let cachedSettings: SystemSettings | null = null;
 
-  async getSystemSettings(): Promise<SystemSettings> {
+export const DataService = {
+  async getSystemSettings(force = false): Promise<SystemSettings> {
+    if (!force && cachedSettings) return cachedSettings;
+
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
       if (result.success && result.data) {
@@ -35,7 +34,8 @@ export const DataService = {
         result.data.forEach((row: any) => {
           settings[row.CONF_KEY] = row.CONF_VALUE;
         });
-        return settings as SystemSettings;
+        cachedSettings = settings as SystemSettings;
+        return cachedSettings;
       }
     }
     return { SYSTEM_NAME: '重要异常结果管理系统', SYSTEM_LOGO_TEXT: '重', STORAGE_PATH: '' };
@@ -47,7 +47,9 @@ export const DataService = {
         window.electronAPI.query('UPDATE SP_SETTINGS SET CONF_VALUE = ? WHERE CONF_KEY = ?', [val || '', key])
       );
       const results = await Promise.all(promises);
-      return results.every(r => r.success);
+      const success = results.every(r => r.success);
+      if (success) cachedSettings = null; // 清除缓存以便下次拉取最新
+      return success;
     }
     return false;
   },

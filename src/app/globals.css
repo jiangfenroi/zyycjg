@@ -44,17 +44,28 @@
   }
 }
 
+/* 极致精简动画，提升响应感 */
+.animate-in {
+  animation-duration: 150ms !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.fade-in {
+  opacity: 0;
+  animation: fadeIn 150ms forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes pulse-red {
   0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.8; }
+  50% { transform: scale(1.02); opacity: 0.9; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .animate-pulse-red {
-  animation: pulse-red 3s infinite ease-in-out;
-}
-
-/* 精简动画，提升流畅度 */
-.animate-in {
-  animation-duration: 200ms !important;
+  animation: pulse-red 2s infinite ease-in-out;
 }
