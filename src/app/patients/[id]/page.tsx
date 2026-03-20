@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { MOCK_PERSONS } from '@/lib/mock-store'
 import { PatientDetailClient } from './patient-detail-client'
 
+/**
+ * 为支持 Electron 打包（静态导出），此处返回空数组。
+ * 所有的患者详情将交由客户端组件 PatientDetailClient 在运行时从远程数据库动态拉取。
+ */
 export async function generateStaticParams() {
-  return MOCK_PERSONS.map((person) => ({
-    id: person.PERSONID,
-  }))
+  return []
 }
 
 export default async function PatientDetailPage(props: { params: Promise<{ id: string }> }) {

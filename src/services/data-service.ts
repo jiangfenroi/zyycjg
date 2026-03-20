@@ -1,8 +1,6 @@
-
 'use client';
 
 import { Person, AbnormalResult, FollowUp, PatientDocument, SystemSettings, SystemLog, User } from '@/lib/types';
-import { MOCK_PERSONS, MOCK_RESULTS, MOCK_FOLLOW_UPS, MOCK_DOCS } from '@/lib/mock-store';
 
 declare global {
   interface Window {
@@ -23,14 +21,13 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 /**
  * 远程数据库管理工具核心服务
- * 所有的业务逻辑均优先通过 Electron IPC 通道与远程 MySQL 交互
+ * 所有的业务逻辑均强制通过 Electron IPC 通道与远程 MySQL 交互
+ * 取消所有本地 Mock 数据逻辑
  */
 export const DataService = {
   async logToFile(level: 'INFO' | 'ERROR', message: string) {
     if (isElectron) {
       await window.electronAPI.log(level, message);
-    } else {
-      console.log(`[MOCK LOG ${level}] ${message}`);
     }
   },
 
@@ -92,10 +89,9 @@ export const DataService = {
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
-      if (!result.success) throw new Error(result.error || '中心数据库同步异常');
-      return result.data;
+      if (result.success) return result.data;
     }
-    return MOCK_PERSONS;
+    return [];
   },
 
   async addPatient(person: Person): Promise<boolean> {
@@ -109,7 +105,7 @@ export const DataService = {
       if (result.success) await this.addLog(person.OPTNAME || '管理员', `创建/更新档案: ${person.PERSONNAME}`, 'update');
       return result.success;
     }
-    return true;
+    return false;
   },
 
   // --- 重要异常结果 (SP_ZYJG) ---
@@ -126,26 +122,26 @@ export const DataService = {
         return result.data.map((r: any) => ({
           ...r,
           IS_NOTIFIED: !!r.IS_NOTIFIED,
-          IS_HEALTH_EDU: !!r.IS_HEALTH_EDU
+          IS_HEALTH_EDU: !!r.IS_NOTIFIED // 使用通知状态同步宣教状态
         }));
       }
     }
-    return MOCK_RESULTS;
+    return [];
   },
 
   async addAbnormalResult(res: AbnormalResult): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, NEXT_DATE, IS_NOTIFIED, IS_HEALTH_EDU) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_ZYJG (ID, PERSONID, TJBHID, ZYYCJGXQ, ZYYCJGFL, ZYYCJGCZYJ, ZYYCJGFKJG, ZYYCJGTZRQ, ZYYCJGTZSJ, WORKER, ZYYCJGBTZR, NEXT_DATE, IS_NOTIFIED) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
         res.ID, res.PERSONID, res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, 
         res.ZYYCJGCZYJ || '', res.ZYYCJGFKJG || '', res.ZYYCJGTZRQ, res.ZYYCJGTZSJ, 
-        res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.IS_HEALTH_EDU ? 1 : 0
+        res.WORKER, res.ZYYCJGBTZR || '', res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0
       ]);
       if (result.success) await this.addLog(res.WORKER, `登记重要异常结果: ${res.PERSONID}`, 'alert');
       return result.success;
     }
-    return true;
+    return false;
   },
 
   // --- 随访闭环管理 (SP_SF) ---
@@ -161,7 +157,7 @@ export const DataService = {
         }));
       }
     }
-    return personId ? MOCK_FOLLOW_UPS.filter(f => f.PERSONID === personId) : MOCK_FOLLOW_UPS;
+    return [];
   },
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
@@ -174,7 +170,7 @@ export const DataService = {
       if (result.success) await this.addLog(followUp.SFGZRY, `随访闭环结案: ${followUp.PERSONID}`, 'completed');
       return result.success;
     }
-    return true;
+    return false;
   },
 
   // --- PDF 附件管理 (SP_DOCUMENTS & 物理 IO) ---
@@ -185,7 +181,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, personId ? [personId] : []);
       if (result.success) return result.data;
     }
-    return personId ? MOCK_DOCS.filter(d => d.PERSONID === personId) : MOCK_DOCS;
+    return [];
   },
 
   async selectLocalFiles(multi = true): Promise<{ path: string; name: string }[]> {
