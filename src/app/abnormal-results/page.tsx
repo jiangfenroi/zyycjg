@@ -57,9 +57,9 @@ export default function AbnormalResultsPage() {
     ZYYCJGTZSJ: '',
     WORKER: '',
     ZYYCJGBTZR: '',
-    ZYYCJGJKXJ: false,
+    ZYYCJGJKXJ: true, // 默认宣教
     NEXT_DATE: '',
-    IS_NOTIFIED: true,
+    IS_NOTIFIED: true, // 默认已通知
   })
 
   const [patientData, setPatientData] = React.useState<Partial<Person>>({
@@ -105,9 +105,9 @@ export default function AbnormalResultsPage() {
       ZYYCJGTZSJ: nowTime,
       WORKER: realName,
       ZYYCJGBTZR: '',
-      ZYYCJGJKXJ: false,
+      ZYYCJGJKXJ: true, // 默认勾选
       NEXT_DATE: addDays(today, 7),
-      IS_NOTIFIED: true
+      IS_NOTIFIED: true // 默认勾选
     })
     setPatientData({ PERSONNAME: '', SEX: '男', AGE: 0, PHONE: '', IDNO: '' })
     setIsDialogOpen(true)
