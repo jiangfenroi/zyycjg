@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { DataService } from "@/services/data-service"
 
 /**
- * 登录页面：极致响应加固
- * 1. 物理移除加载阻塞，进入程序时立即显示登录表单。
- * 2. 数据库配置作为背景异步载入，不影响操作员输入工号。
+ * 登录页面：物理响应加固
+ * 1. 物理移除表单嵌套冲突，确保“数据库配置”不会触发“登录提交”。
+ * 2. 强制指定 type="button"，防止 Electron 环境下的默认刷新。
  */
 export default function LoginPage() {
   const router = useRouter()
@@ -30,24 +30,19 @@ export default function LoginPage() {
 
   const [dbConfig, setDbConfig] = React.useState({
     host: '',
-    port: '',
-    user: '',
+    port: '10699',
+    user: 'medi_admin',
     password: '',
-    database: ''
+    database: 'meditrack_db'
   })
 
   React.useEffect(() => {
-    setIsElectron(typeof window !== 'undefined' && !!window.electronAPI)
-    // 异步加载品牌资产，不阻塞主线程渲染
+    const checkElectron = typeof window !== 'undefined' && !!window.electronAPI;
+    setIsElectron(checkElectron)
+    
+    // 异步加载品牌资产
     DataService.getSystemSettings().then(setSettings).catch(() => {});
   }, [])
-
-  const handleOpenSettings = (open: boolean) => {
-    setIsSettingsOpen(open);
-    if (open) {
-      setDbConfig({ host: '', port: '', user: '', password: '', database: '' });
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,14 +54,12 @@ export default function LoginPage() {
     setLoading(true)
     try {
       if (isElectron && window.electronAPI) {
-        // electronAPI.login 会智能尝试静默重连本地缓存的凭据
         const result = await window.electronAPI.login(username, password)
         if (result.success) {
           localStorage.setItem('currentUser', JSON.stringify(result.user))
           router.push('/')
           toast({ title: "登录成功", description: `欢迎回来，${result.user.REAL_NAME}` })
         } else {
-          // 如果连接失败且是因为没配置过数据库
           if (result.error === 'NO_CONFIG') {
             toast({ variant: "destructive", title: "未接入服务器", description: "请先配置中心服务器接入参数" })
             setIsSettingsOpen(true)
@@ -75,7 +68,7 @@ export default function LoginPage() {
           }
         }
       } else {
-        // Web 预览模式
+        // Web 预览演示模式
         if (username === 'admin' && password === '123456') {
           const mockUser = { ID: 0, USERNAME: 'admin', REAL_NAME: '演示管理员', ROLE: 'admin' }
           localStorage.setItem('currentUser', JSON.stringify(mockUser))
@@ -84,21 +77,27 @@ export default function LoginPage() {
           toast({ variant: "destructive", title: "环境限制", description: "请在桌面端运行或使用 admin/123456" })
         }
       }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "系统错误", description: err.message })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDbSetup = async () => {
+  const handleDbSetup = async (e: React.MouseEvent) => {
+    e.preventDefault(); // 物理防止冒泡
     if (!isElectron) return;
-    if (!dbConfig.host || !dbConfig.database || dbLoading) return;
+    if (!dbConfig.host || !dbConfig.database || dbLoading) {
+      toast({ variant: "destructive", title: "校验失败", description: "地址与数据库名为必填项" });
+      return;
+    }
     
     setDbLoading(true)
     try {
       if (window.electronAPI) {
         const result = await window.electronAPI.setupDB(dbConfig)
         if (result.success) {
-          toast({ title: "接入成功", description: "中心服务器连接已同步" })
+          toast({ title: "接入成功", description: "中心服务器连接已物理同步" })
           setIsSettingsOpen(false)
           // 重新载入品牌设置
           const newSettings = await DataService.getSystemSettings(true)
@@ -144,6 +143,7 @@ export default function LoginPage() {
             <CardTitle className="text-xl">用户登录</CardTitle>
             <CardDescription>请输入工号和安全密码</CardDescription>
           </CardHeader>
+          
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-5">
               <div className="space-y-2">
@@ -165,54 +165,57 @@ export default function LoginPage() {
               <Button type="submit" className="w-full h-11 text-sm font-bold shadow-lg" disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "进入系统"}
               </Button>
-              
-              <div className="flex items-center justify-center w-full pt-4 border-t">
-                <Dialog open={isSettingsOpen} onOpenChange={handleOpenSettings}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
-                      <Server className="mr-1 h-3 w-3" /> 数据库接入配置
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[450px]">
-                    <DialogHeader>
-                      <DialogTitle>中心服务器接入</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-1">
-                        <Label className="text-xs">服务器地址</Label>
-                        <Input placeholder="127.0.0.1" className="text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label className="text-xs">数据库名</Label>
-                          <Input placeholder="meditrack_db" className="text-xs h-9" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">端口</Label>
-                          <Input placeholder="10699" className="text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <Label className="text-xs">账号</Label>
-                          <Input placeholder="medi_admin" className="text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">密码</Label>
-                          <Input type="password" placeholder="******" className="text-xs h-9" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={handleDbSetup} disabled={dbLoading || !isElectron} className="w-full h-10 text-xs font-bold">
-                        {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "确认接入"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
             </CardFooter>
           </form>
+
+          {/* 物理隔离：将 Dialog 移出主表单，彻底防止事件冲突 */}
+          <div className="flex items-center justify-center w-full pb-6 px-6">
+            <div className="w-full pt-4 border-t text-center">
+              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogTrigger asChild>
+                  <Button type="button" variant="ghost" size="sm" className="text-[10px] text-muted-foreground">
+                    <Server className="mr-1 h-3 w-3" /> 数据库接入配置
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[450px]">
+                  <DialogHeader>
+                    <DialogTitle>中心服务器接入</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">服务器地址</Label>
+                      <Input placeholder="127.0.0.1" className="text-xs h-9" value={dbConfig.host} onChange={e => setDbConfig({...dbConfig, host: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs">数据库名</Label>
+                        <Input placeholder="meditrack_db" className="text-xs h-9" value={dbConfig.database} onChange={e => setDbConfig({...dbConfig, database: e.target.value})} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">端口</Label>
+                        <Input placeholder="10699" className="text-xs h-9" value={dbConfig.port} onChange={e => setDbConfig({...dbConfig, port: e.target.value})} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs">账号</Label>
+                        <Input placeholder="medi_admin" className="text-xs h-9" value={dbConfig.user} onChange={e => setDbConfig({...dbConfig, user: e.target.value})} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">密码</Label>
+                        <Input type="password" placeholder="******" className="text-xs h-9" value={dbConfig.password} onChange={e => setDbConfig({...dbConfig, password: e.target.value})} />
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" onClick={handleDbSetup} disabled={dbLoading || !isElectron} className="w-full h-10 text-xs font-bold">
+                      {dbLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : "确认接入中心服务器"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </Card>
       </div>
     </div>
