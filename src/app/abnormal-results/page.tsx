@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -65,9 +64,13 @@ export default function AbnormalResultsPage() {
   React.useEffect(() => {
     setIsMounted(true)
     loadData()
-    if (typeof window !== 'undefined') {
+  }, [loadData])
+
+  // 每次打开弹窗时自动获取当前时间
+  React.useEffect(() => {
+    if (isDialogOpen) {
       const storedUser = localStorage.getItem('currentUser');
-      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
+      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
       setFormData(prev => ({
         ...prev,
         ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
@@ -75,7 +78,7 @@ export default function AbnormalResultsPage() {
         WORKER: realName
       }))
     }
-  }, [loadData])
+  }, [isDialogOpen])
 
   const filteredResults = results.filter(res => {
     const searchLower = searchTerm.toLowerCase();
@@ -120,13 +123,6 @@ export default function AbnormalResultsPage() {
       toast({ title: "登记成功" })
       setIsDialogOpen(false)
       loadData()
-      const storedUser = localStorage.getItem('currentUser');
-      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '';
-      setFormData({
-        PERSONID: '', TJBHID: '', ZYYCJGXQ: '', ZYYCJGFL: 'A', ZYYCJGCZYJ: '', ZYYCJGFKJG: '',
-        ZYYCJGTZRQ: new Date().toISOString().split('T')[0], ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-        WORKER: realName, ZYYCJGBTZR: '', IS_HEALTH_EDU: true, IS_NOTIFIED: true
-      })
     }
     setSubmitting(false)
   }
@@ -211,48 +207,38 @@ export default function AbnormalResultsPage() {
                   <TableHead className="w-[120px] text-xs">体检编号</TableHead>
                   <TableHead className="w-[100px] text-xs">姓名</TableHead>
                   <TableHead className="w-[60px] text-xs">性别</TableHead>
-                  <TableHead className="w-[60px] text-xs">年龄</TableHead>
-                  <TableHead className="w-[120px] text-xs">联系电话</TableHead>
-                  <TableHead className="w-[110px] text-xs">体检日期</TableHead>
+                  <TableHead className="w-[110px] text-xs">登记日期</TableHead>
+                  <TableHead className="w-[90px] text-xs">登记时间</TableHead>
                   <TableHead className="w-[80px] text-xs">分类</TableHead>
                   <TableHead className="min-w-[200px] text-xs">重要异常结果详情</TableHead>
-                  <TableHead className="w-[80px] text-xs">是否通知</TableHead>
-                  <TableHead className="w-[80px] text-xs">是否健康宣教</TableHead>
-                  <TableHead className="w-[110px] text-xs">通知日期</TableHead>
-                  <TableHead className="w-[90px] text-xs">通知时间</TableHead>
+                  <TableHead className="w-[80px] text-xs">已通知</TableHead>
                   <TableHead className="w-[100px] text-xs">通知医生</TableHead>
-                  <TableHead className="w-[100px] text-xs">被通知人</TableHead>
                   <TableHead className="min-w-[150px] text-xs">处置建议</TableHead>
                   <TableHead className="w-[80px] sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)] text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={17} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredResults.length > 0 ? filteredResults.map((res) => (
                   <TableRow key={res.ID} className="text-[10px] sm:text-xs">
                     <TableCell className="font-mono sticky left-0 bg-background z-10">{res.PERSONID}</TableCell>
                     <TableCell className="font-mono">{res.TJBHID || '-'}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
                     <TableCell>{res.SEX || '-'}</TableCell>
-                    <TableCell>{res.AGE || '-'}</TableCell>
-                    <TableCell>{res.PHONE || '-'}</TableCell>
-                    <TableCell className="font-mono">{res.OCCURDATE || '-'}</TableCell>
+                    <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
+                    <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-[10px]">{res.ZYYCJGFL}类</Badge></TableCell>
                     <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell>{res.IS_NOTIFIED ? <Badge variant="outline" className="text-blue-600 border-blue-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
-                    <TableCell>{res.IS_HEALTH_EDU ? <Badge variant="outline" className="text-green-600 border-green-600 text-[10px]">是</Badge> : <Badge variant="outline" className="text-[10px]">否</Badge>}</TableCell>
-                    <TableCell className="font-mono">{res.ZYYCJGTZRQ}</TableCell>
-                    <TableCell className="font-mono">{res.ZYYCJGTZSJ}</TableCell>
                     <TableCell>{res.WORKER}</TableCell>
-                    <TableCell>{res.ZYYCJGBTZR}</TableCell>
                     <TableCell className="max-w-[150px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
                     <TableCell className="sticky right-0 bg-background shadow-[-2px_0_5px_rgba(0,0,0,0.05)]">
                       <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={17} className="text-center py-20 text-muted-foreground italic">未检索到记录</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={12} className="text-center py-20 text-muted-foreground italic">未检索到记录</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

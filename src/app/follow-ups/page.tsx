@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from 'react'
@@ -63,12 +62,20 @@ export default function FollowUpsPage() {
   React.useEffect(() => {
     setIsMounted(true)
     loadData()
-    if (typeof window !== 'undefined') {
+  }, [loadData])
+
+  // 每次打开随访登记弹窗时自动设置时间
+  React.useEffect(() => {
+    if (selectedResult) {
       const storedUser = localStorage.getItem('currentUser');
       const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
-      setFollowUpForm(prev => ({ ...prev, SFTIME: new Date().toISOString().split('T')[0], SFGZRY: realName }))
+      setFollowUpForm(prev => ({ 
+        ...prev, 
+        SFTIME: new Date().toISOString().split('T')[0], 
+        SFGZRY: realName 
+      }))
     }
-  }, [loadData])
+  }, [selectedResult])
 
   const pendingResults = abnormalResults.filter(res => 
     !followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
@@ -97,7 +104,7 @@ export default function FollowUpsPage() {
     if (filteredCompleted.length === 0) return
     const headers = [
       "档案编号", "体检编号", "姓名", "性别", "年龄", "重要异常结果详情", 
-      "回访结果详情", "是否复查及进一步病理检查", "回访时间", "回访人", "下次回访时间"
+      "回访结果详情", "是否复查及进一步病理检查", "回访日期", "回访人", "下次回访时间"
     ];
     const rows = filteredCompleted.map(f => {
       const person = persons.find(p => p.PERSONID === f.PERSONID);
@@ -144,15 +151,6 @@ export default function FollowUpsPage() {
         XCSFTIME: followUpForm.XCSFTIME
       })
 
-      if (success && followUpForm.XCSFTIME) {
-        await DataService.addFollowUpTask({
-          PERSONID: selectedResult.PERSONID,
-          ZYYCJGTJBH: selectedResult.TJBHID,
-          XCSFTIME: followUpForm.XCSFTIME,
-          STATUS: 'pending'
-        })
-      }
-
       if (success) {
         toast({ title: "随访已存档" })
         setSelectedResult(null)
@@ -183,7 +181,7 @@ export default function FollowUpsPage() {
         <div className="flex items-center justify-between mb-4">
           <TabsList className="grid w-[400px] grid-cols-2 p-1 bg-muted/50 rounded-lg">
             <TabsTrigger value="pending" className="rounded-md">待随访任务</TabsTrigger>
-            <TabsTrigger value="completed" className="rounded-md">已回访记录</TabsTrigger>
+            <TabsTrigger value="completed" className="rounded-md">已随访结案</TabsTrigger>
           </TabsList>
           <TabsContent value="completed" className="mt-0">
              <Button variant="outline" size="sm" onClick={handleExportCompleted}>
@@ -203,26 +201,24 @@ export default function FollowUpsPage() {
                       <TableHead className="text-xs font-bold">姓名</TableHead>
                       <TableHead className="text-xs font-bold">电话</TableHead>
                       <TableHead className="min-w-[300px] text-xs font-bold">重要异常结果详情</TableHead>
-                      <TableHead className="text-xs font-bold">通知日期</TableHead>
-                      <TableHead className="text-xs font-bold">处置建议</TableHead>
+                      <TableHead className="text-xs font-bold">登记时间</TableHead>
                       <TableHead className="text-right text-xs font-bold pr-6">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loading ? (
-                      <TableRow><TableCell colSpan={7} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="text-center py-20"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => (
                       <TableRow key={res.ID} className="text-xs hover:bg-muted/5 transition-colors">
                         <TableCell className="font-mono text-muted-foreground">{res.TJBHID || '-'}</TableCell>
                         <TableCell className="font-bold text-primary">{res.PERSONNAME || '未知'}</TableCell>
                         <TableCell>{res.PHONE || '-'}</TableCell>
                         <TableCell className="max-w-[300px] whitespace-normal leading-relaxed py-4" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ}</TableCell>
-                        <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGCZYJ}>{res.ZYYCJGCZYJ}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ} {res.ZYYCJGTZSJ}</TableCell>
                         <TableCell className="text-right pr-6"><Button size="sm" onClick={() => setSelectedResult(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记随访</Button></TableCell>
                       </TableRow>
                     )) : (
-                      <TableRow><TableCell colSpan={7} className="text-center py-24 text-muted-foreground italic">无待处理随访任务</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="text-center py-24 text-muted-foreground italic">无待处理随访任务</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -239,17 +235,12 @@ export default function FollowUpsPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30">
-                        <TableHead className="text-xs font-bold">档案编号</TableHead>
-                        <TableHead className="text-xs font-bold">体检编号</TableHead>
                         <TableHead className="text-xs font-bold">姓名</TableHead>
-                        <TableHead className="text-xs font-bold">性别</TableHead>
-                        <TableHead className="text-xs font-bold">年龄</TableHead>
-                        <TableHead className="min-w-[250px] text-xs font-bold">重要异常结果详情</TableHead>
-                        <TableHead className="min-w-[250px] text-xs font-bold">回访结果详情</TableHead>
-                        <TableHead className="text-xs font-bold">是否复查及进一步病理检查</TableHead>
-                        <TableHead className="text-xs font-bold">回访时间</TableHead>
-                        <TableHead className="text-xs font-bold">回访人</TableHead>
-                        <TableHead className="text-xs font-bold">下次回访时间</TableHead>
+                        <TableHead className="text-xs font-bold">重要异常结果详情</TableHead>
+                        <TableHead className="text-xs font-bold">随访结果详情</TableHead>
+                        <TableHead className="text-xs font-bold">随访日期</TableHead>
+                        <TableHead className="text-xs font-bold">随访人</TableHead>
+                        <TableHead className="text-xs font-bold">下次回访</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -258,21 +249,10 @@ export default function FollowUpsPage() {
                         const result = abnormalResults.find(r => r.PERSONID === f.PERSONID && r.TJBHID === f.ZYYCJGTJBH)
                         return (
                           <TableRow key={f.ID} className="text-xs hover:bg-muted/5 transition-colors">
-                            <TableCell className="font-mono text-muted-foreground">{f.PERSONID}</TableCell>
-                            <TableCell className="font-mono text-muted-foreground">{f.ZYYCJGTJBH || '-'}</TableCell>
                             <TableCell className="font-bold text-primary">{person?.PERSONNAME || '未知'}</TableCell>
-                            <TableCell>{person?.SEX || '-'}</TableCell>
-                            <TableCell>{person?.AGE || '-'}</TableCell>
-                            <TableCell className="max-w-[250px] whitespace-normal leading-relaxed py-4" title={result?.ZYYCJGXQ}>{result?.ZYYCJGXQ}</TableCell>
-                            <TableCell className="max-w-[250px] whitespace-normal leading-relaxed py-4" title={f.HFresult}>{f.HFresult}</TableCell>
-                            <TableCell>
-                              {f.jcsf ? (
-                                <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px] hover:bg-green-50">是</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[10px] text-muted-foreground">否</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-mono text-muted-foreground">{f.SFTIME}</TableCell>
+                            <TableCell className="max-w-[250px] truncate" title={result?.ZYYCJGXQ}>{result?.ZYYCJGXQ}</TableCell>
+                            <TableCell className="max-w-[250px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
+                            <TableCell className="font-mono">{f.SFTIME}</TableCell>
                             <TableCell className="font-medium">{f.SFGZRY}</TableCell>
                             <TableCell className="font-mono text-blue-600 font-bold">{f.XCSFTIME || '-'}</TableCell>
                           </TableRow>
@@ -326,10 +306,10 @@ export default function FollowUpsPage() {
               </div>
             </div>
           </div>
-          <DialogFooter className="pt-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
-            <Button onClick={handleCompleteTask} disabled={submitting} className="min-w-[120px]">
-              {submitting ? <Loader2 className="animate-spin" /> : "同步存入中心库"}
+            <Button onClick={handleCompleteTask} disabled={submitting}>
+              {submitting ? <Loader2 className="animate-spin" /> : "确认提交结案"}
             </Button>
           </DialogFooter>
         </DialogContent>
