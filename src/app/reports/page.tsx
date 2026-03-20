@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { FileText, Search, Upload, Download, Eye, Trash2, Loader2, User } from 'lucide-react'
+import { FileText, Search, Upload, Download, Eye, Trash2, Loader2, User, FileSearch } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,9 @@ export default function ReportsPage() {
   
   const [isUploadDialogOpen, setIsUploadDialogOpen] = React.useState(false)
   const [patientSearch, setPatientSearch] = React.useState('')
+  const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null)
+  const [selectedFileName, setSelectedFileName] = React.useState<string | null>(null)
+
   const [uploadForm, setUploadForm] = React.useState({
     personId: '',
     type: 'PE_REPORT' as 'PE_REPORT' | 'IMAGING' | 'PATHOLOGY',
@@ -68,20 +71,30 @@ export default function ReportsPage() {
 
   const filteredPatients = persons.filter(p => 
     p.PERSONNAME.includes(patientSearch) || p.PERSONID.includes(patientSearch)
-  ).slice(0, 10); // 限制展示数量，避免性能问题
+  ).slice(0, 10);
+
+  const handleSelectFile = async () => {
+    const file = await DataService.selectLocalFile();
+    if (file) {
+      setSelectedFilePath(file.path);
+      setSelectedFileName(file.name);
+    }
+  }
 
   const handleUploadClick = async () => {
-    if (!uploadForm.personId) {
-      toast({ variant: "destructive", title: "同步失败", description: "请先选择关联患者电子档案。" })
+    if (!uploadForm.personId || !selectedFilePath) {
+      toast({ variant: "destructive", title: "同步失败", description: "请先关联患者并选择本地文件。" })
       return
     }
 
     setSubmitting(true)
     try {
-      const success = await DataService.uploadDocument(uploadForm.personId, uploadForm.type, uploadForm.date)
+      const success = await DataService.uploadDocument(selectedFilePath, uploadForm.personId, uploadForm.type, uploadForm.date)
       if (success) {
         toast({ title: "同步成功", description: "报告已存档并同步至物理中心库。" })
         setIsUploadDialogOpen(false)
+        setSelectedFilePath(null)
+        setSelectedFileName(null)
         loadData()
       }
     } catch (err: any) {
@@ -125,16 +138,40 @@ export default function ReportsPage() {
             </DialogHeader>
             <div className="grid gap-4 py-4 text-sm">
               <div className="space-y-2">
-                <Label>检查/汇总日期</Label>
-                <Input type="date" value={uploadForm.date} onChange={e => setUploadForm({...uploadForm, date: e.target.value})} />
+                <Label>1. 选择本地 PDF 文件</Label>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleSelectFile} className="flex-1 text-xs">
+                    <FileSearch className="mr-2 h-4 w-4" /> {selectedFileName || "浏览本地文件..."}
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>关联患者档案 (搜索姓名或编号)</Label>
+                <Label>2. 报告属性</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">报告日期</Label>
+                    <Input type="date" value={uploadForm.date} onChange={e => setUploadForm({...uploadForm, date: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">报告分类</Label>
+                    <Select value={uploadForm.type} onValueChange={v => setUploadForm({...uploadForm, type: v as any})}>
+                      <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PE_REPORT">体检报告</SelectItem>
+                        <SelectItem value="IMAGING">医学影像报告</SelectItem>
+                        <SelectItem value="PATHOLOGY">病理组织报告</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>3. 关联患者档案</Label>
                 <div className="space-y-2">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="检索档案..." 
+                      placeholder="检索姓名或编号..." 
                       className="pl-8" 
                       value={patientSearch}
                       onChange={e => setPatientSearch(e.target.value)}
@@ -157,22 +194,11 @@ export default function ReportsPage() {
                   </ScrollArea>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>报告分类</Label>
-                <Select value={uploadForm.type} onValueChange={v => setUploadForm({...uploadForm, type: v as any})}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PE_REPORT">体检报告</SelectItem>
-                    <SelectItem value="IMAGING">医学影像报告</SelectItem>
-                    <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>取消</Button>
-              <Button onClick={handleUploadClick} disabled={submitting || !uploadForm.personId}>
-                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步上传"}
+              <Button onClick={handleUploadClick} disabled={submitting || !uploadForm.personId || !selectedFilePath}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步上传至中心库"}
               </Button>
             </DialogFooter>
           </DialogContent>

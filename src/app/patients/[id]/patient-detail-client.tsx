@@ -18,7 +18,8 @@ import {
   Eye,
   Trash2,
   PlusCircle,
-  CheckCircle2
+  CheckCircle2,
+  FileSearch
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -49,6 +50,8 @@ export function PatientDetailClient({ id }: { id: string }) {
   const [uploadType, setUploadType] = React.useState<'PE_REPORT' | 'IMAGING' | 'PATHOLOGY'>('PE_REPORT')
   const [uploadDate, setUploadDate] = React.useState('')
   const [uploading, setUploading] = React.useState(false)
+  const [selectedFilePath, setSelectedFilePath] = React.useState<string | null>(null)
+  const [selectedFileName, setSelectedFileName] = React.useState<string | null>(null)
   
   const [isFollowUpOpen, setIsFollowUpOpen] = React.useState(false)
   const [followUpSubmitting, setFollowUpSubmitting] = React.useState(false)
@@ -107,13 +110,27 @@ export function PatientDetailClient({ id }: { id: string }) {
   if (loading && !person) return <div className="p-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
   if (!person) return <div className="p-8 text-center text-muted-foreground">该患者档案不存在于中心库中。</div>
 
+  const handleSelectFile = async () => {
+    const file = await DataService.selectLocalFile();
+    if (file) {
+      setSelectedFilePath(file.path);
+      setSelectedFileName(file.name);
+    }
+  }
+
   const handleUpload = async () => {
+    if (!selectedFilePath) {
+      toast({ variant: "destructive", title: "校验失败", description: "请先选择本地 PDF 文件" })
+      return
+    }
     setUploading(true)
     try {
-      const success = await DataService.uploadDocument(id, uploadType, uploadDate)
+      const success = await DataService.uploadDocument(selectedFilePath, id, uploadType, uploadDate)
       if (success) {
         toast({ title: "报告同步成功", description: "附件已存储于中心分层目录。" })
         setIsUploadOpen(false)
+        setSelectedFilePath(null)
+        setSelectedFileName(null)
         loadAllData()
       }
     } catch (err: any) {
@@ -314,25 +331,33 @@ export function PatientDetailClient({ id }: { id: string }) {
           <DialogHeader><DialogTitle>同步病历报告至中心库 - {person.PERSONNAME}</DialogTitle></DialogHeader>
           <div className="py-4 space-y-4 text-sm">
             <div className="space-y-2">
-              <Label>检查/汇总日期</Label>
-              <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
+              <Label>1. 选择本地 PDF 文件</Label>
+              <Button variant="outline" className="w-full text-xs h-10" onClick={handleSelectFile}>
+                <FileSearch className="mr-2 h-4 w-4" /> {selectedFileName || "浏览本地文件..."}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label>报告分类</Label>
-              <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PE_REPORT">体检报告</SelectItem>
-                  <SelectItem value="IMAGING">医学影像报告</SelectItem>
-                  <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>报告日期</Label>
+                <Input type="date" value={uploadDate} onChange={e => setUploadDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>报告分类</Label>
+                <Select value={uploadType} onValueChange={v => setUploadType(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PE_REPORT">体检报告</SelectItem>
+                    <SelectItem value="IMAGING">医学影像报告</SelectItem>
+                    <SelectItem value="PATHOLOGY">临床病理组织报告</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadOpen(false)}>取消</Button>
-            <Button onClick={handleUpload} disabled={uploading}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "同步上传"}
+            <Button onClick={handleUpload} disabled={uploading || !selectedFilePath}>
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "开始同步"}
             </Button>
           </DialogFooter>
         </DialogContent>

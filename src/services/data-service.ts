@@ -9,7 +9,8 @@ declare global {
       query: (sql: string, params?: any[]) => Promise<{ success: boolean; data?: any; error?: string }>;
       login: (username: string, password: string) => Promise<{ success: boolean; user?: any; error?: string }>;
       log: (level: string, message: string) => Promise<void>;
-      uploadFile: (personId: string, type: string, customDate: string | undefined, storagePath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+      selectPDF: () => Promise<{ success: boolean; path?: string; name?: string }>;
+      confirmUpload: (sourcePath: string, personId: string, type: string, customDate: string | undefined, storagePath: string) => Promise<{ success: boolean; data?: any; error?: string }>;
       downloadFile: (sourcePath: string, fileName: string) => Promise<{ success: boolean; error?: string }>;
       deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
       setupDB: (config: any) => Promise<{ success: boolean; error?: string }>;
@@ -161,7 +162,17 @@ export const DataService = {
     return [];
   },
 
-  async uploadDocument(personId: string, type: string, customDate?: string): Promise<any> {
+  async selectLocalFile(): Promise<{ path: string; name: string } | null> {
+    if (isElectron) {
+      const res = await window.electronAPI.selectPDF();
+      if (res.success && res.path) {
+        return { path: res.path, name: res.name || '' };
+      }
+    }
+    return null;
+  },
+
+  async uploadDocument(sourcePath: string, personId: string, type: string, customDate?: string): Promise<boolean> {
     if (isElectron) {
       const settings = await this.getSystemSettings();
       const storagePath = settings.STORAGE_PATH;
@@ -170,7 +181,7 @@ export const DataService = {
         throw new Error('未配置全院统一物理存储路径，请管理员在系统设置中配置。');
       }
 
-      const uploadResult = await window.electronAPI.uploadFile(personId, type, customDate, storagePath);
+      const uploadResult = await window.electronAPI.confirmUpload(sourcePath, personId, type, customDate, storagePath);
       if (uploadResult.success && uploadResult.data) {
         const { fileName, fileUrl, uploadDate } = uploadResult.data;
         const sql = `INSERT INTO SP_DOCUMENTS (PERSONID, TYPE, FILENAME, UPLOAD_DATE, FILE_URL) VALUES (?, ?, ?, ?, ?)`;
