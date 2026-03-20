@@ -1,8 +1,7 @@
-
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2 } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, Eye, FileUp, X, CheckCircle2, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,7 +37,6 @@ export default function FollowUpsPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
 
-  // 附件上传状态
   const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
   const [uploadType, setUploadType] = React.useState<'IMAGING' | 'PATHOLOGY' | 'PE_REPORT'>('IMAGING')
 
@@ -51,8 +49,8 @@ export default function FollowUpsPage() {
     XCSFTIME: ''
   })
 
-  const loadData = React.useCallback(async () => {
-    setLoading(true)
+  const loadData = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [p, r, f] = await Promise.all([
         DataService.getPatients(),
@@ -63,7 +61,7 @@ export default function FollowUpsPage() {
       setAbnormalResults(r)
       setFollowUps(f)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -89,39 +87,35 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  const pendingResults = abnormalResults.filter(res => {
+  const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
     const hasFollowUp = followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
     if (hasFollowUp) return false
     if (!res.NEXT_DATE) return true 
     return res.NEXT_DATE <= today
-  })
+  }), [abnormalResults, followUps, today])
 
-  const filteredPending = pendingResults.filter(res => {
+  const filteredPending = React.useMemo(() => pendingResults.filter(res => {
     const searchLower = searchTerm.toLowerCase();
     return (
       (res.PERSONNAME || '').toLowerCase().includes(searchLower) || 
       res.PERSONID.toLowerCase().includes(searchLower)
     )
-  })
+  }), [pendingResults, searchTerm])
 
-  const filteredCompleted = followUps.filter(f => {
+  const filteredCompleted = React.useMemo(() => followUps.filter(f => {
     const searchLower = searchTerm.toLowerCase();
     const person = persons.find(p => p.PERSONID === f.PERSONID)
     return (
       (person?.PERSONNAME || '').toLowerCase().includes(searchLower) || 
       f.PERSONID.toLowerCase().includes(searchLower)
     )
-  })
+  }), [followUps, persons, searchTerm])
 
   const handleSelectFiles = async () => {
     const files = await DataService.selectLocalFiles(true);
     if (files && files.length > 0) {
       setSelectedFiles(prev => [...prev, ...files]);
     }
-  }
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   const handleCompleteTask = async () => {
@@ -131,7 +125,6 @@ export default function FollowUpsPage() {
     }
     setSubmitting(true)
     try {
-      // 1. 提交随访结案数据
       const success = await DataService.addFollowUp({
         ID: `F${Date.now()}`,
         PERSONID: selectedResult.PERSONID,
@@ -145,21 +138,14 @@ export default function FollowUpsPage() {
       })
 
       if (success) {
-        // 2. 处理多文件附件同步（检查/病历等）
         if (selectedFiles.length > 0) {
-          toast({ title: "同步处理中", description: `正在同步 ${selectedFiles.length} 个复查附件...` });
           for (const file of selectedFiles) {
-            try {
-              await DataService.uploadDocument(file.path, selectedResult.PERSONID, uploadType, followUpForm.SFTIME);
-            } catch (err: any) {
-              toast({ variant: "destructive", title: "附件同步异常", description: `${file.name}: ${err.message}` });
-            }
+            await DataService.uploadDocument(file.path, selectedResult.PERSONID, uploadType, followUpForm.SFTIME);
           }
         }
-
-        toast({ title: "随访已结案并同步附件" })
+        toast({ title: "随访已结案" })
         setSelectedResult(null)
-        loadData()
+        loadData(true)
       }
     } finally {
       setSubmitting(false)
@@ -172,12 +158,17 @@ export default function FollowUpsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">标准化随访闭环工作台</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
           <p className="text-muted-foreground mt-1">临床路径驱动的任务管理引擎</p>
         </div>
-        <div className="relative w-80">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="检索患者姓名..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <div className="relative w-80">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="检索患者姓名..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
         </div>
       </div>
 
@@ -197,13 +188,12 @@ export default function FollowUpsPage() {
                       <TableHead>患者</TableHead>
                       <TableHead className="text-destructive font-bold">预定触发日期</TableHead>
                       <TableHead className="min-w-[250px]">异常详情</TableHead>
-                      <TableHead className="text-right">档案</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
+                    {loading && abnormalResults.length === 0 ? (
+                      <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => (
                       <TableRow key={res.ID} className="text-xs">
                         <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
@@ -211,15 +201,13 @@ export default function FollowUpsPage() {
                           {res.NEXT_DATE || '-'}
                         </TableCell>
                         <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right flex justify-end gap-2">
                           <Button variant="ghost" size="sm" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-4 w-4" /></Link></Button>
-                        </TableCell>
-                        <TableCell className="text-right">
                           <Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记闭环</Button>
                         </TableCell>
                       </TableRow>
                     )) : (
-                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-20 text-muted-foreground italic">目前暂无到期随访计划</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -292,17 +280,15 @@ export default function FollowUpsPage() {
                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={handleSelectFiles}>选择文件</Button>
                 </div>
               </div>
-              {selectedFiles.length > 0 ? (
+              {selectedFiles.length > 0 && (
                 <div className="grid gap-2">
                   {selectedFiles.map((file, idx) => (
                     <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
                       <span className="truncate flex-1 mr-2">{file.name}</span>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(idx)}><X className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-center text-[10px] text-muted-foreground italic">暂无复查附件</p>
               )}
             </div>
 
@@ -319,7 +305,7 @@ export default function FollowUpsPage() {
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
             <Button onClick={handleCompleteTask} disabled={submitting}>
               {submitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-              确认提交结案并同步附件
+              确认结案并同步中心库
             </Button>
           </DialogFooter>
         </DialogContent>

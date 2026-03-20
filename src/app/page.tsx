@@ -1,9 +1,8 @@
-
 "use client"
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, Activity, ArrowUpRight } from "lucide-react"
+import { AlertCircle, History, Users, FileText, TrendingUp, CheckCircle2, BarChart3, PieChart, Loader2, Activity, ArrowUpRight, RefreshCw } from "lucide-react"
 import { FollowUpNotifier } from "@/components/follow-up-notifier"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -51,7 +50,6 @@ export default function Dashboard() {
     loadDashboardData()
   }, [loadDashboardData])
 
-  // 使用 useMemo 缓存高性能计算结果
   const stats = React.useMemo(() => {
     const { results, followUps, patients } = data
     const aClass = results.filter(r => r.ZYYCJGFL === 'A').length
@@ -97,25 +95,25 @@ export default function Dashboard() {
     { name: "B类", value: stats.bClassResults, color: "hsl(var(--secondary))" },
   ], [stats])
 
-  if (!isClient || loading) {
+  if (!isClient || (loading && data.results.length === 0)) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-background/50 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50" />
-          <p className="text-sm font-medium text-muted-foreground animate-pulse">正在同步全院中心库数据...</p>
-        </div>
+      <div className="h-full w-full flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台</h1>
           <p className="text-muted-foreground mt-1">医疗数据中心实时概览</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={loadDashboardData} disabled={loading} title="同步中心库数据">
+             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
           <FollowUpNotifier />
           <Button variant="outline" size="sm" asChild className="hidden sm:flex shadow-sm">
             <Link href="/patients"><Activity className="mr-2 h-4 w-4" /> 档案管理</Link>
@@ -124,7 +122,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-primary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">累计建档量</CardTitle>
             <Users className="h-4 w-4 text-primary" />
@@ -135,7 +133,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="border-l-4 border-l-destructive shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-destructive shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">待处理随访</CardTitle>
             <AlertCircle className="h-4 w-4 text-destructive" />
@@ -146,7 +144,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-secondary shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-secondary shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">闭环完成率</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-secondary" />
@@ -162,7 +160,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="border-l-4 border-l-amber-500 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">异常结果流水</CardTitle>
             <TrendingUp className="h-4 w-4 text-amber-500" />

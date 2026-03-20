@@ -1,8 +1,7 @@
-
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, Info } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, Info, RefreshCw } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -20,7 +19,8 @@ export function FollowUpNotifier() {
   const [tasks, setTasks] = React.useState<AbnormalResult[]>([])
   const [loading, setLoading] = React.useState(true)
 
-  const loadTasks = React.useCallback(async () => {
+  const loadTasks = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const [results, followUps] = await Promise.all([
         DataService.getAbnormalResults(),
@@ -28,8 +28,6 @@ export function FollowUpNotifier() {
       ])
       
       const today = new Date().toISOString().split('T')[0]
-      
-      // 预警触发逻辑：基于数据库记录的 NEXT_DATE
       const pending = results.filter(r => {
         const hasFollowUp = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
         if (hasFollowUp) return false
@@ -39,15 +37,16 @@ export function FollowUpNotifier() {
       
       setTasks(pending)
     } catch (err) {
-      console.error("数据库提醒引擎同步失败", err)
+      console.error("提醒同步失败", err)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(loadTasks, 60000)
+    // 降低压力：每 5 分钟同步一次
+    const timer = setInterval(() => loadTasks(true), 300000)
     return () => clearInterval(timer)
   }, [loadTasks])
 
@@ -66,42 +65,29 @@ export function FollowUpNotifier() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
-        <div className="p-4 border-b bg-destructive/5">
-          <div className="flex items-center justify-between">
+        <div className="p-4 border-b bg-destructive/5 flex items-center justify-between">
+          <div className="flex flex-col">
             <h3 className="font-semibold flex items-center gap-2 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4" />
               随访触发预警
             </h3>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  列表仅展示已到达数据库中预定随访触发日期的患者
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <span className="text-[10px] text-muted-foreground mt-0.5">{loading ? '同步中...' : `当前 ${count} 项待处理`}</span>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            {loading ? "同步数据库流水中..." : `当前有 ${count} 项随访计划已到触发期`}
-          </p>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadTasks()} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
         <ScrollArea className="max-h-[300px]">
           <div className="p-2 space-y-1">
-            {loading ? (
+            {loading && tasks.length === 0 ? (
               <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" /></div>
             ) : tasks.length > 0 ? tasks.map((task) => (
-              <Link
-                key={task.ID}
-                href="/follow-ups"
-                className="flex flex-col p-3 rounded-md hover:bg-accent transition-colors border-b last:border-0"
-              >
+              <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0">
                 <div className="flex justify-between items-start">
                   <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700">{task.PATH_NAME || '自定义路径'}</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-blue-50">待复查</Badge>
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <span className="text-[9px] font-bold text-destructive">触发日期: {task.NEXT_DATE}</span>
-                </div>
+                <span className="text-[9px] font-bold text-destructive mt-1.5">预定日期: {task.NEXT_DATE}</span>
               </Link>
             )) : (
               <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期任务</div>
@@ -110,7 +96,7 @@ export function FollowUpNotifier() {
         </ScrollArea>
         <div className="p-2 border-t text-center">
           <Button variant="ghost" size="sm" className="w-full text-xs font-semibold text-primary" asChild>
-            <Link href="/follow-ups">进入闭环管理工作台</Link>
+            <Link href="/follow-ups">进入闭环工作台</Link>
           </Button>
         </div>
       </PopoverContent>
