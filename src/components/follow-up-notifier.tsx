@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Bell, AlertTriangle, Loader2, Info, Link as LinkIcon } from 'lucide-react'
+import { Bell, AlertTriangle, Loader2, Info, Link as LinkIcon, BookOpen } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -29,19 +29,18 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       
-      // 预警逻辑：到达 NEXT_DATE 且没有随访记录的
+      // 预警逻辑：仅展示已到达 NEXT_DATE (计划预定日期) 且没有结案记录的项
       const pending = results.filter(r => {
         const hasFollowUp = followUps.some(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID)
         if (hasFollowUp) return false
         
-        // 如果没有随访记录，看是否到了 NEXT_DATE
-        if (!r.NEXT_DATE) return true // 默认显示所有未随访项
+        if (!r.NEXT_DATE) return false // 未设置日期不触发提醒
         return r.NEXT_DATE <= today
       })
       
       setTasks(pending)
     } catch (err) {
-      console.error("Failed to load notification tasks", err)
+      console.error("Failed to load path notification tasks", err)
     } finally {
       setLoading(false)
     }
@@ -59,34 +58,32 @@ export function FollowUpNotifier() {
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className={`h-6 w-6 text-primary ${count > 0 ? 'animate-pulse-red' : ''}`} />
+          <Bell className={`h-6 w-6 text-primary ${count > 0 ? 'animate-pulse' : ''}`} />
           {count > 0 && (
-            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 rounded-full border-2 border-white shadow-sm">
+            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 rounded-full border-2 border-white">
               {count}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0 shadow-2xl" align="end">
-        <div className="p-4 border-b bg-muted/30">
+        <div className="p-4 border-b bg-destructive/5">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2 text-destructive text-sm">
               <AlertTriangle className="h-4 w-4" />
-              随访路径到期提醒
+              随访计划触发提醒
             </h3>
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                </TooltipTrigger>
+                <TooltipTrigger asChild><Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
                 <TooltipContent side="left" className="max-w-[200px] text-xs">
-                  展示所有已到达临床随访路径预定日期的重要异常记录
+                  展示所有已到达标准化临床路径预定随访日期的患者名单
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {loading ? "正在同步路径数据" : `当前有 ${count} 例结果已到达路径预警时间`}
+            {loading ? "正在同步中心库..." : `当前有 ${count} 项随访计划已到期`}
           </p>
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -101,22 +98,21 @@ export function FollowUpNotifier() {
               >
                 <div className="flex justify-between items-start">
                   <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
-                  <Badge variant="outline" className="text-[9px] h-4">{task.PATH_NAME || '未设路径'}</Badge>
+                  <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700">{task.PATH_NAME || '标准计划'}</Badge>
                 </div>
-                <span className="text-[10px] text-muted-foreground mt-1 line-clamp-1 italic">"{task.ZYYCJGXQ}"</span>
                 <div className="flex justify-between items-center mt-2">
-                  <span className="text-[9px] font-bold text-destructive">预定日期: {task.NEXT_DATE || '即刻'}</span>
-                  {task.PATH_URL && <LinkIcon className="h-2.5 w-2.5 text-blue-500" />}
+                  <span className="text-[9px] font-bold text-destructive">计划日期: {task.NEXT_DATE}</span>
+                  {task.PATH_URL && <BookOpen className="h-2.5 w-2.5 text-blue-500" />}
                 </div>
               </Link>
             )) : (
-              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期的路径随访任务</div>
+              <div className="py-12 text-center text-xs text-muted-foreground italic">暂无到期任务</div>
             )}
           </div>
         </ScrollArea>
-        <div className="p-2 border-t text-center bg-muted/10">
+        <div className="p-2 border-t text-center">
           <Button variant="ghost" size="sm" className="w-full text-xs font-semibold text-primary" asChild>
-            <Link href="/follow-ups">进入路径随访工作台</Link>
+            <Link href="/follow-ups">进入随访计划工作台</Link>
           </Button>
         </div>
       </PopoverContent>

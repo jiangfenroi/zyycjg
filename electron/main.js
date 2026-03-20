@@ -139,12 +139,12 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 结构更新：检查 SP_ZYJG 是否有 PATH_ID 及其它字段
+    // 结构加固：确保 SP_ZYJG 包含 PATH_ID 和 NEXT_DATE
     try {
       await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN PATH_ID VARCHAR(50) AFTER ZYYCJGBTZR");
       await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN NEXT_DATE DATE AFTER PATH_ID");
     } catch (e) {
-      // 字段已存在
+      // 字段可能已存在
     }
 
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
@@ -176,7 +176,7 @@ function createWindow(startPath = '/login') {
 
   win.once('ready-to-show', () => {
     win.show();
-    writeLog('INFO', '窗口已就绪');
+    writeLog('INFO', '主窗口已就绪');
   });
 
   return win;
@@ -190,7 +190,7 @@ ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-    writeLog('INFO', '数据库配置保存成功');
+    writeLog('INFO', '数据库配置更新成功');
     return { success: true };
   }
   return { success: false, error: result.error };
@@ -210,7 +210,7 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbConnection.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    writeLog('ERROR', 'SQL 执行失败: ' + err.message + ' | SQL: ' + sql);
+    writeLog('ERROR', 'SQL 执行异常: ' + err.message + ' | SQL: ' + sql);
     return { success: false, error: err.message };
   }
 });
@@ -223,7 +223,7 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       [username, password]
     );
     if (rows.length > 0) return { success: true, user: rows[0] };
-    return { success: false, error: '认证失败' };
+    return { success: false, error: '凭据无效' };
   } catch (err) {
     writeLog('ERROR', '登录异常: ' + err.message);
     return { success: false, error: err.message };

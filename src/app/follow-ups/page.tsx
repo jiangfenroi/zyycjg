@@ -2,7 +2,7 @@
 "use client"
 
 import * as React from 'react'
-import { Search, Loader2, ClipboardCheck, FileDown, Link as LinkIcon, AlertTriangle } from 'lucide-react'
+import { Search, Loader2, ClipboardCheck, FileDown, Link as LinkIcon, AlertTriangle, BookOpen } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,13 +81,13 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 待随访逻辑：已过 NEXT_DATE 且没有随访记录的
+  // 待随访逻辑：已过计划预定触发日期，且没有结案记录的
   const pendingResults = abnormalResults.filter(res => {
     const hasFollowUp = followUps.some(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID)
     if (hasFollowUp) return false
     
-    // 如果没有随访记录，看是否到了 NEXT_DATE
-    if (!res.NEXT_DATE) return true // 默认显示所有待办
+    // 只有到达或超过计划日期才显示
+    if (!res.NEXT_DATE) return true 
     return res.NEXT_DATE <= today
   })
 
@@ -95,8 +95,7 @@ export default function FollowUpsPage() {
     const searchLower = searchTerm.toLowerCase();
     return (
       (res.PERSONNAME || '').toLowerCase().includes(searchLower) || 
-      res.PERSONID.toLowerCase().includes(searchLower) || 
-      (res.TJBHID || '').toLowerCase().includes(searchLower)
+      res.PERSONID.toLowerCase().includes(searchLower)
     )
   })
 
@@ -105,30 +104,13 @@ export default function FollowUpsPage() {
     const person = persons.find(p => p.PERSONID === f.PERSONID)
     return (
       (person?.PERSONNAME || '').toLowerCase().includes(searchLower) || 
-      f.PERSONID.toLowerCase().includes(searchLower) || 
-      (f.ZYYCJGTJBH || '').toLowerCase().includes(searchLower)
+      f.PERSONID.toLowerCase().includes(searchLower)
     )
   })
 
-  const handleExportCompleted = () => {
-    if (filteredCompleted.length === 0) return
-    const headers = ["档案编号", "姓名", "回访详情", "回访日期", "回访人", "下次回访"];
-    const rows = filteredCompleted.map(f => {
-      const person = persons.find(p => p.PERSONID === f.PERSONID);
-      return [f.PERSONID, person?.PERSONNAME || '未知', `"${f.HFresult.replace(/"/g, '""')}"`, f.SFTIME, f.SFGZRY, f.XCSFTIME || '-'];
-    });
-    const csvContent = "\uFEFF" + [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `随访结案表_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  }
-
   const handleCompleteTask = async () => {
     if (!selectedResult || !followUpForm.HFresult) {
-      toast({ variant: "destructive", title: "校验失败", description: "请填写回访详情" })
+      toast({ variant: "destructive", title: "校验失败", description: "回访详情为必填项" })
       return
     }
     setSubmitting(true)
@@ -161,27 +143,20 @@ export default function FollowUpsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">随访结案管理</h1>
-          <p className="text-muted-foreground mt-1">闭环业务质量监控</p>
+          <h1 className="text-3xl font-bold tracking-tight text-primary">标准化随访执行</h1>
+          <p className="text-muted-foreground mt-1">临床计划驱动的闭环管理</p>
         </div>
         <div className="relative w-80">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="检索姓名、档案号..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          <Input placeholder="检索患者姓名..." className="pl-10" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
       <Tabs defaultValue="pending">
-        <div className="flex items-center justify-between">
-          <TabsList>
-            <TabsTrigger value="pending">待随访</TabsTrigger>
-            <TabsTrigger value="completed">已结案</TabsTrigger>
-          </TabsList>
-          <TabsContent value="completed" className="mt-0">
-             <Button variant="outline" size="sm" onClick={handleExportCompleted}>
-               <FileDown className="mr-2 h-4 w-4" /> 导出记录
-             </Button>
-          </TabsContent>
-        </div>
+        <TabsList>
+          <TabsTrigger value="pending">计划到期任务</TabsTrigger>
+          <TabsTrigger value="completed">已结案历史</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="pending" className="mt-6">
           <Card>
@@ -190,10 +165,10 @@ export default function FollowUpsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
-                      <TableHead>姓名</TableHead>
-                      <TableHead>随访路径</TableHead>
-                      <TableHead className="text-blue-600 font-bold">路径预定日期</TableHead>
-                      <TableHead className="min-w-[250px]">异常结果摘要</TableHead>
+                      <TableHead>患者</TableHead>
+                      <TableHead>标准化计划</TableHead>
+                      <TableHead className="text-destructive font-bold">计划预定日期</TableHead>
+                      <TableHead className="min-w-[250px]">异常摘要</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -206,7 +181,7 @@ export default function FollowUpsPage() {
                         <TableCell>
                           {res.PATH_NAME ? (
                             <div className="flex items-center gap-1">
-                              <Badge variant="outline" className="text-[10px]">{res.PATH_NAME}</Badge>
+                              <Badge variant="secondary" className="text-[10px] bg-blue-50 text-blue-700">{res.PATH_NAME}</Badge>
                               {res.PATH_URL && (
                                 <a href={res.PATH_URL} target="_blank" className="text-blue-500 hover:scale-110 transition-transform">
                                   <LinkIcon className="h-3 w-3" />
@@ -215,17 +190,17 @@ export default function FollowUpsPage() {
                             </div>
                           ) : '-'}
                         </TableCell>
-                        <TableCell className="font-mono text-blue-600 font-bold">
+                        <TableCell className="font-mono text-destructive font-bold">
                           <div className="flex items-center gap-1">
-                            {res.NEXT_DATE <= today && <AlertTriangle className="h-3 w-3 text-destructive animate-pulse" />}
+                            <AlertTriangle className="h-3 w-3 animate-pulse" />
                             {res.NEXT_DATE || '-'}
                           </div>
                         </TableCell>
                         <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 随访</Button></TableCell>
+                        <TableCell className="text-right"><Button size="sm" onClick={() => setSelectedResult(res)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 结案登记</Button></TableCell>
                       </TableRow>
                     )) : (
-                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">暂无待办任务</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">当前无到期随访计划</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -238,33 +213,29 @@ export default function FollowUpsPage() {
         <TabsContent value="completed" className="mt-6">
           <Card>
              <CardContent className="p-0">
-                <ScrollArea className="w-full">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead>姓名</TableHead>
-                        <TableHead>回访结果摘要</TableHead>
-                        <TableHead>随访日期</TableHead>
-                        <TableHead>随访人</TableHead>
-                        <TableHead>下次回访</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredCompleted.map((f) => {
-                        const person = persons.find(p => p.PERSONID === f.PERSONID)
-                        return (
-                          <TableRow key={f.ID} className="text-xs">
-                            <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
-                            <TableCell className="max-w-[250px] truncate">{f.HFresult}</TableCell>
-                            <TableCell className="font-mono">{f.SFTIME}</TableCell>
-                            <TableCell>{f.SFGZRY}</TableCell>
-                            <TableCell className="font-mono text-blue-600 font-bold">{f.XCSFTIME || '-'}</TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>患者</TableHead>
+                      <TableHead>回访结果</TableHead>
+                      <TableHead>随访日期</TableHead>
+                      <TableHead>结案人</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCompleted.map((f) => {
+                      const person = persons.find(p => p.PERSONID === f.PERSONID)
+                      return (
+                        <TableRow key={f.ID} className="text-xs">
+                          <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
+                          <TableCell className="max-w-[350px] truncate">{f.HFresult}</TableCell>
+                          <TableCell className="font-mono">{f.SFTIME}</TableCell>
+                          <TableCell>{f.SFGZRY}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
              </CardContent>
           </Card>
         </TabsContent>
@@ -272,43 +243,35 @@ export default function FollowUpsPage() {
 
       <Dialog open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)}>
         <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>随访结案登记</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>标准化随访计划结案</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="p-3 bg-muted/30 rounded text-xs space-y-2">
-              <div className="flex justify-between">
-                <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME}</span></p>
+            <div className="p-3 bg-blue-50/50 rounded-lg text-xs space-y-2 border border-blue-100">
+              <div className="flex justify-between items-center">
+                <p>正在执行：<span className="font-bold text-blue-700">{selectedResult?.PATH_NAME}</span></p>
                 {selectedResult?.PATH_URL && (
                    <a href={selectedResult.PATH_URL} target="_blank" className="flex items-center gap-1 text-blue-600 font-bold hover:underline">
-                     <LinkIcon className="h-3 w-3" /> 查看临床随访路径指南
+                     <BookOpen className="h-3 w-3" /> 查看标准化处置指南
                    </a>
                 )}
               </div>
-              <p>异常结果：<span className="italic">"{selectedResult?.ZYYCJGXQ}"</span></p>
+              <p>异常背景：<span className="italic text-muted-foreground">"{selectedResult?.ZYYCJGXQ}"</span></p>
             </div>
             <div className="space-y-2">
-              <Label>回访结果详情</Label>
-              <Textarea placeholder="记录详细沟通内容..." className="min-h-[100px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+              <Label>执行反馈结果详情</Label>
+              <Textarea placeholder="请按照临床指南建议记录沟通结果..." className="min-h-[120px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2"><Label>回访日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
-               <div className="space-y-2"><Label>回访时间</Label><Input type="time" value={followUpForm.SFSJ} onChange={e => setFollowUpForm({...followUpForm, SFSJ: e.target.value})} /></div>
+               <div className="space-y-2"><Label>结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+               <div className="space-y-2"><Label>结案时间</Label><Input type="time" value={followUpForm.SFSJ} onChange={e => setFollowUpForm({...followUpForm, SFSJ: e.target.value})} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-               <div className="flex items-center space-x-2 pt-8">
+            <div className="flex items-center space-x-2 p-2 bg-muted/20 rounded">
                 <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                <Label htmlFor="jcsf" className="text-xs">是否复查及进一步病理检查</Label>
-              </div>
-              <div className="space-y-2">
-                <Label>下次回访时间</Label>
-                <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
-              </div>
+                <Label htmlFor="jcsf" className="text-xs">该患者已按计划要求完成复查或进一步病理检查</Label>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
-            <Button onClick={handleCompleteTask} disabled={submitting}>提交结案</Button>
+            <Button onClick={handleCompleteTask} disabled={submitting} className="bg-primary text-white">确认提交结案</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
