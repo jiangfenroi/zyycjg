@@ -139,7 +139,7 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 结构更新：检查 SP_ZYJG 是否有 PATH_ID
+    // 结构更新：检查 SP_ZYJG 是否有 PATH_ID 及其它字段
     try {
       await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN PATH_ID VARCHAR(50) AFTER ZYYCJGBTZR");
       await dbConnection.execute("ALTER TABLE SP_ZYJG ADD COLUMN NEXT_DATE DATE AFTER PATH_ID");

@@ -40,6 +40,8 @@ export interface AbnormalResult {
   AGE?: number;
   PHONE?: string;
   OCCURDATE?: string;
+  PATH_NAME?: string;
+  PATH_URL?: string;
 }
 
 export interface FollowUp {
