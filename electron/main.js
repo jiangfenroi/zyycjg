@@ -2,28 +2,48 @@
 const { app, BrowserWindow, ipcMain, protocol, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
 /**
- * 终极兼容性加固：针对 Windows 7 / 8.1
+ * 终端兼容性加固
  */
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-software-rasterizer');
 
 const isDev = process.env.NODE_ENV === 'development';
-const configPath = path.join(app.getPath('userData'), 'db-config.json');
+const configPath = path.join(app.getPath('userData'), 'db-config.enc');
 const logPath = path.join(app.getPath('userData'), 'app.log');
+
+// 加密配置
+const ENCRYPTION_KEY = crypto.scryptSync(app.name || 'meditrack-secret', 'salt', 32);
+const IV_LENGTH = 16;
+
+function encrypt(text) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decrypt(text) {
+  const textParts = text.split(':');
+  const iv = Buffer.from(textParts.shift(), 'hex');
+  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
 
 function writeLog(level, message) {
   try {
     const timestamp = new Date().toLocaleString();
     const logEntry = `[${timestamp}] [${level}] ${message}\n`;
     fs.appendFileSync(logPath, logEntry, 'utf8');
-  } catch (e) {
-    console.error('Failed to write log:', e);
-  }
+  } catch (e) {}
 }
 
 let dbConnection;
@@ -117,54 +137,23 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 检查并添加 STATUS 列（如果不存在）
-    try {
-      await dbConnection.execute("ALTER TABLE SP_PERSON ADD COLUMN IF NOT EXISTS STATUS VARCHAR(20) DEFAULT 'alive'");
-    } catch (e) {}
-
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', '重')");
-    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('LAST_AGE_AUDIT', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 
     return { success: true };
   } catch (err) {
-    writeLog('ERROR', '数据库连接失败: ' + err.message);
+    writeLog('ERROR', '数据库接入失败: ' + err.message);
     return { success: false, error: err.message };
   }
 }
 
-function createWindow(startPath = '/login') {
-  const iconPath = isDev 
-    ? path.join(app.getAppPath(), 'public', 'favicon.ico') 
-    : path.join(process.resourcesPath, 'out', 'favicon.ico');
-
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    show: false,
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-      sandbox: false 
-    }
-  });
-
-  const url = isDev ? `http://localhost:9002${startPath}` : `app://./index.html#${startPath}`;
-  win.loadURL(url);
-  win.once('ready-to-show', () => win.show());
-  return win;
-}
-
-ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
-
 ipcMain.handle('setup-db', async (event, config) => {
   const result = await initDB(config);
   if (result.success) {
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    const encryptedData = encrypt(JSON.stringify(config));
+    fs.writeFileSync(configPath, encryptedData, 'utf8');
     return { success: true };
   }
   return { success: false, error: result.error };
@@ -173,8 +162,13 @@ ipcMain.handle('setup-db', async (event, config) => {
 ipcMain.handle('db-query', async (event, { sql, params }) => {
   if (!dbConnection) {
     if (fs.existsSync(configPath)) {
-      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      await initDB(config);
+      try {
+        const encryptedData = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(decrypt(encryptedData));
+        await initDB(config);
+      } catch (e) {
+        return { success: false, error: '解密配置失败' };
+      }
     } else {
       return { success: false, error: 'NO_CONFIG' };
     }
@@ -183,7 +177,6 @@ ipcMain.handle('db-query', async (event, { sql, params }) => {
     const [rows] = await dbConnection.execute(sql, params || []);
     return { success: true, data: rows };
   } catch (err) {
-    writeLog('ERROR', 'SQL 执行失败: ' + err.message);
     return { success: false, error: err.message };
   }
 });
@@ -196,34 +189,32 @@ ipcMain.handle('auth-login', async (event, { username, password }) => {
       [username, password]
     );
     if (rows.length > 0) return { success: true, user: rows[0] };
-    return { success: false, error: '无效的身份凭据' };
+    return { success: false, error: '无效的工号或密码' };
   } catch (err) {
     return { success: false, error: err.message };
   }
 });
 
+ipcMain.handle('app-log', (event, { level, message }) => writeLog(level, message));
+
 ipcMain.handle('select-pdf', async (event, multi = false) => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     properties: multi ? ['openFile', 'multiSelections'] : ['openFile'],
-    filters: [{ name: '文件', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
+    filters: [{ name: '报告文件', extensions: ['pdf', 'jpg', 'png', 'jpeg'] }]
   });
-  if (canceled || filePaths.length === 0) return { success: false };
+  if (canceled) return { success: false };
   return { success: true, files: filePaths.map(p => ({ path: p, name: path.basename(p) })) };
 });
 
 ipcMain.handle('upload-system-asset', async (event, { sourcePath, storagePath, assetType }) => {
   try {
-    if (!storagePath || !fs.existsSync(storagePath)) return { success: false, error: '存储路径无效' };
-    
     const assetDir = path.join(storagePath, 'system_assets');
     if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
-
     const ext = path.extname(sourcePath);
     const fileName = `${assetType}${ext}`;
-    const assetFilePath = path.join(assetDir, fileName);
-    
-    fs.copyFileSync(sourcePath, assetFilePath);
-    return { success: true, filePath: assetFilePath };
+    const destPath = path.join(assetDir, fileName);
+    fs.copyFileSync(sourcePath, destPath);
+    return { success: true, filePath: destPath };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -231,13 +222,10 @@ ipcMain.handle('upload-system-asset', async (event, { sourcePath, storagePath, a
 
 ipcMain.handle('file-upload-confirm', async (event, { sourcePath, personId, type, customDate, storagePath }) => {
   try {
-    const typeFolderMap = { 'PE_REPORT': '体检报告', 'IMAGING': '医学影像报告', 'PATHOLOGY': '病理组织报告' };
-    const typeFolder = typeFolderMap[type] || type;
-    const destDir = path.join(storagePath, personId, typeFolder);
+    const destDir = path.join(storagePath, personId, type);
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-
     const ext = path.extname(sourcePath);
-    const fileName = `${new Date().toISOString().split('T')[0].replace(/-/g, '')}_${typeFolder}_${path.basename(sourcePath, ext)}${ext}`;
+    const fileName = `${Date.now()}_${path.basename(sourcePath)}`;
     const destPath = path.join(destDir, fileName);
     fs.copyFileSync(sourcePath, destPath);
     return { success: true, data: { fileName, fileUrl: destPath, uploadDate: customDate || new Date().toISOString().split('T')[0] } };
@@ -268,7 +256,7 @@ ipcMain.handle('file-delete', async (event, { filePath }) => {
   }
 });
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   protocol.registerFileProtocol('app', (request, callback) => {
     let url = request.url.replace('app://', '');
     if (url.includes(':')) url = url.split(':').pop();
@@ -287,11 +275,26 @@ app.whenReady().then(async () => {
     callback({ path: path.normalize(filePath) });
   });
 
-  if (fs.existsSync(configPath)) {
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    await initDB(config);
-  }
-  createWindow('/login');
+  createWindow();
 });
+
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      sandbox: false 
+    }
+  });
+
+  const url = isDev ? `http://localhost:9002/login` : `app://./index.html#/login`;
+  win.loadURL(url);
+  win.once('ready-to-show', () => win.show());
+  return win;
+}
 
 app.on('window-all-closed', () => app.quit());
