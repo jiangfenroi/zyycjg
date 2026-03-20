@@ -14,7 +14,6 @@ const navigation = [
   { name: "异常结果登记", href: "/abnormal-results", icon: AlertCircle },
   { name: "随访任务管理", href: "/follow-ups", icon: History },
   { name: "病历档案检索", href: "/patients", icon: Users },
-  { name: "数据导出中心", href: "/export", icon: Download },
   { name: "电子报告中心", href: "/reports", icon: FileText },
 ]
 
@@ -87,6 +86,14 @@ export function AppSidebar() {
                     <Link href="/settings/system">
                       <Settings className="size-5" />
                       <span>全院管理中心</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === '/export'} tooltip="数据导出" className="h-11 px-4 transition-colors">
+                    <Link href="/export">
+                      <Download className="size-5" />
+                      <span>数据导出中心</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

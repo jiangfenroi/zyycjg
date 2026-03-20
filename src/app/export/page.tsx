@@ -13,7 +13,8 @@ import {
   RefreshCw,
   SearchCheck,
   ListFilter,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -64,6 +65,7 @@ const ALL_COLUMNS: ColumnOption[] = [
 
 export default function ExportPage() {
   const { toast } = useToast()
+  const [userRole, setUserRole] = React.useState<string | null>(null)
   const [source, setSource] = React.useState<ExportSource>('COMBINED')
   const [selectedColumns, setSelectedColumns] = React.useState<string[]>([])
   const [submitting, setSubmitting] = React.useState(false)
@@ -74,6 +76,13 @@ export default function ExportPage() {
     start: '',
     end: ''
   })
+
+  React.useEffect(() => {
+    const storedUser = localStorage.getItem('currentUser')
+    if (storedUser) {
+      setUserRole(JSON.parse(storedUser).ROLE)
+    }
+  }, [])
 
   // 物理读取并计算当前导出模式下的条数
   const refreshStats = React.useCallback(async () => {
@@ -111,17 +120,32 @@ export default function ExportPage() {
   }, [source, dateRange, toast]);
 
   React.useEffect(() => {
-    // 默认选中当前模式下的所有可用列
-    const available = ALL_COLUMNS.filter(c => {
-      if (source === 'COMBINED') return true;
-      if (source === 'PATIENTS') return c.category === 'PATIENT';
-      if (source === 'ABNORMAL_RESULTS') return c.category === 'PATIENT' || c.category === 'RESULT';
-      if (source === 'FOLLOW_UPS') return c.category === 'FOLLOWUP';
-      return false;
-    }).map(c => c.key);
-    setSelectedColumns(available);
-    refreshStats();
-  }, [source, refreshStats]);
+    if (userRole === 'admin') {
+      // 默认选中当前模式下的所有可用列
+      const available = ALL_COLUMNS.filter(c => {
+        if (source === 'COMBINED') return true;
+        if (source === 'PATIENTS') return c.category === 'PATIENT';
+        if (source === 'ABNORMAL_RESULTS') return c.category === 'PATIENT' || c.category === 'RESULT';
+        if (source === 'FOLLOW_UPS') return c.category === 'FOLLOWUP';
+        return false;
+      }).map(c => c.key);
+      setSelectedColumns(available);
+      refreshStats();
+    }
+  }, [source, refreshStats, userRole]);
+
+  if (userRole && userRole !== 'admin') {
+    return (
+      <div className="h-[80vh] flex flex-col items-center justify-center space-y-4">
+        <ShieldAlert className="h-16 w-16 text-destructive opacity-20" />
+        <div className="text-center">
+          <h2 className="text-xl font-bold">权限访问受限</h2>
+          <p className="text-muted-foreground text-sm mt-1">“数据导出中心”涉及全院敏感信息，仅限管理员账号使用。</p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.href = '/'}>返回全院工作台</Button>
+      </div>
+    )
+  }
 
   const handleToggleColumn = (key: string) => {
     setSelectedColumns(prev => 
