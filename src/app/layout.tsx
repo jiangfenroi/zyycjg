@@ -9,8 +9,9 @@ import { DataService } from "@/services/data-service";
 
 /**
  * 根布局物理加固：
- * 1. 移除首屏阻塞逻辑，确保 children 能够第一时间到达 AuthWrapper。
- * 2. 采用 suppressHydrationWarning 规避不可避免的浏览器扩展插件干扰。
+ * 1. 彻底移除首屏阻塞逻辑，确保内容能第一时间到达浏览器。
+ * 2. 移除所有外部字体解析请求，解决 ERR_NAME_NOT_RESOLVED。
+ * 3. 采用 suppressHydrationWarning 规避由于 Electron 环境导致的微小水合差异。
  */
 export default function RootLayout({
   children,
@@ -33,8 +34,9 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <title>重要异常结果管理中心</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
       </head>
-      <body className="font-sans antialiased bg-background text-foreground selection:bg-primary/10">
+      <body className="font-sans antialiased bg-background text-foreground selection:bg-primary/10" suppressHydrationWarning>
         <AuthWrapper>
           {children}
         </AuthWrapper>

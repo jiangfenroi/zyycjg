@@ -13,9 +13,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { DataService } from "@/services/data-service"
 
 /**
- * 登录页面物理加固：
- * 1. 物理移除对话框嵌套，防止事件冒泡导致的表单意外提交。
- * 2. 强制指定 type="button"，彻底解决 Electron 环境下的页面刷新问题。
+ * 登录页面物理加固版：
+ * 1. 物理隔离：将“数据库接入配置”对话框彻底移出登录表单，防止点击配置时意外触发登录提交。
+ * 2. 强制类型：所有交互按钮明确指定 type="button"，防止 Electron 静态导出环境下的页面刷新。
+ * 3. 静默连接：支持从本地缓存静默重连，优化临床登录体验。
  */
 export default function LoginPage() {
   const router = useRouter()
@@ -43,7 +44,7 @@ export default function LoginPage() {
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault() // 物理防止原生提交
+    e.preventDefault() // 物理拦截原生提交
     if (!username || !password || loading) {
       toast({ variant: "destructive", title: "校验失败", description: "请输入工号和密码" })
       return
@@ -66,6 +67,7 @@ export default function LoginPage() {
           }
         }
       } else {
+        // 演示模式兼容
         if (username === 'admin' && password === '123456') {
           const mockUser = { ID: 0, USERNAME: 'admin', REAL_NAME: '演示管理员', ROLE: 'admin' }
           localStorage.setItem('currentUser', JSON.stringify(mockUser))
@@ -82,7 +84,7 @@ export default function LoginPage() {
   }
 
   const handleDbSetup = async (e: React.MouseEvent) => {
-    e.preventDefault()
+    e.preventDefault() // 防止事件冒泡
     if (!isElectron) return
     if (!dbConfig.host || !dbConfig.database || dbLoading) {
       toast({ variant: "destructive", title: "校验失败", description: "地址与数据库名为必填项" })
@@ -164,7 +166,7 @@ export default function LoginPage() {
             </CardFooter>
           </form>
 
-          {/* 物理隔离对话框，防止表单嵌套 */}
+          {/* 物理隔离：将 Dialog 移出 form 外部，防止事件冒泡导致的意外刷新 */}
           <div className="flex items-center justify-center w-full pb-6 px-6">
             <div className="w-full pt-4 border-t text-center">
               <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
