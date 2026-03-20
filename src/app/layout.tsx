@@ -9,7 +9,7 @@ import { DataService } from "@/services/data-service";
 
 /**
  * 根布局加固：
- * 1. 物理移除加载阻塞逻辑，解决 Electron 环境下的无限转圈问题。
+ * 1. 物理移除加载阻塞逻辑，彻底解决 Electron 环境下的无限转圈问题。
  * 2. 物理移除外部字体依赖，确保内网离线环境零报错 (ERR_NAME_NOT_RESOLVED)。
  */
 export default function RootLayout({
@@ -22,7 +22,7 @@ export default function RootLayout({
     DataService.performMonthlyAgeAudit().catch(() => {});
     
     // 初始化主题
-    const savedTheme = localStorage.getItem('app-theme') || 'normal';
+    const savedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('app-theme') || 'normal' : 'normal';
     document.documentElement.classList.remove('dark', 'eye-care');
     if (savedTheme !== 'normal') {
       document.documentElement.classList.add(savedTheme);

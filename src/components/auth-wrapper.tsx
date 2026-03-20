@@ -1,40 +1,29 @@
+
 "use client"
 
 import * as React from "react"
 import { usePathname, useRouter } from 'next/navigation'
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
-import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * 身份验证包装器加固：
+ * 1. 移除 mounted 阻塞逻辑，防止 Electron 环境下出现无限转圈。
+ * 2. 采用静默重定向策略，确保登录页面能瞬间渲染。
+ */
 export function AuthWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const [mounted, setMounted] = React.useState(false)
+  const isAuthPage = pathname === '/login' || pathname === '/login/';
 
   React.useEffect(() => {
-    setMounted(true)
-    const user = localStorage.getItem('currentUser');
-    const isAuthPage = pathname === '/login';
-    if (!user && !isAuthPage) {
-      router.push('/login');
+    if (typeof localStorage !== 'undefined') {
+      const user = localStorage.getItem('currentUser');
+      if (!user && !isAuthPage) {
+        router.push('/login');
+      }
     }
-  }, [pathname, router])
-
-  if (!mounted) {
-    return (
-      <div className="bg-background flex items-center justify-center min-h-screen w-full">
-        <div className="w-full max-w-4xl px-8 space-y-8">
-           <Skeleton className="h-12 w-48" />
-           <div className="grid grid-cols-4 gap-6">
-              <Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" />
-           </div>
-           <Skeleton className="h-96 w-full" />
-        </div>
-      </div>
-    )
-  }
-
-  const isAuthPage = pathname === '/login';
+  }, [isAuthPage, router]);
 
   if (isAuthPage) {
     return <main className="w-full h-full min-h-screen bg-slate-50">{children}</main>
