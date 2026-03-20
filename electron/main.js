@@ -62,10 +62,12 @@ async function initDB(config) {
         SEX VARCHAR(10) NOT NULL,
         AGE INT,
         PHONE VARCHAR(20),
-        IDNO VARCHAR(18) UNIQUE,
+        IDNO VARCHAR(18),
         UNITNAME VARCHAR(200),
         OCCURDATE DATE,
-        OPTNAME VARCHAR(50)
+        OPTNAME VARCHAR(50),
+        SOURCE VARCHAR(20) DEFAULT 'manual',
+        LAST_UPDATE TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`,
       `CREATE TABLE IF NOT EXISTS SP_ZYJG (
         ID VARCHAR(50) PRIMARY KEY,
@@ -117,8 +119,7 @@ async function initDB(config) {
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', '重要异常结果管理系统')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('STORAGE_PATH', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_TEXT', '重')");
-    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_LOGO_URL', '')");
-    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('LOGIN_BG_URL', '')");
+    await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('LAST_AGE_AUDIT', '')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 
     return { success: true };

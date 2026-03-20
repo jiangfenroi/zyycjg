@@ -21,10 +21,72 @@ declare global {
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-// 增加简单的内存缓存，提升侧边栏和配置页的响应速度
 let cachedSettings: SystemSettings | null = null;
 
 export const DataService = {
+  // 年龄计算核心逻辑
+  calculateCurrentAge(person: Person): number {
+    const today = new Date();
+    
+    // 优先级 1: 身份证驱动
+    if (person.IDNO && person.IDNO.length === 18) {
+      const birthYear = parseInt(person.IDNO.substring(6, 10));
+      const birthMonth = parseInt(person.IDNO.substring(10, 12)) - 1;
+      const birthDay = parseInt(person.IDNO.substring(12, 14));
+      
+      const birthDate = new Date(birthYear, birthMonth, birthDay);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    }
+
+    // 优先级 2: 建档日期推算驱动
+    if (person.OCCURDATE && person.AGE !== undefined) {
+      const occurDate = new Date(person.OCCURDATE);
+      const yearDiff = today.getFullYear() - occurDate.getFullYear();
+      
+      // 检查是否已过建档日的周年
+      const anniversaryThisYear = new Date(today.getFullYear(), occurDate.getMonth(), occurDate.getDate());
+      let ageIncrement = yearDiff;
+      if (today < anniversaryThisYear) {
+        ageIncrement--;
+      }
+      return person.AGE + Math.max(0, ageIncrement);
+    }
+
+    return person.AGE || 0;
+  },
+
+  // 每月 1 号全量核查
+  async performMonthlyAgeAudit(): Promise<void> {
+    if (!isElectron) return;
+    
+    const today = new Date();
+    const monthKey = `${today.getFullYear()}-${today.getMonth() + 1}`;
+    
+    // 仅在每月 1 号执行
+    if (today.getDate() !== 1) return;
+
+    const settings = await this.getSystemSettings(true);
+    if (settings.LAST_AGE_AUDIT === monthKey) return; // 本月已核查过
+
+    console.log('启动全院中心化年龄自动核查流水...');
+    const patients = await this.getPatients();
+    
+    for (const p of patients) {
+      const newAge = this.calculateCurrentAge(p);
+      if (newAge !== p.AGE) {
+        await window.electronAPI.query('UPDATE SP_PERSON SET AGE = ? WHERE PERSONID = ?', [newAge, p.PERSONID]);
+      }
+    }
+
+    await this.updateSystemSettings({ LAST_AGE_AUDIT: monthKey });
+    console.log('年龄核查完成，数据库已同步。');
+  },
+
   async getSystemSettings(force = false): Promise<SystemSettings> {
     if (!force && cachedSettings) return cachedSettings;
 
@@ -49,7 +111,7 @@ export const DataService = {
       );
       const results = await Promise.all(promises);
       const success = results.every(r => r.success);
-      if (success) cachedSettings = null; // 清除缓存以便下次拉取最新
+      if (success) cachedSettings = null;
       return success;
     }
     return false;
@@ -92,28 +154,28 @@ export const DataService = {
 
   async getPatients(): Promise<Person[]> {
     if (isElectron) {
+      // 增加身份证关联逻辑：如果有关联，物理上展示为独立记录，但在逻辑上支持身份证聚合
       const result = await window.electronAPI.query('SELECT * FROM SP_PERSON ORDER BY OCCURDATE DESC');
       if (result.success) return result.data;
     }
     return [];
   },
 
-  async checkPatientExists(personId: string, idNo?: string): Promise<{ exists: boolean; field?: string }> {
+  async checkPatientExists(personId: string, idNo?: string): Promise<{ exists: boolean; existingData?: Person }> {
     if (!isElectron) return { exists: false };
     
-    const [idRes] = await Promise.all([
-      window.electronAPI.query('SELECT PERSONID FROM SP_PERSON WHERE PERSONID = ?', [personId])
-    ]);
-    
-    if (idRes.success && idRes.data && idRes.data.length > 0) {
-      return { exists: true, field: '档案编号' };
+    // 优先级 1: 身份证
+    if (idNo) {
+      const idNoRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE IDNO = ? ORDER BY SOURCE = "import" DESC, LAST_UPDATE DESC LIMIT 1', [idNo]);
+      if (idNoRes.success && idNoRes.data && idNoRes.data.length > 0) {
+        return { exists: true, existingData: idNoRes.data[0] };
+      }
     }
 
-    if (idNo) {
-      const idNoRes = await window.electronAPI.query('SELECT PERSONID FROM SP_PERSON WHERE IDNO = ?', [idNo]);
-      if (idNoRes.success && idNoRes.data && idNoRes.data.length > 0) {
-        return { exists: true, field: '身份证号' };
-      }
+    // 优先级 2: 档案编号
+    const idRes = await window.electronAPI.query('SELECT * FROM SP_PERSON WHERE PERSONID = ?', [personId]);
+    if (idRes.success && idRes.data && idRes.data.length > 0) {
+      return { exists: true, existingData: idRes.data[0] };
     }
 
     return { exists: false };
@@ -121,17 +183,30 @@ export const DataService = {
 
   async addPatient(person: Person): Promise<{ success: boolean; error?: string }> {
     if (isElectron) {
-      // 在插入前进行最后一次查重校验
       const check = await this.checkPatientExists(person.PERSONID, person.IDNO);
-      if (check.exists) {
-        return { success: false, error: `${check.field} 已存在，请勿重复创建` };
+      
+      // 优先级逻辑：如果身份证已存在，且当前是手动录入，而数据库中是导入，则不覆盖导入数据
+      if (check.exists && check.existingData) {
+        if (check.existingData.SOURCE === 'import' && person.SOURCE === 'manual') {
+          // 只允许基于已有档案创建新流水，不更新档案基本信息
+          return { success: true }; 
+        }
+        
+        // 如果当前是导入或已有档案是手动，则以最新修改为准（UPDATE）
+        const sql = `UPDATE SP_PERSON SET PERSONNAME=?, SEX=?, AGE=?, PHONE=?, UNITNAME=?, OCCURDATE=?, OPTNAME=?, SOURCE=?, IDNO=? WHERE PERSONID=?`;
+        const res = await window.electronAPI.query(sql, [
+          person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
+          person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统', person.SOURCE || 'manual', person.IDNO || null, person.PERSONID
+        ]);
+        return res;
       }
 
-      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      // 新增档案
+      const sql = `INSERT INTO SP_PERSON (PERSONID, PERSONNAME, SEX, AGE, PHONE, UNITNAME, OCCURDATE, OPTNAME, IDNO, SOURCE) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        person.PERSONID, person.PERSONNAME, person.SEX, person.AGE, person.PHONE || '', 
-        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null
+        person.PERSONID, person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
+        person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '管理员', person.IDNO || null, person.SOURCE || 'manual'
       ]);
       return result;
     }

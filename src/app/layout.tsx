@@ -1,23 +1,26 @@
 
+"use client"
+
 import * as React from "react"
-import { Metadata } from "next"
 import './globals.css';
 import { AuthWrapper } from '@/components/auth-wrapper';
 import { Toaster } from '@/components/ui/toaster';
-
-export const metadata: Metadata = {
-  title: '重要异常结果管理系统',
-  description: '全院中心化重要异常结果闭环管理工具',
-}
+import { DataService } from "@/services/data-service";
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 启动时触发年龄自动核查流水
+  React.useEffect(() => {
+    DataService.performMonthlyAgeAudit();
+  }, []);
+
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        <title>重要异常结果管理系统</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />

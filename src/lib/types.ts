@@ -9,6 +9,8 @@ export interface Person {
   UNITNAME?: string;
   OCCURDATE: string;
   OPTNAME?: string;
+  SOURCE?: 'manual' | 'import';
+  LAST_UPDATE?: string;
 }
 
 export interface AbnormalResult {
@@ -67,6 +69,7 @@ export interface SystemSettings {
   SYSTEM_LOGO_URL?: string;
   LOGIN_BG_URL?: string;
   STORAGE_PATH?: string;
+  LAST_AGE_AUDIT?: string;
 }
 
 export interface SystemLog {
