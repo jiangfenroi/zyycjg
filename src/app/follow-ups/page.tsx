@@ -82,10 +82,12 @@ export default function FollowUpsPage() {
       setPersons(p)
       setAbnormalResults(r)
       setFollowUps(f)
+    } catch (err) {
+      toast({ variant: "destructive", title: "同步失败", description: "无法连接中心数据库" })
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [])
+  }, [toast])
 
   React.useEffect(() => {
     setIsMounted(true)
@@ -100,11 +102,11 @@ export default function FollowUpsPage() {
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
     const hasAnyFollowUp = recordFollowUps.length > 0;
     
-    // 1. 初次随访 (T+7) 逻辑优化：若已随访则闭环任务
+    // 1. 初次随访 (T[通知日期] + 7) 逻辑优化：若已随访则闭环任务
     const initialTargetDate = res.NEXT_DATE || res.ZYYCJGTZRQ;
     const isInitialPending = !hasAnyFollowUp && initialTargetDate <= today;
 
-    // 2. 年度复查 (T+365)
+    // 2. 年度复查 (T[体检日期] + 365)
     const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
     const oneYearMark = addYears(peDate, 1);
     const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
@@ -137,6 +139,8 @@ export default function FollowUpsPage() {
         toast({ title: "随访计划已调整" });
         setEditDateResult(null);
         loadData(true);
+      } else {
+        toast({ variant: "destructive", title: "调整失败" });
       }
     } finally {
       setSubmitting(false);
@@ -175,7 +179,11 @@ export default function FollowUpsPage() {
         toast({ title: "随访已结案" })
         setSelectedResult(null)
         loadData(true)
+      } else {
+        toast({ variant: "destructive", title: "结案失败" })
       }
+    } catch (err) {
+      toast({ variant: "destructive", title: "系统异常", description: "随访数据同步中断" })
     } finally {
       setSubmitting(false)
     }
@@ -199,8 +207,12 @@ export default function FollowUpsPage() {
 
   if (!isMounted) return null
 
+  const filteredTasks = pendingResults.filter(res => 
+    (res.PERSONNAME || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 fade-in">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
@@ -219,7 +231,7 @@ export default function FollowUpsPage() {
 
       <Tabs defaultValue="pending">
         <TabsList>
-          <TabsTrigger value="pending">待处理任务 ({pendingResults.length})</TabsTrigger>
+          <TabsTrigger value="pending">待处理任务 ({filteredTasks.length})</TabsTrigger>
           <TabsTrigger value="completed">历史结案流水</TabsTrigger>
         </TabsList>
 
@@ -240,12 +252,12 @@ export default function FollowUpsPage() {
                   <TableBody>
                     {loading && abnormalResults.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
-                    ) : pendingResults.length > 0 ? pendingResults.map((res) => {
+                    ) : filteredTasks.length > 0 ? filteredTasks.map((res) => {
                       const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
                       const oneYearMark = addYears(peDate, 1);
                       const isAnnual = today >= oneYearMark;
                       return (
-                        <TableRow key={res.ID} className="text-xs">
+                        <TableRow key={res.ID} className="text-xs group">
                           <TableCell className="font-bold">{res.PERSONNAME || '未知'}</TableCell>
                           <TableCell className="font-mono text-destructive font-bold">
                             {isAnnual ? oneYearMark : (res.NEXT_DATE || res.ZYYCJGTZRQ)}
@@ -257,13 +269,13 @@ export default function FollowUpsPage() {
                           </TableCell>
                           <TableCell className="py-3 max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                           <TableCell className="text-right flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整计划日期"><Edit2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {setEditDateResult(res); setNewNextDate(res.NEXT_DATE || today)}} title="调整计划日期"><Edit2 className="h-4 w-4" /></Button>
                             <Button size="sm" onClick={() => handleOpenEntry(res)} className="h-8"><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" /> 登记结案</Button>
                           </TableCell>
                         </TableRow>
                       );
                     }) : (
-                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">当前无到期待处理任务</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic text-sm">当前无匹配的待处理任务</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -287,12 +299,12 @@ export default function FollowUpsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {followUps.map((f) => {
+                    {followUps.length > 0 ? followUps.map((f) => {
                       const person = persons.find(p => p.PERSONID === f.PERSONID)
                       return (
                         <TableRow key={f.ID} className="text-xs">
-                          <TableCell className="font-medium">{person?.PERSONNAME || '未知'}</TableCell>
-                          <TableCell className="max-w-[400px] truncate">{f.HFresult}</TableCell>
+                          <TableCell className="font-medium text-primary"><Link href={`/patients/${f.PERSONID}`} className="hover:underline">{person?.PERSONNAME || '未知'}</Link></TableCell>
+                          <TableCell className="max-w-[400px] truncate" title={f.HFresult}>{f.HFresult}</TableCell>
                           <TableCell className="font-mono">{f.SFTIME} {f.SFSJ}</TableCell>
                           <TableCell>{f.SFGZRY}</TableCell>
                           <TableCell className="text-right">
@@ -300,7 +312,9 @@ export default function FollowUpsPage() {
                           </TableCell>
                         </TableRow>
                       )
-                    })}
+                    }) : (
+                      <TableRow><TableCell colSpan={5} className="text-center py-20 text-muted-foreground italic">暂无历史结案记录</TableCell></TableRow>
+                    )}
                   </TableBody>
                 </Table>
              </CardContent>
@@ -320,7 +334,10 @@ export default function FollowUpsPage() {
           </div>
           <DialogFooter>
              <Button variant="outline" onClick={() => setEditDateResult(null)}>取消</Button>
-             <Button onClick={handleUpdateNextDate} disabled={submitting}>确认调整</Button>
+             <Button onClick={handleUpdateNextDate} disabled={submitting}>
+                {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
+                确认调整
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -329,30 +346,31 @@ export default function FollowUpsPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>随访闭环结案登记</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
-              <p>患者姓名：<span className="font-bold">{selectedResult?.PERSONNAME || '未知'}</span></p>
+            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1 border">
+              <p>患者姓名：<span className="font-bold text-primary">{selectedResult?.PERSONNAME || '未知'}</span></p>
+              <p>档案编号：<span className="font-mono">{selectedResult?.PERSONID}</span></p>
               <p>异常摘要：<span className="text-muted-foreground">"{selectedResult?.ZYYCJGXQ}"</span></p>
             </div>
             
             <div className="space-y-2">
-              <Label>回访结论详情</Label>
-              <Textarea placeholder="请详细记录沟通结果及后续处置..." className="min-h-[80px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
+              <Label>回访结论详情 <span className="text-destructive">*</span></Label>
+              <Textarea placeholder="请详细记录沟通结果及后续处置..." className="min-h-[100px]" value={followUpForm.HFresult} onChange={e => setFollowUpForm({...followUpForm, HFresult: e.target.value})} />
             </div>
 
             <div className="grid grid-cols-2 gap-6 p-4 border rounded-lg bg-muted/10">
                <div className="space-y-3">
-                 <Label className="font-bold text-xs flex items-center gap-2"><Calendar className="h-3.5 w-3.5" /> 下次随访预定</Label>
+                 <Label className="font-bold text-xs flex items-center gap-2 text-primary"><Calendar className="h-3.5 w-3.5" /> 下次随访预定</Label>
                  <Input type="date" value={followUpForm.XCSFTIME} onChange={e => setFollowUpForm({...followUpForm, XCSFTIME: e.target.value})} />
                  <div className="flex flex-col gap-2">
                     <Label className="text-[10px] text-muted-foreground font-bold">计算基准</Label>
                     <RadioGroup value={followUpForm.calculationBase} onValueChange={v => setFollowUpForm({...followUpForm, calculationBase: v as any})} className="flex gap-4">
                        <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="base-today" /><Label htmlFor="base-today" className="text-[10px]">当天</Label></div>
-                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">体检日</Label></div>
+                       <div className="flex items-center space-x-2"><RadioGroupItem value="pedate" id="base-pe" /><Label htmlFor="base-pe" className="text-[10px]">原始体检日</Label></div>
                     </RadioGroup>
                  </div>
                </div>
                <div className="space-y-2">
-                 <Label className="text-[10px] text-muted-foreground">快速选择周期</Label>
+                 <Label className="text-[10px] text-muted-foreground">快速选择周期 (基于上方基准)</Label>
                  <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(1)}>1月后</Button>
                     <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={() => handleQuickDate(3)}>3月后</Button>
@@ -377,7 +395,7 @@ export default function FollowUpsPage() {
                    <Button variant="outline" size="sm" className="h-8 text-[10px]" onClick={async () => {
                      const files = await DataService.selectLocalFiles(true);
                      if (files) setSelectedFiles(prev => [...prev, ...files]);
-                   }}>选择文件</Button>
+                   }}>选择物理文件</Button>
                 </div>
               </div>
               {selectedFiles.length > 0 && (
@@ -385,7 +403,7 @@ export default function FollowUpsPage() {
                   {selectedFiles.map((file, idx) => (
                     <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
                       <span className="truncate flex-1 mr-2">{file.name}</span>
-                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
                     </div>
                   ))}
                 </div>
@@ -393,17 +411,17 @@ export default function FollowUpsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-2"><Label>本次结案日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
+               <div className="space-y-2"><Label>结案操作日期</Label><Input type="date" value={followUpForm.SFTIME} onChange={e => setFollowUpForm({...followUpForm, SFTIME: e.target.value})} /></div>
                <div className="flex items-center space-x-2 pt-8">
                   <Checkbox id="jcsf" checked={followUpForm.jcsf} onCheckedChange={(v) => setFollowUpForm({...followUpForm, jcsf: !!v})} />
-                  <Label htmlFor="jcsf" className="text-xs">标记为：已完成必要复查</Label>
+                  <Label htmlFor="jcsf" className="text-xs font-bold text-primary">标记为：已完成医学复查</Label>
                </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedResult(null)}>取消</Button>
             <Button onClick={handleCompleteTask} disabled={submitting}>
-              {submitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+              {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
               确认结案并同步中心库
             </Button>
           </DialogFooter>

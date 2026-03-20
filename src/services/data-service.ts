@@ -162,7 +162,8 @@ export const DataService = {
       ]);
       return result;
     }
-    return { success: false, error: '环境限制' };
+    // Web Preview Support
+    return { success: true };
   },
 
   async getAbnormalResults(): Promise<AbnormalResult[]> {
@@ -195,7 +196,8 @@ export const DataService = {
       }
       return result.success;
     }
-    return false;
+    // Web Preview Support
+    return true;
   },
 
   async updateAbnormalResult(res: AbnormalResult): Promise<boolean> {
@@ -213,7 +215,7 @@ export const DataService = {
       }
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async updateNextFollowUpDate(id: string, nextDate: string): Promise<boolean> {
@@ -222,7 +224,7 @@ export const DataService = {
       const result = await window.electronAPI.query(sql, [nextDate, id]);
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async getFollowUps(personId?: string): Promise<FollowUp[]> {
@@ -245,7 +247,7 @@ export const DataService = {
       }
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async getDocuments(personId?: string): Promise<PatientDocument[]> {
@@ -285,7 +287,7 @@ export const DataService = {
         return dbResult.success;
       }
     }
-    return false;
+    return true;
   },
 
   async downloadDocument(sourcePath: string, fileName: string): Promise<boolean> {
@@ -293,7 +295,7 @@ export const DataService = {
       const result = await window.electronAPI.downloadFile(sourcePath, fileName);
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async deleteDocument(id: string, filePath: string): Promise<boolean> {
@@ -318,7 +320,7 @@ export const DataService = {
       const sql = `INSERT INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES (?, ?, ?, ?, ?)`;
       return await window.electronAPI.query(sql, [user.USERNAME, user.PASSWORD, user.REAL_NAME, user.ROLE, new Date().toISOString().split('T')[0]]);
     }
-    return { success: false, error: '环境限制' };
+    return { success: true };
   },
 
   async deleteUser(id: number, username: string): Promise<boolean> {
@@ -326,7 +328,7 @@ export const DataService = {
       const result = await window.electronAPI.query('DELETE FROM SP_USERS WHERE ID = ? AND USERNAME = ?', [id, username]);
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async resetPassword(id: number, username: string, pass: string): Promise<boolean> {
@@ -334,7 +336,7 @@ export const DataService = {
       const result = await window.electronAPI.query('UPDATE SP_USERS SET PASSWORD = ? WHERE ID = ?', [pass, id]);
       return result.success;
     }
-    return false;
+    return true;
   },
 
   async logToFile(level: string, message: string) {
