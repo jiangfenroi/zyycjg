@@ -46,7 +46,7 @@ async function initDB(config) {
       try { await dbConnection.end(); } catch (e) {}
     }
 
-    writeLog('INFO', `尝试连接中心数据库: ${config.host}`);
+    writeLog('INFO', `尝试连接中心数据库: ${config.host}:${config.port}`);
 
     dbConnection = await mysql.createConnection({
       host: config.host,
@@ -104,6 +104,7 @@ async function initDB(config) {
         ZYYCJGTJBH VARCHAR(50),
         HFRESULT TEXT,
         SFTIME DATE,
+        SFSJ VARCHAR(20),
         SFGZRY VARCHAR(50),
         jcsf TINYINT(1) DEFAULT 0,
         XCSFTIME DATE
@@ -129,7 +130,6 @@ async function initDB(config) {
       await dbConnection.execute(sql);
     }
 
-    // 初始化默认数据
     await dbConnection.execute("INSERT IGNORE INTO SP_SETTINGS (CONF_KEY, CONF_VALUE) VALUES ('SYSTEM_NAME', 'MediTrack Connect')");
     await dbConnection.execute("INSERT IGNORE INTO SP_USERS (USERNAME, PASSWORD, REAL_NAME, ROLE, CREATE_DATE) VALUES ('admin', '123456', '系统管理员', 'admin', CURDATE())");
 

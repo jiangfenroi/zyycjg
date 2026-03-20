@@ -38,6 +38,7 @@ export interface FollowUp {
   ZYYCJGTJBH?: string;
   HFresult: string;
   SFTIME: string;
+  SFSJ?: string;
   SFGZRY: string;
   jcsf: boolean;
   XCSFTIME?: string;

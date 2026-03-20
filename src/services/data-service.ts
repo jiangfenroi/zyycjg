@@ -178,10 +178,10 @@ export const DataService = {
 
   async addFollowUp(followUp: FollowUp): Promise<boolean> {
     if (isElectron) {
-      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFGZRY, jcsf, XCSFTIME) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const sql = `INSERT INTO SP_SF (ID, PERSONID, ZYYCJGTJBH, HFresult, SFTIME, SFSJ, SFGZRY, jcsf, XCSFTIME) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
       const result = await window.electronAPI.query(sql, [
-        followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
+        followUp.ID, followUp.PERSONID, followUp.ZYYCJGTJBH || '', followUp.HFresult, followUp.SFTIME, followUp.SFSJ || '', followUp.SFGZRY, followUp.jcsf ? 1 : 0, followUp.XCSFTIME || null
       ]);
       if (!result.success) {
         if (result.error === 'NO_CONNECTION' || result.error === 'NO_CONFIG') handleConnectionError(result.error);
