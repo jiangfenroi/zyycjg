@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { AbnormalResult, Person } from '@/lib/types'
@@ -25,6 +25,15 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { DataService } from '@/services/data-service'
 import { Checkbox } from '@/components/ui/checkbox'
 import Link from 'next/link'
+
+// 随访日期推算辅助函数：默认 7 天后
+const addDays = (dateStr: string, days: number) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+};
 
 export default function AbnormalResultsPage() {
   const { toast } = useToast()
@@ -35,7 +44,6 @@ export default function AbnormalResultsPage() {
   const [submitting, setSubmitting] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
   
-  // 文件上传状态
   const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
 
   const [formData, setFormData] = React.useState({
@@ -50,7 +58,6 @@ export default function AbnormalResultsPage() {
     WORKER: '',
     ZYYCJGBTZR: '',
     NEXT_DATE: '',
-    IS_HEALTH_EDU: true,
     IS_NOTIFIED: true,
   })
 
@@ -75,35 +82,23 @@ export default function AbnormalResultsPage() {
     if (isDialogOpen) {
       const storedUser = localStorage.getItem('currentUser');
       const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
+      const today = new Date().toISOString().split('T')[0];
       setFormData(prev => ({
         ...prev,
-        ZYYCJGTZRQ: new Date().toISOString().split('T')[0],
+        ZYYCJGTZRQ: today,
         ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+        NEXT_DATE: addDays(today, 7), // 默认 7 天后随访
         WORKER: realName
       }))
       setSelectedFiles([])
     }
   }, [isDialogOpen])
 
-  const filteredResults = results.filter(res => {
-    const searchLower = searchTerm.toLowerCase();
-    const personName = res.PERSONNAME || '';
-    return (
-      res.PERSONID.toLowerCase().includes(searchLower) || 
-      (res.TJBHID || '').toLowerCase().includes(searchLower) ||
-      personName.toLowerCase().includes(searchLower)
-    );
-  })
-
   const handleSelectFiles = async () => {
     const files = await DataService.selectLocalFiles(true);
     if (files && files.length > 0) {
       setSelectedFiles(prev => [...prev, ...files]);
     }
-  }
-
-  const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   }
 
   const handleSubmit = async () => {
@@ -113,13 +108,13 @@ export default function AbnormalResultsPage() {
     }
     setSubmitting(true)
     try {
-      // 1. 检查档案是否存在，不存在则自动创建
+      // 1. 自动建档检查
       const patients = await DataService.getPatients()
       const exists = patients.some(p => p.PERSONID === formData.PERSONID)
       if (!exists) {
         await DataService.addPatient({
           PERSONID: formData.PERSONID,
-          PERSONNAME: '新登记患者',
+          PERSONNAME: '待补全患者',
           SEX: '男',
           AGE: 0,
           PHONE: '',
@@ -128,7 +123,7 @@ export default function AbnormalResultsPage() {
         } as Person)
       }
 
-      // 2. 存储异常结果流水
+      // 2. 存储异常记录
       const resultId = `R${Date.now()}`;
       const success = await DataService.addAbnormalResult({ 
         ...formData, 
@@ -136,19 +131,14 @@ export default function AbnormalResultsPage() {
       } as AbnormalResult)
       
       if (success) {
-        // 3. 处理多文件上传
+        // 3. 处理附件同步
         if (selectedFiles.length > 0) {
-          toast({ title: "同步处理中", description: `正在同步 ${selectedFiles.length} 个附件至中心库...` });
           for (const file of selectedFiles) {
-            try {
-              await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
-            } catch (err: any) {
-              toast({ variant: "destructive", title: "附件同步异常", description: `${file.name}: ${err.message}` });
-            }
+            await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
           }
         }
 
-        toast({ title: "登记成功", description: "流水及附件已同步至中心远程库" })
+        toast({ title: "登记成功", description: "记录及附件已物理同步至中心库" })
         setIsDialogOpen(false)
         loadData()
       }
@@ -157,6 +147,11 @@ export default function AbnormalResultsPage() {
     }
   }
 
+  const filteredResults = results.filter(res => {
+    const s = searchTerm.toLowerCase();
+    return res.PERSONID.toLowerCase().includes(s) || (res.PERSONNAME || '').includes(s);
+  })
+
   if (!isMounted) return null
 
   return (
@@ -164,79 +159,75 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1">记录全院临床发现的重要异常流水并同步体检报告</p>
+          <p className="text-muted-foreground mt-1">临床发现流水记录，自动推算 7 天随访周期</p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>重要异常结果中心化登记</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" /></div>
-                  <div className="space-y-2"><Label>体检编号</Label><Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} /></div>
-                </div>
-                <div className="space-y-2"><Label>异常详情</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-destructive font-bold">预定下次随访日期</Label>
-                    <Input type="date" value={formData.NEXT_DATE} className="border-destructive/20" onChange={e => setFormData({...formData, NEXT_DATE: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>结果分类</Label>
-                    <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="A">A类</SelectItem><SelectItem value="B">B类</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
-                  <div className="flex justify-between items-center">
-                    <Label className="font-bold flex items-center gap-2"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
-                    <Button variant="outline" size="sm" onClick={handleSelectFiles}>选择本地文件</Button>
-                  </div>
-                  {selectedFiles.length > 0 ? (
-                    <div className="grid gap-2">
-                      {selectedFiles.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
-                          <span className="truncate flex-1 mr-2">{file.name}</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => removeFile(idx)}><X className="h-3 w-3" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-center text-xs text-muted-foreground italic">暂无待同步附件</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2"><Label>经办人员</Label><Input value={formData.WORKER} readOnly className="bg-muted" /></div>
-                  <div className="flex items-center gap-2 pt-8 col-span-2">
-                    <Checkbox id="notified" checked={formData.IS_NOTIFIED} onCheckedChange={(v) => setFormData({...formData, IS_NOTIFIED: !!v})} />
-                    <Label htmlFor="notified">已完成首诊通知及健康宣教</Label>
-                  </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>中心化业务登记</DialogTitle></DialogHeader>
+            <div className="grid gap-4 py-4 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" /></div>
+                <div className="space-y-2">
+                  <Label>通知日期</Label>
+                  <Input 
+                    type="date" 
+                    value={formData.ZYYCJGTZRQ} 
+                    onChange={e => setFormData({
+                      ...formData, 
+                      ZYYCJGTZRQ: e.target.value,
+                      NEXT_DATE: addDays(e.target.value, 7) // 联动更新随访日期
+                    })} 
+                  />
                 </div>
               </div>
-              <DialogFooter>
-                <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12">
-                   {submitting ? <Loader2 className="animate-spin mr-2" /> : null}
-                   确认登记并同步中心库
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className="space-y-2"><Label>异常详情摘要</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-destructive font-bold">预定下次随访日期 (默认 T+7)</Label>
+                  <Input type="date" value={formData.NEXT_DATE} className="border-destructive/30" onChange={e => setFormData({...formData, NEXT_DATE: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>结果分类</Label>
+                  <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="A">A类 (即时)</SelectItem><SelectItem value="B">B类 (常规)</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
+                <div className="flex justify-between items-center">
+                  <Label className="font-bold flex items-center gap-2"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
+                  <Button variant="outline" size="sm" onClick={handleSelectFiles}>选择本地文件</Button>
+                </div>
+                {selectedFiles.length > 0 && (
+                  <div className="grid gap-2">
+                    {selectedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
+                        <span className="truncate flex-1 mr-2">{file.name}</span>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleSubmit} disabled={submitting} className="w-full h-12">
+                 {submitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                 确认登记并同步中心库
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
         <CardHeader className="pb-3 border-b">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">全院登记流水</CardTitle>
-            <div className="relative w-80">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="检索姓名、编号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-            </div>
+          <div className="relative w-80">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="检索姓名、编号..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -250,7 +241,7 @@ export default function AbnormalResultsPage() {
                   <TableHead className="min-w-[250px]">异常详情</TableHead>
                   <TableHead className="w-[120px] text-destructive font-bold">预定随访</TableHead>
                   <TableHead className="w-[110px]">登记日期</TableHead>
-                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">档案</TableHead>
+                  <TableHead className="w-[80px] sticky right-0 bg-background text-right">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

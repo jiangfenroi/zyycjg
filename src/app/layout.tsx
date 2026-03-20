@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Metadata } from "next"
 import './globals.css';
@@ -5,8 +6,8 @@ import { AuthWrapper } from '@/components/auth-wrapper';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'MediTrack Connect',
-  description: '医疗闭环管理系统',
+  title: '重要异常结果管理系统',
+  description: '全院中心化重要异常结果闭环管理工具',
 }
 
 export default function RootLayout({

@@ -1,7 +1,7 @@
 
 {
-  "name": "meditrack-connect",
-  "version": "0.1.0",
+  "name": "important-abnormal-result-management-system",
+  "version": "1.0.0",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -65,8 +65,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.meditrack.connect",
-    "productName": "MediTrack Connect",
+    "appId": "com.hospital.abnormaltrack",
+    "productName": "重要异常结果管理系统",
     "directories": {
       "output": "dist"
     },
@@ -79,7 +79,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MediTrack Connect"
+      "shortcutName": "重要异常结果管理系统"
     },
     "files": [
       "out/**/*",

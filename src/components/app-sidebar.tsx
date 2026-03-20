@@ -9,11 +9,11 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { DataService } from "@/services/data-service"
 
 const navigation = [
-  { name: "工作台", href: "/", icon: LayoutDashboard },
-  { name: "重要异常结果登记", href: "/abnormal-results", icon: AlertCircle },
-  { name: "随访管理工作台", href: "/follow-ups", icon: History },
-  { name: "患者档案检索", href: "/patients", icon: Users },
-  { name: "报告附件查询", href: "/reports", icon: FileText },
+  { name: "全院工作台", href: "/", icon: LayoutDashboard },
+  { name: "异常结果登记", href: "/abnormal-results", icon: AlertCircle },
+  { name: "随访任务管理", href: "/follow-ups", icon: History },
+  { name: "病历档案检索", href: "/patients", icon: Users },
+  { name: "电子报告中心", href: "/reports", icon: FileText },
 ]
 
 export function AppSidebar() {
@@ -73,7 +73,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === '/settings/system'} tooltip="配置中心" className="h-11 px-4">
+                  <SidebarMenuButton asChild isActive={pathname.startsWith('/settings/system')} tooltip="全院管理中心" className="h-11 px-4">
                     <Link href="/settings/system"><Settings className="size-5" /><span>全院管理中心</span></Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -91,12 +91,12 @@ export function AppSidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs">{user?.REAL_NAME?.charAt(0)}</div>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
               <span className="text-xs font-bold truncate">{user?.REAL_NAME}</span>
               <span className="text-[10px] opacity-50 uppercase">{user?.ROLE}</span>
             </div>
           </div>
-          <button onClick={() => { localStorage.removeItem('currentUser'); router.push('/login'); }} className="p-1 hover:bg-destructive/20 rounded-md text-destructive">
+          <button onClick={() => { localStorage.removeItem('currentUser'); router.push('/login'); }} className="p-1 hover:bg-destructive/20 rounded-md text-destructive ml-2">
             <LogOut className="h-4 w-4" />
           </button>
         </div>

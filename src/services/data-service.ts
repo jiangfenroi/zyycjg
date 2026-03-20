@@ -22,6 +22,11 @@ declare global {
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export const DataService = {
+  /**
+   * 彻底移除所有模拟数据和 localStorage 逻辑。
+   * 系统现在仅通过 Electron 原生 API 与远程数据库交互。
+   */
+
   async getSystemSettings(): Promise<SystemSettings> {
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
@@ -225,5 +230,11 @@ export const DataService = {
       return result.success;
     }
     return false;
+  },
+
+  async logToFile(level: string, message: string) {
+    if (isElectron) {
+      await window.electronAPI.log(level, message);
+    }
   }
 };
