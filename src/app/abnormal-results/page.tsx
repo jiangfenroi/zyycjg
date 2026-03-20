@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from 'react'
-import { Plus, Search, Eye, Loader2, FileUp, X, RefreshCw } from 'lucide-react'
+import { Plus, Search, Eye, Loader2, FileUp, X, RefreshCw, Edit2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +41,7 @@ export default function AbnormalResultsPage() {
   const [searchTerm, setSearchTerm] = React.useState('')
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
+  const [editId, setEditId] = React.useState<string | null>(null)
   
   const [selectedFiles, setSelectedFiles] = React.useState<{path: string, name: string}[]>([])
 
@@ -74,21 +76,48 @@ export default function AbnormalResultsPage() {
     loadData()
   }, [loadData])
 
-  React.useEffect(() => {
-    if (isDialogOpen) {
-      const storedUser = localStorage.getItem('currentUser');
-      const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
-      const today = new Date().toISOString().split('T')[0];
-      setFormData(prev => ({
-        ...prev,
-        ZYYCJGTZRQ: today,
-        ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
-        NEXT_DATE: addDays(today, 7), 
-        WORKER: realName
-      }))
-      setSelectedFiles([])
-    }
-  }, [isDialogOpen])
+  const handleOpenAdd = () => {
+    setEditId(null)
+    const storedUser = localStorage.getItem('currentUser');
+    const realName = storedUser ? JSON.parse(storedUser).REAL_NAME : '操作员';
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({
+      PERSONID: '',
+      TJBHID: '',
+      ZYYCJGXQ: '',
+      ZYYCJGFL: 'A',
+      ZYYCJGCZYJ: '', 
+      ZYYCJGFKJG: '',
+      ZYYCJGTZRQ: today,
+      ZYYCJGTZSJ: new Date().toTimeString().slice(0, 5),
+      WORKER: realName,
+      ZYYCJGBTZR: '',
+      NEXT_DATE: addDays(today, 7),
+      IS_NOTIFIED: true
+    })
+    setSelectedFiles([])
+    setIsDialogOpen(true)
+  }
+
+  const handleOpenEdit = (res: AbnormalResult) => {
+    setEditId(res.ID)
+    setFormData({
+      PERSONID: res.PERSONID,
+      TJBHID: res.TJBHID || '',
+      ZYYCJGXQ: res.ZYYCJGXQ,
+      ZYYCJGFL: res.ZYYCJGFL,
+      ZYYCJGCZYJ: res.ZYYCJGCZYJ || '', 
+      ZYYCJGFKJG: res.ZYYCJGFKJG || '',
+      ZYYCJGTZRQ: res.ZYYCJGTZRQ,
+      ZYYCJGTZSJ: res.ZYYCJGTZSJ,
+      WORKER: res.WORKER,
+      ZYYCJGBTZR: res.ZYYCJGBTZR || '',
+      NEXT_DATE: res.NEXT_DATE || addDays(res.ZYYCJGTZRQ, 7),
+      IS_NOTIFIED: res.IS_NOTIFIED
+    })
+    setSelectedFiles([])
+    setIsDialogOpen(true)
+  }
 
   const handleSelectFiles = async () => {
     const files = await DataService.selectLocalFiles(true);
@@ -104,37 +133,48 @@ export default function AbnormalResultsPage() {
     }
     setSubmitting(true)
     try {
-      const patients = await DataService.getPatients()
-      const exists = patients.some(p => p.PERSONID === formData.PERSONID)
-      if (!exists) {
-        await DataService.addPatient({
-          PERSONID: formData.PERSONID,
-          PERSONNAME: '待补全患者',
-          SEX: '男',
-          AGE: 0,
-          PHONE: '',
-          OCCURDATE: new Date().toISOString().split('T')[0],
-          OPTNAME: formData.WORKER
-        } as Person)
-      }
-
-      const resultId = `R${Date.now()}`;
-      const success = await DataService.addAbnormalResult({ 
-        ...formData, 
-        ID: resultId 
-      } as AbnormalResult)
-      
-      if (success) {
-        if (selectedFiles.length > 0) {
-          for (const file of selectedFiles) {
-            await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
-          }
+      if (!editId) {
+        // 新增逻辑
+        const patients = await DataService.getPatients()
+        const exists = patients.some(p => p.PERSONID === formData.PERSONID)
+        if (!exists) {
+          await DataService.addPatient({
+            PERSONID: formData.PERSONID,
+            PERSONNAME: '待补全患者',
+            SEX: '男',
+            AGE: 0,
+            PHONE: '',
+            OCCURDATE: new Date().toISOString().split('T')[0],
+            OPTNAME: formData.WORKER
+          } as Person)
         }
 
-        toast({ title: "登记成功", description: "记录及附件已同步" })
-        setIsDialogOpen(false)
-        loadData(true)
+        const resultId = `R${Date.now()}`;
+        const success = await DataService.addAbnormalResult({ 
+          ...formData, 
+          ID: resultId 
+        } as AbnormalResult)
+        
+        if (success) {
+          if (selectedFiles.length > 0) {
+            for (const file of selectedFiles) {
+              await DataService.uploadDocument(file.path, formData.PERSONID, 'PE_REPORT', formData.ZYYCJGTZRQ);
+            }
+          }
+          toast({ title: "登记成功", description: "记录及附件已同步" })
+        }
+      } else {
+        // 编辑逻辑
+        const success = await DataService.updateAbnormalResult({
+          ...formData,
+          ID: editId
+        } as AbnormalResult)
+        if (success) {
+          toast({ title: "修改成功", description: "业务流水已物理更新" })
+        }
       }
+      setIsDialogOpen(false)
+      loadData(true)
     } finally {
       setSubmitting(false)
     }
@@ -152,72 +192,13 @@ export default function AbnormalResultsPage() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">重要异常结果登记</h1>
-          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，自动推算 7 天随访周期</p>
+          <p className="text-muted-foreground mt-1 text-sm">临床发现流水记录，基于体检日期 (T+365) 与通知日期 (T+7) 双核预警</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" /> 新增登记</Button></DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>中心化业务登记</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>档案编号</Label><Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" /></div>
-                  <div className="space-y-2">
-                    <Label>通知日期</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.ZYYCJGTZRQ} 
-                      onChange={e => setFormData({
-                        ...formData, 
-                        ZYYCJGTZRQ: e.target.value,
-                        NEXT_DATE: addDays(e.target.value, 7) 
-                      })} 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2"><Label>异常详情摘要</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-destructive font-bold">预定下次随访日期 (默认 T+7)</Label>
-                    <Input type="date" value={formData.NEXT_DATE} className="border-destructive/30" onChange={e => setFormData({...formData, NEXT_DATE: e.target.value})} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>结果分类</Label>
-                    <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent><SelectItem value="A">A类 (即时)</SelectItem><SelectItem value="B">B类 (常规)</SelectItem></SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
-                  <div className="flex justify-between items-center">
-                    <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleSelectFiles}>选择本地文件</Button>
-                  </div>
-                  {selectedFiles.length > 0 && (
-                    <div className="grid gap-2">
-                      {selectedFiles.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
-                          <span className="truncate flex-1 mr-2">{file.name}</span>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleSubmit} disabled={submitting} className="w-full h-11">
-                   {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                   确认登记并同步中心库
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button size="sm" onClick={handleOpenAdd}><Plus className="mr-2 h-4 w-4" /> 新增登记</Button>
         </div>
       </div>
 
@@ -235,11 +216,11 @@ export default function AbnormalResultsPage() {
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[120px] text-xs">档案编号</TableHead>
                   <TableHead className="w-[100px] text-xs">姓名</TableHead>
+                  <TableHead className="w-[120px] text-xs">体检编号</TableHead>
                   <TableHead className="w-[80px] text-xs">分类</TableHead>
-                  <TableHead className="min-w-[250px] text-xs">异常详情</TableHead>
-                  <TableHead className="w-[120px] text-xs text-destructive font-bold">预定随访</TableHead>
-                  <TableHead className="w-[110px] text-xs">登记日期</TableHead>
-                  <TableHead className="w-[60px] sticky right-0 bg-background text-right text-xs">操作</TableHead>
+                  <TableHead className="min-w-[200px] text-xs">异常详情</TableHead>
+                  <TableHead className="w-[110px] text-xs">通知日期</TableHead>
+                  <TableHead className="w-[100px] sticky right-0 bg-background text-right text-xs">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -255,12 +236,13 @@ export default function AbnormalResultsPage() {
                   <TableRow key={res.ID} className="text-[11px] h-11">
                     <TableCell className="font-mono">{res.PERSONID}</TableCell>
                     <TableCell className="font-medium text-primary"><Link href={`/patients/${res.PERSONID}`} className="hover:underline">{res.PERSONNAME || '未知'}</Link></TableCell>
+                    <TableCell className="font-mono text-muted-foreground">{res.TJBHID || '-'}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-[9px] px-1.5 py-0">{res.ZYYCJGFL}类</Badge></TableCell>
-                    <TableCell className="max-w-[250px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
-                    <TableCell className="font-mono text-destructive font-bold">{res.NEXT_DATE || '-'}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={res.ZYYCJGXQ}>{res.ZYYCJGXQ}</TableCell>
                     <TableCell className="font-mono text-muted-foreground">{res.ZYYCJGTZRQ}</TableCell>
-                    <TableCell className="sticky right-0 bg-background text-right">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`}><Eye className="h-3.5 w-3.5" /></Link></Button>
+                    <TableCell className="sticky right-0 bg-background text-right flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEdit(res)} title="编辑记录"><Edit2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild><Link href={`/patients/${res.PERSONID}`} title="查看详情"><Eye className="h-3.5 w-3.5" /></Link></Button>
                     </TableCell>
                   </TableRow>
                 )) : (
@@ -272,6 +254,71 @@ export default function AbnormalResultsPage() {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editId ? '编辑业务流水' : '中心化业务登记'}</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4 text-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>档案编号</Label>
+                <Input value={formData.PERSONID} onChange={e => setFormData({...formData, PERSONID: e.target.value})} placeholder="输入编号" disabled={!!editId} />
+              </div>
+              <div className="space-y-2">
+                <Label>体检编号 (解析年度复查基准日期)</Label>
+                <Input value={formData.TJBHID} onChange={e => setFormData({...formData, TJBHID: e.target.value})} placeholder="如 202501020001" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>通知日期 (初次随访 T+7 基准)</Label>
+                <Input 
+                  type="date" 
+                  value={formData.ZYYCJGTZRQ} 
+                  onChange={e => setFormData({
+                    ...formData, 
+                    ZYYCJGTZRQ: e.target.value,
+                    NEXT_DATE: addDays(e.target.value, 7) 
+                  })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>结果分类</Label>
+                <Select value={formData.ZYYCJGFL} onValueChange={v => setFormData({...formData, ZYYCJGFL: v as any})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="A">A类 (即时)</SelectItem><SelectItem value="B">B类 (常规)</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2"><Label>异常详情摘要</Label><Textarea value={formData.ZYYCJGXQ} onChange={e => setFormData({...formData, ZYYCJGXQ: e.target.value})} className="min-h-[100px]" /></div>
+            
+            {!editId && (
+              <div className="p-4 border-2 border-dashed rounded-lg space-y-4 bg-muted/20">
+                <div className="flex justify-between items-center">
+                  <Label className="font-bold flex items-center gap-2 text-xs"><FileUp className="h-4 w-4" /> 关联体检报告附件 (PDF)</Label>
+                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleSelectFiles}>选择本地文件</Button>
+                </div>
+                {selectedFiles.length > 0 && (
+                  <div className="grid gap-2">
+                    {selectedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-background rounded border text-[10px]">
+                        <span className="truncate flex-1 mr-2">{file.name}</span>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSubmit} disabled={submitting} className="w-full h-11">
+               {submitting ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
+               {editId ? '保存修改并同步' : '确认登记并同步中心库'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

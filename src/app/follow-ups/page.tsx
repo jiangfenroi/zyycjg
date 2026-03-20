@@ -96,17 +96,21 @@ export default function FollowUpsPage() {
 
   const today = new Date().toISOString().split('T')[0]
 
-  // 待处理随访逻辑升级：包含 T+7 和年度复查逻辑，且过滤已死亡患者
+  // 待处理随访逻辑：通知日期 + 7天 (初次) | 体检日期 + 365天 (年度)
   const pendingResults = React.useMemo(() => abnormalResults.filter(res => {
-    // 过滤掉已死亡的患者
     if (res.STATUS === 'deceased') return false;
 
     const recordFollowUps = followUps.filter(f => f.PERSONID === res.PERSONID && f.ZYYCJGTJBH === res.TJBHID);
+    
+    // 逻辑 1：初次随访 (T[通知日期] + 7)
     const hasInitialFollowUp = recordFollowUps.length > 0;
-    const oneYearMark = addYears(res.ZYYCJGTZRQ, 1);
-    const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+    const initialTargetDate = res.NEXT_DATE || addYears(res.ZYYCJGTZRQ, 0); // fallback to TZ date if no next_date
+    const isInitialPending = !hasInitialFollowUp && initialTargetDate <= today;
 
-    const isInitialPending = !hasInitialFollowUp && (res.NEXT_DATE && res.NEXT_DATE <= today);
+    // 逻辑 2：年度复查 (T[体检日期] + 365)
+    const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
+    const oneYearMark = addYears(peDate, 1);
+    const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
     const isAnnualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
     return isInitialPending || isAnnualPending;
@@ -177,7 +181,7 @@ export default function FollowUpsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">随访闭环工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · 过滤已死亡档案</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">临床路径驱动 · 死亡档案自动停办</p>
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => loadData()} disabled={loading}>
@@ -214,7 +218,8 @@ export default function FollowUpsPage() {
                     {loading && abnormalResults.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-primary" /></TableCell></TableRow>
                     ) : filteredPending.length > 0 ? filteredPending.map((res) => {
-                      const oneYearMark = addYears(res.ZYYCJGTZRQ, 1);
+                      const peDate = DataService.getPEDateFromID(res.TJBHID || '', res.ZYYCJGTZRQ);
+                      const oneYearMark = addYears(peDate, 1);
                       const isAnnual = today >= oneYearMark;
                       return (
                         <TableRow key={res.ID} className="text-xs">

@@ -66,16 +66,19 @@ export default function Dashboard() {
     const bClass = results.filter(r => r.ZYYCJGFL === 'B').length
     const today = new Date().toISOString().split('T')[0]
     
-    // 待处理随访逻辑：包含 T+7 与年度自动提醒，并物理过滤已死亡档案
     const pending = results.filter(r => {
       if (r.STATUS === 'deceased') return false;
 
       const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
+      
+      // 初次随访 (T[通知] + 7)
       const hasInitialFollowUp = recordFollowUps.length > 0;
-      const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
-      const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+      const initialPending = !hasInitialFollowUp && (r.NEXT_DATE || r.ZYYCJGTZRQ) <= today;
 
-      const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
+      // 年度复查 (T[体检] + 365)
+      const peDate = DataService.getPEDateFromID(r.TJBHID || '', r.ZYYCJGTZRQ);
+      const oneYearMark = addYears(peDate, 1);
+      const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
       const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
       return initialPending || annualPending;
@@ -125,7 +128,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-primary">全院工作台</h1>
-          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">重要异常结果中心化数据库管理流水</p>
+          <p className="text-muted-foreground mt-1 text-sm font-bold uppercase tracking-widest">重要异常结果中心化管理流水</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" onClick={loadDashboardData} disabled={loading} title="从中心数据库同步全量数据">
@@ -141,7 +144,7 @@ export default function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {[
           { title: "全院建档量", value: stats.totalPatients, icon: Users, color: "primary", label: "中心库档案总数" },
-          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "已物理过滤死亡档案" },
+          { title: "到期待随访", value: stats.pendingFollowUps, icon: AlertCircle, color: "destructive", label: "含年度自动提醒" },
           { title: "随访闭环率", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "secondary", label: `累计结案 ${stats.completedFollowUps} 例`, detail: true },
           { title: "异常结果登记", value: stats.totalResults, icon: TrendingUp, color: "amber-500", label: "全量历史登记流水" }
         ].map((item, idx) => (

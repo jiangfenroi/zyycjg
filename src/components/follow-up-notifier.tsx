@@ -37,19 +37,22 @@ export function FollowUpNotifier() {
       
       const today = new Date().toISOString().split('T')[0]
       const pending = results.filter(r => {
-        // 核心拦截逻辑：已死亡档案不进入预警队列
         if (r.STATUS === 'deceased') return false;
 
         const recordFollowUps = followUps.filter(f => f.PERSONID === r.PERSONID && f.ZYYCJGTJBH === r.TJBHID);
+        
+        // 1. 初次随访 (T[通知日期] + 7)
         const hasInitialFollowUp = recordFollowUps.length > 0;
-        const oneYearMark = addYears(r.ZYYCJGTZRQ, 1);
+        const initialTargetDate = r.NEXT_DATE || addYears(r.ZYYCJGTZRQ, 0);
+        const isInitialPending = !hasInitialFollowUp && initialTargetDate <= today;
+
+        // 2. 年度复查 (T[体检日期] + 365)
+        const peDate = DataService.getPEDateFromID(r.TJBHID || '', r.ZYYCJGTZRQ);
+        const oneYearMark = addYears(peDate, 1);
         const hasAnnualFollowUp = recordFollowUps.some(f => f.SFTIME >= oneYearMark);
+        const isAnnualPending = today >= oneYearMark && !hasAnnualFollowUp;
 
-        // A/B 类同等对待：触发逻辑一致
-        const initialPending = !hasInitialFollowUp && r.NEXT_DATE && r.NEXT_DATE <= today;
-        const annualPending = today >= oneYearMark && !hasAnnualFollowUp;
-
-        return initialPending || annualPending;
+        return isInitialPending || isAnnualPending;
       })
       
       setTasks(pending)
@@ -62,7 +65,7 @@ export function FollowUpNotifier() {
 
   React.useEffect(() => {
     loadTasks()
-    const timer = setInterval(() => loadTasks(true), 300000) // 5分钟自动静默同步
+    const timer = setInterval(() => loadTasks(true), 300000) 
     return () => clearInterval(timer)
   }, [loadTasks])
 
@@ -99,18 +102,20 @@ export function FollowUpNotifier() {
               <div className="py-8 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-primary" /></div>
             ) : tasks.length > 0 ? tasks.map((task) => {
               const today = new Date().toISOString().split('T')[0];
-              const isAnnual = today >= addYears(task.ZYYCJGTZRQ, 1);
+              const peDate = DataService.getPEDateFromID(task.TJBHID || '', task.ZYYCJGTZRQ);
+              const oneYearMark = addYears(peDate, 1);
+              const isAnnual = today >= oneYearMark;
               return (
                 <Link key={task.ID} href="/follow-ups" className="flex flex-col p-3 rounded-md hover:bg-accent border-b last:border-0 transition-colors">
                   <div className="flex justify-between items-start">
                     <span className="text-xs font-bold">{task.PERSONNAME || task.PERSONID}</span>
                     <Badge variant={isAnnual ? "destructive" : "secondary"} className="text-[9px] px-1.5 h-4">
-                      {isAnnual ? '年度复查' : `${task.ZYYCJGFL}类异常`}
+                      {isAnnual ? '年度复查' : '初次随访'}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-end mt-2">
                      <span className="text-[9px] font-bold text-destructive">
-                        应结案日期: {isAnnual ? addYears(task.ZYYCJGTZRQ, 1) : task.NEXT_DATE}
+                        应结案日期: {isAnnual ? oneYearMark : (task.NEXT_DATE || task.ZYYCJGTZRQ)}
                      </span>
                      <span className="text-[8px] text-muted-foreground font-mono">{task.TJBHID}</span>
                   </div>

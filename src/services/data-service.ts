@@ -25,16 +25,24 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 let cachedSettings: SystemSettings | null = null;
 
 export const DataService = {
-  // 年龄计算核心逻辑：支持 18 位身份证自动识别与建档周期递增
+  // 从体检编号中解析体检日期 (YYYYMMDDXXXX)
+  getPEDateFromID(tjbhid: string, fallback: string): string {
+    if (!tjbhid || tjbhid.length < 8) return fallback;
+    const y = tjbhid.substring(0, 4);
+    const m = tjbhid.substring(4, 6);
+    const d = tjbhid.substring(6, 8);
+    const dateStr = `${y}-${m}-${d}`;
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? fallback : dateStr;
+  },
+
+  // 年龄计算核心逻辑
   calculateCurrentAge(person: Person): number {
     const today = new Date();
-    
-    // 优先级 1: 身份证驱动 (18位)
     if (person.IDNO && person.IDNO.length === 18) {
       const birthYear = parseInt(person.IDNO.substring(6, 10));
       const birthMonth = parseInt(person.IDNO.substring(10, 12)) - 1;
       const birthDay = parseInt(person.IDNO.substring(12, 14));
-      
       const birthDate = new Date(birthYear, birthMonth, birthDay);
       let age = today.getFullYear() - birthDate.getFullYear();
       const m = today.getMonth() - birthDate.getMonth();
@@ -43,12 +51,9 @@ export const DataService = {
       }
       return age;
     }
-
-    // 优先级 2: 建档日期推算驱动 (周年递增)
     if (person.OCCURDATE && person.AGE !== undefined) {
       const occurDate = new Date(person.OCCURDATE);
       const yearDiff = today.getFullYear() - occurDate.getFullYear();
-      
       const anniversaryThisYear = new Date(today.getFullYear(), occurDate.getMonth(), occurDate.getDate());
       let ageIncrement = yearDiff;
       if (today < anniversaryThisYear) {
@@ -56,39 +61,28 @@ export const DataService = {
       }
       return person.AGE + Math.max(0, ageIncrement);
     }
-
     return person.AGE || 0;
   },
 
-  // 全量年龄核查流水：每月 1 号静默执行
   async performMonthlyAgeAudit(): Promise<void> {
     if (!isElectron) return;
-    
     const today = new Date();
     const monthKey = `${today.getFullYear()}-${today.getMonth() + 1}`;
-    
     if (today.getDate() !== 1) return;
-
     const settings = await this.getSystemSettings(true);
     if (settings.LAST_AGE_AUDIT === monthKey) return; 
-
-    console.log('启动全院中心化年龄自动核查流水...');
     const patients = await this.getPatients();
-    
     for (const p of patients) {
       const newAge = this.calculateCurrentAge(p);
       if (newAge !== p.AGE) {
         await window.electronAPI.query('UPDATE SP_PERSON SET AGE = ? WHERE PERSONID = ?', [newAge, p.PERSONID]);
       }
     }
-
     await this.updateSystemSettings({ LAST_AGE_AUDIT: monthKey });
-    console.log('年度/月度年龄核查完成，数据库已物理同步。');
   },
 
   async getSystemSettings(force = false): Promise<SystemSettings> {
     if (!force && cachedSettings) return cachedSettings;
-
     if (isElectron) {
       const result = await window.electronAPI.query('SELECT * FROM SP_SETTINGS');
       if (result.success && result.data) {
@@ -120,13 +114,11 @@ export const DataService = {
     if (isElectron) {
       const settings = await this.getSystemSettings();
       if (!settings.STORAGE_PATH) throw new Error('未配置中心共享存储路径');
-      
       const res = await window.electronAPI.uploadSystemAsset({
         sourcePath,
         storagePath: settings.STORAGE_PATH,
         assetType
       });
-      
       if (res.success && res.filePath) {
         return await this.updateSystemSettings({ [assetType]: res.filePath });
       }
@@ -166,7 +158,6 @@ export const DataService = {
                    ON DUPLICATE KEY UPDATE 
                    PERSONNAME=VALUES(PERSONNAME), SEX=VALUES(SEX), AGE=VALUES(AGE), PHONE=VALUES(PHONE), 
                    UNITNAME=VALUES(UNITNAME), IDNO=VALUES(IDNO), STATUS=VALUES(STATUS), LAST_UPDATE=CURRENT_TIMESTAMP`;
-      
       const result = await window.electronAPI.query(sql, [
         person.PERSONID, person.PERSONNAME, person.SEX, this.calculateCurrentAge(person), person.PHONE || '', 
         person.UNITNAME || '', person.OCCURDATE, person.OPTNAME || '系统管理员', person.IDNO || null, person.SOURCE || 'manual', person.STATUS || 'alive'
@@ -199,6 +190,24 @@ export const DataService = {
       ]);
       if (result.success) {
         await this.addLog(res.WORKER, `登记异常结果: ${res.PERSONID} - ${res.ZYYCJGXQ.substring(0, 20)}...`, 'alert');
+      }
+      return result.success;
+    }
+    return false;
+  },
+
+  async updateAbnormalResult(res: AbnormalResult): Promise<boolean> {
+    if (isElectron) {
+      const sql = `UPDATE SP_ZYJG SET 
+                   TJBHID = ?, ZYYCJGXQ = ?, ZYYCJGFL = ?, ZYYCJGTZRQ = ?, 
+                   ZYYCJGTZSJ = ?, NEXT_DATE = ?, IS_NOTIFIED = ? 
+                   WHERE ID = ?`;
+      const result = await window.electronAPI.query(sql, [
+        res.TJBHID || '', res.ZYYCJGXQ, res.ZYYCJGFL, res.ZYYCJGTZRQ, 
+        res.ZYYCJGTZSJ, res.NEXT_DATE || null, res.IS_NOTIFIED ? 1 : 0, res.ID
+      ]);
+      if (result.success) {
+        await this.addLog(res.WORKER, `修改异常结果: ${res.PERSONID} (记录ID: ${res.ID})`, 'update');
       }
       return result.success;
     }
